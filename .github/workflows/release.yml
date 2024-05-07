@@ -18,16 +18,17 @@ jobs:
 
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 'latest'
 
       - name: Install Rustup
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+          rustup component add rust-src
 
       - name: Install Cross
         run: |
@@ -41,11 +42,11 @@ jobs:
       - name: Build binary
         run: |
           cd src-tauri
-          cross build --release --target ${{ matrix.target }}
+          CROSS_NO_WARNINGS=0 cross +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
           mv target/${{ matrix.target }}/release/tess target/${{ matrix.target }}/release/tess-${{ matrix.target }}
 
       - name: Publish binary
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
@@ -60,16 +61,17 @@ jobs:
 
     runs-on: windows-2019
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 'latest'
 
       - name: Install Rustup
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+          rustup component add rust-src
       
       - name: Build frontend
         run: |
@@ -79,11 +81,11 @@ jobs:
       - name: Build binary
         run: |
           cd src-tauri
-          cargo build --release --target ${{ matrix.target }}
+          cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
           mv target/${{ matrix.target }}/release/tess.exe target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
 
       - name: Publish binary
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
