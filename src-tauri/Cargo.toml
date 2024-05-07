@@ -1,6 +1,6 @@
 [package]
 name = "tess"
-version = "0.7.0-alpha.9"
+version = "0.7.0-alpha.10"
 description = "Fast. Lightweight. Famous. Terminal for the new era."
 authors = ["Squitch"]
 repository = "https://github.com/SquitchYT/Tess"
@@ -27,7 +27,6 @@ lazy_static = "1.4.0"
 regex-lite = "0.1.5"
 vt100 = "0.15.2"
 futures = "0.3.29"
-
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.17"

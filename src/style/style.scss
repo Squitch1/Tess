@@ -6,55 +6,55 @@
 @import "term";
 @import "tab";
 
-
 @font-face {
-    font-family: "Inter";
-    font-weight: 500;
-    src: url(../fonts/Inter-Medium.ttf);
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/Inter-Medium.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: "Inter";
-    font-weight: 600;
-    src: url(../fonts/Inter-SemiBold.ttf);
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/Inter-SemiBold.woff2") format("woff2");
 }
-
 
 body {
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    font-family: Inter;
-    letter-spacing: 0.8px;
-    word-spacing: 0.8px;
-    line-height: 16px;
-    background: var(--app-background);
-    font-weight: 500;
-    color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: Inter;
+  letter-spacing: 0.8px;
+  word-spacing: 0.8px;
+  line-height: 16px;
+  background: var(--app-background);
+  font-weight: 500;
+  color: var(--text-color);
 }
 
-
 ::-webkit-scrollbar {
-    height: 4px;
-    width: 4px;
+  height: 4px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background:rgba(212, 212, 212, 0.15);
-    border-radius: 6px;
+  background: rgba(212, 212, 212, 0.15);
+  border-radius: 6px;
 }
 
-
 .background-image {
-    height: 100%;
-    width: 100%;
-    z-index: -4;
-    object-fit: cover;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    position: absolute;
+  height: 100%;
+  width: 100%;
+  z-index: -4;
+  object-fit: cover;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  position: absolute;
 }
