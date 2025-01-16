@@ -16,8 +16,8 @@ If you do not have access to Tess yet, fill out an issue, and we'll try to provi
 
 ## Requirements
 
-* Have an OS with `x86` arch type
-* `webkit2gtk` & `gtk3` installed
+-   Have an OS with `x86` arch type
+-   `webkit2gtk` & `gtk3` installed
 
 <br>
 
@@ -30,6 +30,7 @@ We provide packages for most major distributions; simply select the one that mat
 ## Installation with PPA
 
 If you prefer using apt over downloading and installing the `deb` archive, you could set up the PPA and download Tess with these
+
 ```bash
 apt install curl apt-transport-https gnupg2
 
@@ -45,6 +46,7 @@ apt update && apt install tess
 ## Installation with AUR
 
 On Arch Linux, the recommended way to install Tess is to use an AUR package manager like [yay](https://github.com/Jguer/yay)
+
 ```sh
 yay -S tess-git
 ```
@@ -56,19 +58,20 @@ yay -S tess-git
 If you are on RHEL-derived distros, you may also want to add our RPM repository to install Tess and receive updates automatically with your package manager.
 
 ```bash
-yum install curl 
+yum install curl
 
 curl https://rpm.tessapp.dev/tess.repo > /etc/yum.repos.d/tess.repo
 
 yum check-update && yum install tess
 ```
+
 <br>
 
 # Installation | Windows
 
 ## Requirements
 
-* `Windows 10 64 bits` or superior
+-   `Windows 10 64 bits` or superior
 
 <br>
 
@@ -111,11 +114,11 @@ You can also find the package [here](https://community.chocolatey.org/packages/t
 
 If you want to contribute to Tess, find a simple task to help us with this project.
 
-* If you've found a mistake in documentation, sources, or the wiki, let us know by opening an [issue](https://github.com/SquitchYT/Tess/issues).
-* You've got an amazing feature idea; simply post your suggestion by creating an issue too.
-* You want to help us close an issue, implement a feature, or do something else related to code, follow the guide below.
+-   If you've found a mistake in documentation, sources, or the wiki, let us know by opening an [issue](https://github.com/SquitchYT/Tess/issues).
+-   You've got an amazing feature idea; simply post your suggestion by creating an issue too.
+-   You want to help us close an issue, implement a feature, or do something else related to code, follow the guide below.
 
-*Please, search for a similar issue before creating a new one.*
+_Please, search for a similar issue before creating a new one._
 
 <br>
 
@@ -123,23 +126,26 @@ If you want to contribute to Tess, find a simple task to help us with this proje
 
 First and foremost, you need to ensure that you have installed the necessary tools:
 
-* [Rust & Cargo](https://rustup.rs/)
-* [Node.js](https://nodejs.org/en)
-* Tauri CLI `cargo install tauri-cli`
+-   [Rust & Cargo](https://rustup.rs/)
+-   [Node.js](https://nodejs.org/en)
+-   Tauri CLI `cargo install tauri-cli`
 
 <br>
 
 Next, start by downloading the source code.
+
 ```sh
 git clone -b dev https://github.com/SquitchYT/Tess
 ```
 
 Next, set up the project.
+
 ```sh
 npm i
 ```
 
 To ensure that everything is set up properly, run Tess with this command; it should launch Tess.
+
 ```sh
 cargo tauri dev
 ```
@@ -150,8 +156,8 @@ You are now ready!
 
 Important notice:
 
-* As Tess is cross-platform, when you implement a new feature, try to make it available everywhere. If, despite all your efforts, you are unable to make it cross-platform, let us know the supported platforms when submitting your changes.
-* If you update the code, explain why you think this change is important and what you've done.
+-   As Tess is cross-platform, when you implement a new feature, try to make it available everywhere. If, despite all your efforts, you are unable to make it cross-platform, let us know the supported platforms when submitting your changes.
+-   If you update the code, explain why you think this change is important and what you've done.
 
 Simply open a [pull request](https://github.com/SquitchYT/Tess/pulls) to submit your changes.
 
@@ -163,30 +169,28 @@ Simply open a [pull request](https://github.com/SquitchYT/Tess/pulls) to submit 
 As long as Tess is in beta, many bugs may occur, and some of them have not yet been fixed.<br>
 Many features are not yet available; here's a quick recap of the major features that we'll integrate in Tess.
 
+| Features                  | Electron | Tauri |
+| ------------------------- | -------- | ----- |
+| Translation               | ❌       | ⌛    |
+| Tabs                      | ✔️       | ✔️    |
+| Move tabs between windows | ❌       | ⌛    |
+| Administrator tabs        | ❌       | ⌛    |
+| Tabs split                | ❌       | ✔️    |
+| Command line interface    | ✔️       | ⌛    |
+| Notifications             | ❌       | 🟠    |
+| Macros                    | ❌       | ✔️    |
+| Plugins                   | 🟠       | ⌛    |
+| Themes                    | 🟠       | 🟠    |
+| Config page               | ✔️       | ⌛    |
+| Config watching           | 🟠       | ⌛    |
+| Image display             | ❌       | ⌛    |
+| Font ligature             | 🟠       | ⌛    |
+| Animated background       | ❌       | ✔️    |
+| URI scheme API            | ❌       | ⌛    |
+| Search in a shell         | ❌       | ⌛    |
+| Marketplace               | ❌       | ⌛    |
 
-|Features                 |Electron|Tauri|
-|-------------------------|--------|-----|
-|Translation              |❌      |⌛   |
-|Tabs                     |✔️      |✔️   |
-|Move tabs between windows|❌      |⌛   |
-|Administrator tabs       |❌      |⌛   |
-|Tabs split               |❌      |⌛   |
-|Command line interface   |✔️      |⌛   |
-|Notifications            |❌      |🟠   |
-|Macros                   |❌      |⌛   |
-|Plugins                  |🟠      |⌛   |
-|Themes                   |🟠      |🟠   |
-|Config page              |✔️      |⌛   |
-|Config watching          |🟠      |⌛   |
-|Image display            |❌      |⌛   |
-|Font ligature            |🟠      |⌛   |
-|Animated background      |❌      |✔️   |
-|URI scheme API           |❌      |⌛   |
-|Search in a shell        |❌      |⌛   |
-|Marketplace              |❌      |⌛   |
-
-
-*❌ **Not available**<br>*
-*🟠 **Partially integrated**<br>*
-*⌛ **Planned / In progress**<br>*
-*✔️ **Integrated**<br>*
+_❌ **Not available**<br>_
+_🟠 **Partially integrated**<br>_
+_⌛ **Planned / In progress**<br>_
+_✔️ **Integrated**<br>_

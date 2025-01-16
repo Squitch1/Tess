@@ -1,0 +1,32 @@
+@keyframes tab-created {
+    from {
+        width: 0;
+    }
+}
+
+@keyframes tab-removed {
+    to {
+        width: 0;
+    }
+}
+
+@keyframes tab-title-progress-added {
+    to {
+        transform: translateY(-3px);
+    }
+}
+
+@keyframes tab-slide-to-center {
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes tab-progress-bar-progress-added {
+    from {
+        width: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}

@@ -1,0 +1,43 @@
+@import "pane";
+@import "view";
+
+@import "widgets/base";
+
+@counter-style base36 {
+    system: fixed;
+    symbols: "0" "1" "2" "3" "4" "5" "6" "7" "8" "9" "A" "B" "C" "D" "E" "F" "G"
+        "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y"
+        "Z";
+}
+
+.view,
+.pane {
+    &.indexed {
+        > * {
+            pointer-events: none;
+        }
+
+        > .pane {
+            &::after {
+                scale: 1;
+                counter-increment: index;
+                content: counter(index, base36);
+                opacity: 1;
+            }
+
+            &:not(.unselected) {
+                &::before {
+                    height: 100%;
+                    width: 100%;
+                    z-index: 2;
+                    content: "";
+                    position: absolute;
+                }
+
+                &::after {
+                    scale: 1.1;
+                }
+            }
+        }
+    }
+}

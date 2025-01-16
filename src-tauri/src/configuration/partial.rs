@@ -1,14 +1,14 @@
-use crate::common::consts;
 use crate::configuration::deserialized::CloseConfirmation;
-use crate::configuration::deserialized::ShortcutAction;
 use crate::configuration::deserialized::TerminalOption;
 use crate::configuration::types::CursorType;
 use crate::configuration::types::RangedInt;
 use crate::configuration::types::{BackgroundMedia, BackgroundType};
+use crate::utils::constants;
 use serde::Deserialize;
 use serde::Deserializer;
 
 use super::deserialized::DesktopIntegration;
+use super::deserialized::Shortcut;
 
 #[derive(Deserialize, Debug)]
 pub struct PartialOption {
@@ -24,7 +24,7 @@ pub struct PartialOption {
     pub background_transparency: RangedInt<0, 100, 100>,
 
     #[serde(default)]
-    pub shortcuts: std::option::Option<Vec<PartialShortcut>>,
+    pub shortcuts: std::option::Option<Vec<Shortcut>>,
     #[serde(default)]
     pub macros: std::option::Option<Vec<PartialMacro>>,
 
@@ -35,6 +35,10 @@ pub struct PartialOption {
 
     #[serde(default)]
     pub default_profile: String,
+
+    #[cfg(target_family = "unix")]
+    #[serde(default)]
+    pub webkit_compositing_mode: bool,
 
     #[serde(default = "default_title_format")]
     pub title_format: String,
@@ -54,18 +58,21 @@ impl Default for PartialOption {
             close_confirmation: CloseConfirmation::default(),
             desktop_integration: DesktopIntegration::default(),
             title_format: default_title_format(),
+
+            #[cfg(target_family = "unix")]
+            webkit_compositing_mode: false,
         }
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct PartialProfile {
     pub name: String,
-    pub uuid: std::option::Option<String>,
+    pub id: std::option::Option<String>,
     pub command: String,
     pub buffer_size: std::option::Option<RangedInt<500, 5000, 3000>>,
     pub cursor: std::option::Option<CursorType>,
-    pub font_size: std::option::Option<RangedInt<10, 30, 16>>,
+    pub font_size: std::option::Option<RangedInt<10, 30, 15>>,
     pub font_ligature: std::option::Option<bool>,
     pub show_picture: std::option::Option<bool>,
     pub bell: std::option::Option<bool>,
@@ -88,13 +95,7 @@ pub struct PartialProfile {
 #[derive(Deserialize, Debug)]
 pub struct PartialMacro {
     pub content: String,
-    pub uuid: Option<String>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct PartialShortcut {
-    pub shortcut: String,
-    pub action: ShortcutAction,
+    pub id: Option<String>,
 }
 
 fn deserialize_profile_background<'de, D>(
@@ -120,5 +121,5 @@ where
 
 #[must_use]
 pub fn default_title_format() -> String {
-    String::from(consts::DEFAULT_PROFILE_TITLE)
+    String::from(constants::DEFAULT_PROFILE_TITLE)
 }

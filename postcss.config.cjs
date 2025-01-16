@@ -1,7 +1,3 @@
-module.exports = () => {
-    return {
-      plugins: [
-        require("postcss-discard-comments"),
-      ],
-    };
-  };
+module.exports = () => ({
+    plugins: [require("postcss-discard-comments")],
+});

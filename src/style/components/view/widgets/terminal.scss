@@ -1,0 +1,14 @@
+.widget--term {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+
+    &::before {
+        position: absolute;
+        height: 100%;
+        width: 100%;
+        content: "";
+        background: var(--profile-background);
+        opacity: var(--profile-background-transparency);
+    }
+}

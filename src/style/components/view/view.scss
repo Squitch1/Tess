@@ -1,0 +1,18 @@
+.views {
+    height: 100%;
+    width: 100%;
+
+    .view {
+        height: 100%;
+        max-height: calc(100vh - 30px);
+        width: 100%;
+        position: relative;
+        display: none;
+        flex-wrap: wrap;
+        counter-reset: index;
+
+        &.visible {
+            display: flex;
+        }
+    }
+}

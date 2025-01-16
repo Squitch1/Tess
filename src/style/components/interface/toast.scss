@@ -1,0 +1,170 @@
+.toasts {
+    position: absolute;
+    bottom: 18px;
+    right: 18px;
+    z-index: 4;
+    display: flex;
+    align-items: end;
+    flex-direction: column;
+    row-gap: 12px;
+    pointer-events: none;
+
+    .toast {
+        padding-inline: 13px;
+        padding-block: 12px;
+        border-radius: 4px;
+        box-shadow: rgba(0, 0, 0, 0.28) 0px 5px 10px;
+        background: var(--toast-background);
+        animation: toast-inserted 140ms forwards;
+        pointer-events: all;
+        max-width: 294px;
+        position: relative;
+
+        .icon {
+            position: absolute;
+            left: 0;
+            fill: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-left: 13px;
+            color: var(--icon-color);
+
+            svg {
+                height: 20px;
+                width: 20px;
+            }
+        }
+
+        .content {
+            padding-left: 33px;
+            overflow: hidden;
+
+            .title {
+                font-size: 13px;
+                font-weight: 600;
+                display: flex;
+                text-wrap: nowrap;
+
+                &.clipped {
+                    mask: linear-gradient(
+                        to right,
+                        rgba(0, 0, 0, 1) 0,
+                        rgba(0, 0, 0, 1) 85%,
+                        rgba(0, 0, 0, 0.8) 90%,
+                        rgba(0, 0, 0, 0) 100%
+                    );
+                }
+            }
+
+            .message {
+                margin-top: 4px;
+                font-size: 12px;
+                display: grid;
+                grid-template-rows: 0fr;
+                transition: grid-template-rows 140ms ease-in-out;
+
+                span {
+                    min-height: 17px;
+                }
+            }
+        }
+
+        .actions {
+            right: 8px;
+            margin-top: auto;
+            margin-bottom: auto;
+            position: absolute;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            flex-direction: row-reverse;
+            gap: 5px;
+            background: var(--toast-background);
+            color: var(--icon-color);
+            top: 11px;
+
+            & > * {
+                border-radius: 3px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+
+                &:hover {
+                    background: var(
+                        --toast-button-hovered-background
+                    ) !important;
+                }
+            }
+
+            .close {
+                height: 20px;
+                width: 20px;
+                transition: background 140ms;
+
+                & > svg {
+                    height: 12px;
+                    width: 12px;
+                }
+            }
+
+            .expand {
+                height: 20px;
+                width: 20px;
+
+                & > svg {
+                    height: 15px;
+                    width: 15px;
+                }
+            }
+        }
+
+        &:hover {
+            .actions {
+                opacity: unset;
+            }
+
+            .content .title {
+                max-width: calc(100% - 15px);
+            }
+        }
+
+        &.with-text {
+            .icon {
+                top: 21px;
+            }
+
+            .actions {
+                .expand {
+                    svg {
+                        transform: rotate(-90deg);
+                        transition: transform 140ms;
+                    }
+                }
+            }
+
+            &.expandable {
+                &:hover {
+                    .content .title {
+                        max-width: calc(100% - 15px * 2 - 5px);
+                    }
+                }
+            }
+
+            &.expanded {
+                .actions .expand svg {
+                    transform: rotate(0deg);
+                }
+
+                .content {
+                    .message {
+                        grid-template-rows: 1fr;
+                    }
+                }
+            }
+        }
+    }
+}

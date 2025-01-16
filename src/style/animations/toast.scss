@@ -1,0 +1,18 @@
+@keyframes toast-inserted {
+    from {
+        transform: translateY(24px);
+        opacity: 0;
+    }
+}
+
+@keyframes toast-removed {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes toast-slide {
+    to {
+        transform: translateY(0);
+    }
+}

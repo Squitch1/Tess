@@ -1,280 +1,386 @@
-import { TabsManager } from "./manager/tabs";
-import { listen, Event } from '@tauri-apps/api/event'
-import { v4 as uuid } from 'uuid';
-import { invoke } from '@tauri-apps/api/tauri'
-
-import {terminalTitleChangedPayload } from "./schema/term";
-import { View } from "./class/views";
-import { Toaster } from "./manager/toast";
-
-import { Option, ShortcutAction } from "ts/schema/option";
-import { PopupManager } from "./manager/popup";
-import { TerminalPane } from "ts/class/panes";
-import { ShortcutsManager } from "./manager/shortcuts";
 import { clipboard } from "@tauri-apps/api";
-import { PopupBuilder, PopupButton } from "./class/popup";
+import { listen, Event } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/tauri";
 
+import { ShortcutAction } from "schemas/option";
+import Toaster from "managers/toast";
+import TabManager from "managers/tab";
+import PopupManager from "managers/popup";
+import ShortcutManager from "managers/shortcut";
+import TerminalManager from "managers/terminal";
+import View from "components/view/view";
+import { PopupBuilder, PopupButton } from "components/interface/popup";
+import {
+    PaneOutOfCapacityError,
+    SelectSpecificPathRejectionReason,
+    UnknownMacroError,
+    UnknownTerminalError,
+    UnkownSplitPathError,
+    ViewSelectSpecificPaneError,
+} from "schemas/error";
+import { showToastPayload } from "schemas/utils";
 
-export class App {
+export default class App {
     private target: Element;
 
-    private tabsManager: TabsManager;
-    private popupManager: PopupManager;
-    private shortcutsManager: ShortcutsManager
+    private tabsManager: TabManager;
 
-    option: Option;
+    private popupManager: PopupManager;
+    private shortcutsManager: ShortcutManager;
+    private terminalManager: TerminalManager;
 
     private views: View[] = [];
+    private focusedView?: View;
 
     private toaster: Toaster;
 
-    private focusedView: View | undefined;
-
-    constructor(target: Element, tabsTarget: Element, toastTarget: Element, option: Option) {
+    constructor(
+        target: Element,
+        tabsTarget: HTMLElement,
+        toastTarget: Element
+    ) {
         this.target = target;
 
-        this.tabsManager = new TabsManager(tabsTarget, (id) => { this.onTabRequestClose(id); });
-        this.tabsManager.addEventListener("tabFocused", (id) => { this.onTabFocused(id); });
-        this.tabsManager.addEventListener("titleUpdated", (id) => { this.onTabTitleUpdated(id); });
-        this.popupManager = new PopupManager();
-
-        this.shortcutsManager = new ShortcutsManager(option.shortcuts, (action) => { this.onShortcutExecuted(action) });
-
-        listen<terminalTitleChangedPayload>("js_pty_title_update", (e) => { this.onTerminalTitleUpdated(e); })
-        listen<string>("js_pty_closed", (e) => { this.onTerminalProcessExited(e); });
-
-        listen("js_window_request_closing", () => { this.closeViews(); });
-        listen<number>("js_app_request_exit", (e) => { this.closeAllWindows(e); });
-
         this.toaster = new Toaster(toastTarget);
+        this.toaster.onToastDismissed = () => this.focusedView?.focus();
+        this.popupManager = new PopupManager();
+        this.popupManager.onPopupClosed = () => {
+            this.focusedView?.focus();
+        };
 
-        this.option = option;
+        this.tabsManager = new TabManager(tabsTarget, (id) =>
+            this.onTabRequestClose(id)
+        );
+        this.tabsManager.onTabFocused = (id) => this.onTabFocused(id);
+        this.tabsManager.onFocusedTabTitleUpdated = (title) =>
+            this.onFocusedTabTitleUpdated(title);
+
+        this.shortcutsManager = new ShortcutManager(
+            config.shortcuts,
+            (action, target) => this.onShortcutExecuted(action, target)
+        );
+
+        this.terminalManager = new TerminalManager(
+            config.profiles,
+            this.toaster,
+            (e, term) => this.shortcutsManager.onKeyPress(e, term)
+        );
+
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        listen("js_window_request_closing", () => this.closeViews());
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        listen<number>("js_app_request_exit", (e) => this.closeAllWindows(e));
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        listen<showToastPayload>("js_show_toast", (e) =>
+            this.toaster.toast(
+                e.payload.title,
+                e.payload.message,
+                e.payload.type
+            )
+        );
     }
 
     private async closeAllWindows(e: Event<number>) {
-        let confirmButton = new PopupButton("confirm", "validate");
-        let cancelButton = new PopupButton("cancel", "dismiss");
+        const confirmButton = new PopupButton("confirm", "validate");
+        const cancelButton = new PopupButton("cancel", "dismiss");
 
-        let popupResult = await this.popupManager.sendPopup(new PopupBuilder(`Confirm close of ${e.payload} windows`).withMessage(`Are you sure to close the app?`).withButtons(confirmButton, cancelButton));
-        if (popupResult.action == "confirm") {
+        const popupResult = await this.popupManager.sendPopup(
+            new PopupBuilder(`Confirm close of ${e.payload} windows`)
+                .withMessage(`Are you sure to close the app?`)
+                .withButtons(confirmButton, cancelButton)
+        );
+        if (popupResult.action === "confirm") {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("utils_close_app");
         }
     }
 
     private onTabFocused(id: string) {
-        let view = this.views.find((view) => view.id! == id);
-        let tab = this.tabsManager.getTab(id);
-
-        if (view && tab) {
-            this.focusedView = view;
+        const view = this.views.find((view) => view.id! === id);
+        if (view) {
+            this.focusedView?.blur();
             view.focus();
-            invoke("window_set_title", {title: tab.title});
-
-            this.views.forEach((view) => {
-                if (view.id != id) {
-                    view.unfocus();
-                }
-            })
+            this.focusedView = view;
         }
     }
 
-
-    private onTabTitleUpdated(id: string) {
-        let tab = this.tabsManager.getTab(id);
-
-        if (this.focusedView?.id == id && this.option.desktopIntegration.dynamic_title && tab) {
-            invoke("window_set_title", {title: tab.title});
+    // eslint-disable-next-line class-methods-use-this
+    private onFocusedTabTitleUpdated(title: string) {
+        if (config.desktopIntegration.dynamic_title) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            invoke("window_set_title", { title });
         }
     }
 
     private async onTabRequestClose(id: string) {
-        let view = this.views.find((view) => view.id == id);
-        if (view) {
-            view.requestClosingAll().catch((err) => {
-                this.toaster.toast("Interaction error", err, "error");
-                throw err;
-            })
+        try {
+            const view = this.views.find((view) => view.id === id);
+            if (view) {
+                await view.requestClosing();
+            }
+        } catch (e) {
+            this.toaster.toast(e as Error);
         }
     }
 
-    private onViewsClosed(uuid: string) {
-        let view = this.views.find((view) => view.id == uuid);
+    private onViewClosed(id: string) {
+        const view = this.views.find((view) => view.id === id);
         if (view) {
             view.element!.remove();
             this.views.splice(this.views.indexOf(view), 1);
-            if (this.views.length == 0) {
+            if (this.views.length === 0) {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 invoke("window_close");
             }
         }
 
-        this.tabsManager.closeTab(uuid);
+        this.tabsManager.closeTab(id);
     }
 
-    private onTerminalTitleUpdated(e: Event<terminalTitleChangedPayload>) {
-        this.views.forEach((view) => {
-            if (view.getTerm(e.payload.id)) {
-                view.updatePaneTitle(e.payload.id, e.payload.title)
-            }
-        })
-    }
+    private async onShortcutExecuted(
+        action: ShortcutAction,
+        targetId?: string
+    ) {
+        try {
+            if (Array.isArray(action)) {
+                switch (action[0]) {
+                    case "focusTab":
+                        this.tabsManager.select(action[1]);
+                        break;
+                    case "openProfile":
+                        await this.openProfile(action[1], true);
+                        break;
+                    case "executeMacro":
+                        if (targetId) {
+                            const macro = config.macros.find(
+                                (macro) => macro.id === action[1]
+                            );
+                            if (macro) {
+                                await this.terminalManager.insertContent(
+                                    targetId,
+                                    macro.content
+                                );
+                            } else {
+                                throw new UnknownMacroError(action[1]);
+                            }
+                        } else {
+                            throw new UnknownTerminalError();
+                        }
 
-    private onTerminalPaneInput(id: string, data: string) {
-        invoke("pty_write", {content: data, id: id}).catch((err) => {
-            this.toaster.toast("Interaction error", err, "error");
-        });
-    }
-
-    private onTerminalProcessExited(e: Event<String>) {
-        this.views.forEach((view) => {
-            view.panes.forEach((pane) => {
-                if (pane.id == e.payload) {
-                    this.closeViewPane(view.id!, pane.id);
+                        break;
+                    case "splitTabAndOpenProfile":
+                        await this.focusedView?.addWidget(
+                            await this.terminalManager.openNew(action[1])
+                        );
+                        break;
+                    case "splitFocusedPaneAndOpenProfile":
+                        await this.focusedView?.splitFocusedWidget(
+                            await this.terminalManager.openNew(action[1])
+                        );
+                        break;
+                    case "splitSpecificPaneAndOpenProfile": {
+                        const path =
+                            await this.focusedView!.selectSpecificPane();
+                        await this.focusedView?.splitSpecificWidget(
+                            await this.terminalManager.openNew(action[1]),
+                            path
+                        );
+                        break;
+                    }
                 }
-            })
-        });
-    }
+            } else {
+                switch (action) {
+                    case "copy":
+                        if (targetId) {
+                            await clipboard.writeText(
+                                this.terminalManager.getSelection(targetId)
+                            );
+                        }
+                        break;
+                    case "paste":
+                        if (targetId) {
+                            const clipboardContent = await clipboard.readText();
+                            if (clipboardContent)
+                                await this.terminalManager.insertContent(
+                                    targetId,
+                                    clipboardContent
+                                );
+                        }
+                        break;
+                    case "openDefaultProfile":
+                        await this.openProfile(config.defaultProfile.id, true);
+                        break;
+                    case "splitSpecificPaneAndOpenDefaultProfile": {
+                        const path =
+                            await this.focusedView!.selectSpecificPane();
+                        await this.focusedView?.splitSpecificWidget(
+                            await this.terminalManager.openNew(
+                                config.defaultProfile.id
+                            ),
+                            path
+                        );
+                        break;
+                    }
+                    case "splitFocusedPaneAndOpenDefaultProfile":
+                        await this.focusedView?.splitFocusedWidget(
+                            await this.terminalManager.openNew(
+                                config.defaultProfile.id
+                            )
+                        );
+                        break;
+                    case "splitTabAndOpenDefaultProfile":
+                        await this.focusedView?.addWidget(
+                            await this.terminalManager.openNew(
+                                config.defaultProfile.id
+                            )
+                        );
+                        break;
+                    case "closeFocusedTab":
+                        this.tabsManager.requestTabClosing(
+                            this.tabsManager.getSelected().id
+                        );
+                        break;
+                    case "closeFocusedPane":
+                        await this.focusedView!.requestClosingFocused();
+                        break;
+                    case "closeSpecificPane": {
+                        const path =
+                            await this.focusedView!.selectSpecificPane();
+                        await this.focusedView?.requestClosingSpecific(path);
+                        break;
+                    }
+                    case "focusNextTab":
+                        this.tabsManager.selectNext();
+                        break;
+                    case "focusPrevTab":
+                        this.tabsManager.selectPrevious();
+                        break;
+                    case "focusFirstTab":
+                        this.tabsManager.selectFirst();
+                        break;
+                    case "focusLastTab":
+                        this.tabsManager.selectLast();
+                        break;
+                    case "closeWindow":
+                        await this.closeViews();
+                        break;
+                }
+            }
+        } catch (e) {
+            if (
+                e instanceof ViewSelectSpecificPaneError &&
+                e.type !== SelectSpecificPathRejectionReason.AppAborted
+            ) {
+                return;
+            }
 
-    private async onShortcutExecuted(action: ShortcutAction) {
-        if (Array.isArray(action)) {
-            switch (action[0]) {
-                case "focusTab":
-                    this.tabsManager.select(action[1]);
-                    break;
-                case "openProfile":
-                    this.openProfile(action[1], true);
-                    break;
-                case "executeMacro":
-                    let macro = this.option.macros.find(macro => macro.uuid == action[1]);
-                    if (macro) {
-                        invoke("pty_write", {content: macro.content, id: this.focusedView!.focusedPane!.id}).catch((err) => {
-                            this.toaster.toast("Macro error", err, "error");
-                        });
-                    }
-                    break;
-                default:
-                    this.toaster.toast("Unknown shortcut", action[0] + " is not yet implemented");
+            if (
+                e instanceof PaneOutOfCapacityError ||
+                e instanceof UnkownSplitPathError
+            ) {
+                await e.target.close();
             }
-        } else {
-            switch (action) {
-                case "copy":
-                    clipboard.writeText((this.focusedView!.focusedPane! as TerminalPane).term!.term.getSelection());
-                    break;
-                case "paste":
-                    let clipboardContent = await clipboard.readText();
-                    if (clipboardContent) {
-                        invoke("pty_write", {content: clipboardContent, id: this.focusedView!.focusedPane!.id}).catch((err) => {
-                            this.toaster.toast("Interaction error", err, "error");
-                        });
-                    }
-                    break;
-                case "openDefaultProfile":
-                    this.openProfile(this.option.defaultProfile.uuid, true);
-                    break;
-                case "closeFocusedTab":
-                    this.tabsManager.requestTabClosing(this.tabsManager.getSelected().id);
-                    break;
-                case "focusNextTab":
-                    this.tabsManager.selectNext();
-                    break;
-                case "focusPrevTab":
-                    this.tabsManager.selectPrevious();
-                    break;
-                case "focusFirstTab":
-                    this.tabsManager.selectFirst();
-                    break;
-                case "focusLastTab":
-                    this.tabsManager.selectLast();
-                    break;
-                case 'closeAllTabs':
-                    this.closeViews()
-                    break;
-                default:
-                    this.toaster.toast("Unknown shortcut", action + " is not yet implemented");
-            }
+
+            this.toaster.toast(e as Error);
         }
     }
 
     private async closeViews() {
-        if (this.views.length == 1) {
-            this.tabsManager.requestTabClosing(this.views[0].id!)
-        } else {
-            let confirmButton = new PopupButton("confirm", "validate");
-            let cancelButton = new PopupButton("cancel", "dismiss");
+        try {
+            if (this.views.length === 1) {
+                this.tabsManager.requestTabClosing(this.views[0].id!);
+            } else {
+                const confirmButton = new PopupButton("confirm", "validate");
+                const cancelButton = new PopupButton("cancel", "dismiss");
 
-            let popupResult = await this.popupManager.sendPopup(new PopupBuilder(`Confirm close of ${this.views.length} tabs`).withMessage(`Are you sure to close this window?`).withButtons(confirmButton, cancelButton));
-            if (popupResult.action == "confirm") {
-                for await (let view of this.views) {
-                    await view.closeAll()
+                const popupResult = await this.popupManager.sendPopup(
+                    new PopupBuilder(
+                        `Confirm close of ${this.views.length} tabs`
+                    )
+                        .withMessage(`Are you sure to close this window?`)
+                        .withButtons(confirmButton, cancelButton)
+                );
+                if (popupResult.action === "confirm") {
+                    for await (const view of this.views) {
+                        await view.close();
+                    }
+
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                    invoke("window_close");
                 }
-
-                invoke("window_close");
             }
+        } catch (e) {
+            this.toaster.toast(e as Error);
         }
     }
 
-    openProfile(profileId: string, focus: boolean) {
-        let viewId = uuid();
-        let paneId = uuid();
+    private generateView(): View {
+        const viewId = crypto.randomUUID();
+        const view = new View(viewId, this.popupManager, this.toaster);
 
-        let profile = this.option.profiles.find(profile => profile.uuid == profileId);
-        if (profile) {
-            let view = new View(viewId, this.popupManager, this.toaster, (id) => { this.onViewsClosed(id); }, (title) => { this.tabsManager.setTitle(viewId, title); }, (viewId) => { this.onViewGotUnreadData(viewId) }, (viewId, progress) => { this.onViewGotProgressUpdate(viewId, progress) })
-            
-            view.openPane(paneId, profile, (e, term) => { return this.shortcutsManager.onKeyPress(e, term); }).then(() => {
-                this.views.push(view);
-                this.target.appendChild(view.element!);
-    
-                view.getTerm(paneId)!.term.onData((content, _) => {
-                    this.onTerminalPaneInput(paneId, content);
-                });
-    
-                this.tabsManager.openNewTab(viewId);
-    
-                if (focus) { this.tabsManager.select(viewId); }
-            }).catch((err) => {
-                this.toaster.toast("Unable to create a view",  err, "error");
-            })
-        } else {
-            this.toaster.toast("Unable to create a view", `There is no profile corresponding to ID: '${profileId}'`, "error");
+        view.onceClosed = () => this.onViewClosed(viewId);
+
+        view.onWidgetAdded = (id) => this.onWidgetAdded(viewId, id);
+        view.onWidgetFocused = (id) => this.onWidgetFocused(viewId, id);
+        view.onWidgetTitleUpdated = (id, title) =>
+            this.onWidgetTitleUpdated(viewId, id, title);
+        view.onWidgetRequestHighlight = () =>
+            this.onWidgetRequestHighlight(viewId);
+        view.onWidgetProgressUpdated = (id, progress) =>
+            this.onWidgetProgressUpdated(viewId, id, progress);
+        view.onWidgetClosed = (id) => this.onWidgetClosed(viewId, id);
+
+        return view;
+    }
+
+    async openProfile(profileId: string, focus: boolean) {
+        try {
+            const terminalWidget =
+                await this.terminalManager.openNew(profileId);
+
+            const view = this.generateView();
+            this.tabsManager.openNewTab(view.id);
+            this.target.appendChild(view.element);
+            this.views.push(view);
+            await view.addWidget(terminalWidget);
+
+            if (focus) {
+                this.tabsManager.select(view.id);
+            }
+        } catch (e) {
+            this.toaster.toast(e as Error);
         }
     }
 
-    closeViewPane(viewId: string, paneId: string) {
-        let view = this.views.find((view) => view.id == viewId);
-
-        if (view) {
-            view.requestClosingOne(paneId).catch((err) => {
-                this.toaster.toast("Unable to close a view's pane",  err, "error");
-            })
-        }
-    }
-
-    private onViewGotUnreadData(viewId: string) {
+    private onWidgetRequestHighlight(viewId: string) {
         this.tabsManager.setHightlight(viewId, true);
     }
 
-    private onViewGotProgressUpdate(viewId: string, progress: number) {
-       this.tabsManager.setprogress(viewId, progress);
+    private onWidgetTitleUpdated(
+        viewId: string,
+        paneId: string,
+        title: string
+    ) {
+        this.tabsManager.setPaneTitle(viewId, paneId, title);
     }
 
-
-    /*openInternalPage(pageName: string) {
-        // TODO: Implement
+    private onWidgetProgressUpdated(
+        viewId: string,
+        paneId: string,
+        progress: number
+    ) {
+        this.tabsManager.setPaneProgress(viewId, paneId, progress);
     }
 
-    openPluginPage(pageName: string) {
-        // TODO: Implement
+    private onWidgetFocused(viewId: string, paneId: string) {
+        this.tabsManager.setPaneGroupLeader(viewId, paneId);
     }
 
-    openProfileInView(profileId: string, viewId: string, split: "horizontaly" | "verticaly") {
-        // TODO: Implement
+    private onWidgetClosed(viewId: string, paneId: string) {
+        this.tabsManager.removePane(viewId, paneId);
     }
 
-    openInternalPageInView(pageName: string, viewId: string, split: "horizontaly" | "verticaly") {
-        // TODO: Implement
+    private onWidgetAdded(viewId: string, paneId: string) {
+        this.tabsManager.addPane(viewId, paneId);
     }
-
-    openPluginPageInView(pageName: string, viewId: string, split: "horizontaly" | "verticaly") {
-        // TODO: Implement
-    }*/
 }

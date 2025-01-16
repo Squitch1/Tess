@@ -1,12 +1,12 @@
-use crate::common::title_formatter::Formatter;
 use crate::configuration::partial::PartialOption;
 use crate::configuration::types::CursorType;
 use crate::configuration::types::RangedInt;
 use crate::configuration::types::{BackgroundMedia, BackgroundType};
+use crate::utils::formatter::Formatter;
 use serde::Deserialize;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 
-use crate::common::utils::parse_theme;
+use crate::utils::theme::parse_theme;
 
 use super::partial::default_title_format;
 
@@ -25,27 +25,44 @@ pub struct Option {
     pub close_confirmation: CloseConfirmation,
     pub desktop_integration: DesktopIntegration,
 
+    #[cfg(target_family = "unix")]
+    pub webkit_compositing_mode: bool,
+
     #[serde(skip_serializing)]
     theme: String,
 }
 
 impl Default for Option {
     fn default() -> Self {
-        let uuid = uuid::Uuid::new_v4().to_string();
+        let id = uuid::Uuid::new_v4().to_string();
 
         Self {
             app_theme: String::default(),
             terminal_theme: TerminalTheme::default(),
             background: BackgroundType::default(),
-            profiles: vec![default_profile(uuid.clone(), &default_title_format())],
+            profiles: vec![default_profile(
+                id.clone(),
+                &default_title_format(),
+                RangedInt::default(),
+                TerminalOption::default(),
+                TerminalTheme::default(),
+            )],
             terminal: TerminalOption::default(),
             background_transparency: RangedInt::default(),
             shortcuts: default_shortcuts(),
             macros: Vec::default(),
-            default_profile: default_profile(uuid, &default_title_format()),
-
+            default_profile: default_profile(
+                id,
+                &default_title_format(),
+                RangedInt::default(),
+                TerminalOption::default(),
+                TerminalTheme::default(),
+            ),
             close_confirmation: CloseConfirmation::default(),
             desktop_integration: DesktopIntegration::default(),
+
+            #[cfg(target_family = "unix")]
+            webkit_compositing_mode: false,
 
             theme: String::default(),
         }
@@ -70,6 +87,9 @@ impl<'de> serde::Deserialize<'de> for Option {
             profiles.push(default_profile(
                 uuid::Uuid::new_v4().to_string(),
                 &partial_option.title_format,
+                partial_option.background_transparency,
+                partial_option.terminal.clone(),
+                terminal_theme.clone(),
             ));
         } else {
             for partial_profile in partial_option.profiles {
@@ -138,7 +158,7 @@ impl<'de> serde::Deserialize<'de> for Option {
                     background_transparency: partial_profile
                         .background_transparency
                         .unwrap_or(partial_option.background_transparency),
-                    uuid: uuid::Uuid::parse_str(&partial_profile.uuid.unwrap_or_default())
+                    id: uuid::Uuid::parse_str(&partial_profile.id.unwrap_or_default())
                         .unwrap_or_else(|_| uuid::Uuid::new_v4())
                         .to_string(),
                     command: partial_profile.command,
@@ -147,59 +167,40 @@ impl<'de> serde::Deserialize<'de> for Option {
             }
         }
 
-        let mut macros = vec![];
-
+        let mut macros = Vec::new();
         if let Some(partial_macros) = partial_option.macros {
+            macros.reserve(partial_macros.len());
             for macro_command in partial_macros {
                 macros.push(Macro {
                     content: macro_command.content,
-                    uuid: macro_command
-                        .uuid
+                    id: macro_command
+                        .id
                         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
                 });
             }
         }
 
-        let shortcuts =
-            partial_option
-                .shortcuts
-                .map_or_else(default_shortcuts, |partial_option_shortcuts| {
-                    let mut shortcuts = vec![];
-
-                    for partial_shortcut in partial_option_shortcuts {
-                        match partial_shortcut.action {
-                            ShortcutAction::OpenProfile(profile_id) => {
-                                if let Some(profile) =
-                                    profiles.iter().find(|profile| profile.uuid == profile_id)
-                                {
-                                    shortcuts.push(Shortcut {
-                                        shortcut: partial_shortcut.shortcut,
-                                        action: ShortcutAction::OpenProfile(profile.uuid.clone()),
-                                    });
-                                }
-                            }
-                            ShortcutAction::ExecuteMacro(macro_id) => {
-                                if let Some(macro_command) = macros
-                                    .iter()
-                                    .find(|macro_command| macro_command.uuid == macro_id)
-                                {
-                                    shortcuts.push(Shortcut {
-                                        shortcut: partial_shortcut.shortcut,
-                                        action: ShortcutAction::ExecuteMacro(
-                                            macro_command.uuid.clone(),
-                                        ),
-                                    });
-                                }
-                            }
-                            _ => shortcuts.push(Shortcut {
-                                shortcut: partial_shortcut.shortcut,
-                                action: partial_shortcut.action,
-                            }),
-                        };
-                    }
-
-                    shortcuts
-                });
+        let shortcuts = partial_option
+            .shortcuts
+            .map(|shortcuts| {
+                shortcuts
+                    .iter()
+                    .filter(|shortcut| match shortcut.action {
+                        ShortcutAction::OpenProfile(ref profile_id)
+                        | ShortcutAction::SplitSpecificPaneAndOpenProfile(ref profile_id)
+                        | ShortcutAction::SplitFocusedPaneAndOpenProfile(ref profile_id)
+                        | ShortcutAction::SplitTabAndOpenProfile(ref profile_id) => {
+                            profiles.iter().any(|profile| &profile.id == profile_id)
+                        }
+                        ShortcutAction::ExecuteMacro(ref macro_id) => macros
+                            .iter()
+                            .any(|macro_command| &macro_command.id == macro_id),
+                        _ => true,
+                    })
+                    .cloned()
+                    .collect::<Vec<Shortcut>>()
+            })
+            .unwrap_or_else(default_shortcuts);
 
         Ok(Self {
             theme: partial_option.theme,
@@ -214,11 +215,14 @@ impl<'de> serde::Deserialize<'de> for Option {
             macros,
             default_profile: profiles
                 .iter()
-                .find(|&profile| profile.uuid == partial_option.default_profile)
+                .find(|&profile| profile.id == partial_option.default_profile)
                 .unwrap_or(&profiles[0])
                 .clone(),
             close_confirmation: partial_option.close_confirmation,
             desktop_integration: partial_option.desktop_integration,
+
+            #[cfg(target_family = "unix")]
+            webkit_compositing_mode: partial_option.webkit_compositing_mode,
         })
     }
 }
@@ -231,7 +235,7 @@ pub struct TerminalOption {
     #[serde(default)]
     cursor: CursorType,
     #[serde(default)]
-    font_size: RangedInt<10, 30, 16>,
+    font_size: RangedInt<10, 30, 15>,
     #[serde(default)]
     font_ligature: bool,
     #[serde(default)]
@@ -280,10 +284,10 @@ impl Default for TerminalOption {
 #[derive(Debug, Serialize, Clone)]
 pub struct Macro {
     pub content: String,
-    pub uuid: String,
+    pub id: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct Shortcut {
     pub shortcut: String,
     pub action: ShortcutAction,
@@ -293,8 +297,13 @@ pub struct Shortcut {
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum ShortcutAction {
     CloseFocusedTab,
-    CloseAllTabs,
+    CloseWindow,
+    CloseFocusedPane,
+    CloseSpecificPane,
     OpenDefaultProfile,
+    SplitTabAndOpenDefaultProfile,
+    SplitFocusedPaneAndOpenDefaultProfile,
+    SplitSpecificPaneAndOpenDefaultProfile,
     Copy,
     Paste,
     FocusFirstTab,
@@ -302,8 +311,11 @@ pub enum ShortcutAction {
     FocusNextTab,
     FocusPrevTab,
     FocusTab(usize),
-    OpenProfile(String),
     ExecuteMacro(String),
+    OpenProfile(String),
+    SplitTabAndOpenProfile(String),
+    SplitFocusedPaneAndOpenProfile(String),
+    SplitSpecificPaneAndOpenProfile(String),
 }
 
 impl Serialize for ShortcutAction {
@@ -313,31 +325,60 @@ impl Serialize for ShortcutAction {
     {
         match self {
             Self::CloseFocusedTab => serializer.serialize_str("closeFocusedTab"),
-            Self::CloseAllTabs => serializer.serialize_str("closeAllTabs"),
+            Self::CloseWindow => serializer.serialize_str("closeWindow"),
+            Self::CloseFocusedPane => serializer.serialize_str("closeFocusedPane"),
+            Self::CloseSpecificPane => serializer.serialize_str("closeSpecificPane"),
             Self::OpenDefaultProfile => serializer.serialize_str("openDefaultProfile"),
+            Self::SplitTabAndOpenDefaultProfile => {
+                serializer.serialize_str("splitTabAndOpenDefaultProfile")
+            }
+            Self::SplitFocusedPaneAndOpenDefaultProfile => {
+                serializer.serialize_str("splitFocusedPaneAndOpenDefaultProfile")
+            }
+            Self::SplitSpecificPaneAndOpenDefaultProfile => {
+                serializer.serialize_str("splitSpecificPaneAndOpenDefaultProfile")
+            }
             Self::Copy => serializer.serialize_str("copy"),
             Self::Paste => serializer.serialize_str("paste"),
             Self::FocusFirstTab => serializer.serialize_str("focusFirstTab"),
             Self::FocusLastTab => serializer.serialize_str("focusLastTab"),
             Self::FocusNextTab => serializer.serialize_str("focusNextTab"),
             Self::FocusPrevTab => serializer.serialize_str("focusPrevTab"),
-            Self::OpenProfile(value) => {
-                let mut a = serializer.serialize_seq(Some(2))?;
-                a.serialize_element("openProfile")?;
-                a.serialize_element(value)?;
-                a.end()
+            Self::FocusTab(value) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("focusTab")?;
+                seq.serialize_element(value)?;
+                seq.end()
             }
             Self::ExecuteMacro(value) => {
-                let mut a = serializer.serialize_seq(Some(2))?;
-                a.serialize_element("executeMacro")?;
-                a.serialize_element(value)?;
-                a.end()
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("executeMacro")?;
+                seq.serialize_element(value)?;
+                seq.end()
             }
-            Self::FocusTab(value) => {
-                let mut a = serializer.serialize_seq(Some(2))?;
-                a.serialize_element("focusTab")?;
-                a.serialize_element(value)?;
-                a.end()
+            Self::OpenProfile(value) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("openProfile")?;
+                seq.serialize_element(value)?;
+                seq.end()
+            }
+            Self::SplitTabAndOpenProfile(value) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("splitTabAndOpenProfile")?;
+                seq.serialize_element(value)?;
+                seq.end()
+            }
+            Self::SplitFocusedPaneAndOpenProfile(value) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("splitFocusedPaneAndOpenProfile")?;
+                seq.serialize_element(value)?;
+                seq.end()
+            }
+            Self::SplitSpecificPaneAndOpenProfile(value) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element("splitSpecificPaneAndOpenProfile")?;
+                seq.serialize_element(value)?;
+                seq.end()
             }
         }
     }
@@ -346,13 +387,12 @@ impl Serialize for ShortcutAction {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct Profile {
-    // TODO: Add Icon
     pub name: String,
     pub terminal_options: TerminalOption,
     theme: TerminalTheme,
     background_transparency: RangedInt<0, 100, 100>,
     background: std::option::Option<BackgroundMedia>,
-    pub uuid: String,
+    pub id: String,
     pub command: String,
     #[serde(skip_serializing)]
     pub title_format: Formatter,
@@ -527,6 +567,7 @@ impl<'de> Deserialize<'de> for TerminalTheme {
 #[derive(Debug, Clone, Serialize)]
 pub struct CloseConfirmation {
     pub tab: bool,
+    pub group: bool,
     pub window: bool,
     pub app: bool,
     pub excluded_process: Vec<String>,
@@ -537,6 +578,7 @@ impl<'de> Deserialize<'de> for CloseConfirmation {
         #[derive(Deserialize)]
         struct PartialCloseConfirmation {
             tab: std::option::Option<bool>,
+            group: std::option::Option<bool>,
             window: std::option::Option<bool>,
             app: std::option::Option<bool>,
             excluded_process: std::option::Option<Vec<String>>,
@@ -552,6 +594,7 @@ impl<'de> Deserialize<'de> for CloseConfirmation {
         match Representation::deserialize(deserializer)? {
             Representation::Simple(enable) => Ok(Self {
                 tab: enable,
+                group: enable,
                 window: enable,
                 app: enable,
                 #[cfg(target_family = "unix")]
@@ -570,6 +613,7 @@ impl<'de> Deserialize<'de> for CloseConfirmation {
             }),
             Representation::Complex(partial_close_confirmation) => Ok(Self {
                 tab: partial_close_confirmation.tab.unwrap_or(true),
+                group: partial_close_confirmation.group.unwrap_or(true),
                 window: partial_close_confirmation.window.unwrap_or(true),
                 app: partial_close_confirmation.app.unwrap_or(true),
                 #[cfg(target_family = "unix")]
@@ -602,6 +646,7 @@ impl Default for CloseConfirmation {
     fn default() -> Self {
         Self {
             tab: true,
+            group: true,
             window: true,
             app: true,
             #[cfg(target_family = "unix")]
@@ -679,13 +724,19 @@ const fn default_to_true() -> bool {
     true
 }
 
-fn default_profile(uuid: String, title_format: &str) -> Profile {
+fn default_profile(
+    id: String,
+    title_format: &str,
+    background_transparency: RangedInt<0, 100, 100>,
+    terminal_options: TerminalOption,
+    theme: TerminalTheme,
+) -> Profile {
     Profile {
         name: String::from("Default profile"),
-        terminal_options: TerminalOption::default(),
-        theme: TerminalTheme::default(),
-        background_transparency: RangedInt::default(),
-        uuid,
+        terminal_options,
+        theme,
+        background_transparency,
+        id,
         #[cfg(target_family = "unix")]
         command: String::from("sh -c $SHELL"),
         #[cfg(target_os = "windows")]
@@ -710,12 +761,16 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::OpenDefaultProfile,
         },
         Shortcut {
+            shortcut: String::from("CTRL+MAJ+T"),
+            action: ShortcutAction::SplitTabAndOpenDefaultProfile,
+        },
+        Shortcut {
             shortcut: String::from("CTRL+W"),
             action: ShortcutAction::CloseFocusedTab,
         },
         Shortcut {
             shortcut: String::from("CTRL+MAJ+W"),
-            action: ShortcutAction::CloseAllTabs,
+            action: ShortcutAction::CloseWindow,
         },
         Shortcut {
             shortcut: String::from("CTRL+TAB"),

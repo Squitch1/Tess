@@ -1,0 +1,13 @@
+@keyframes popup-added {
+    from {
+        opacity: 0;
+        transform: scale(0.86);
+    }
+}
+
+@keyframes popup-added-background-fade {
+    from {
+        -webkit-backdrop-filter: blur(0);
+        background: transparent;
+    }
+}
