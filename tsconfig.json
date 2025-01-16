@@ -1,21 +1,28 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
-    "moduleResolution": "Node",
-    "strict": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "noEmit": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "skipLibCheck": true,
-    "baseUrl": "./src",
-    "types": ["vite/client"]
-  },
-  "include": ["src", "types.d.ts"]
+    "compilerOptions": {
+        "target": "ESNext",
+        "useDefineForClassFields": true,
+        "module": "ESNext",
+        "lib": ["ESNext", "DOM"],
+        "moduleResolution": "node",
+        "strict": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "noEmit": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "skipLibCheck": true,
+        "baseUrl": ".",
+        "types": ["vite/client"],
+        "paths": {
+            "managers/*": ["./src/ts/managers/*"],
+            "components/*": ["./src/ts/components/*"],
+            "schemas/*": ["src/ts/schemas/*"],
+            "utils/*": ["./src/ts/utils/*"],
+            "icons/*": ["./src/assets/icons/*"]
+        }
+    },
+    "include": ["src"]
 }

@@ -1,7 +1,3 @@
-.views .view .pane .internal-term canvas {
-    will-change: transform;
-}
-
-.background-image {
-    will-change: transform; // Require to force GPU acceleration to improve blur performance.
+#popup .button:focus {
+    outline: 5px auto;
 }

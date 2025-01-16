@@ -1,4 +1,5 @@
-pub mod common;
+pub mod commands;
 pub mod configuration;
-pub mod logger;
 pub mod pty;
+pub mod schemas;
+pub mod utils;

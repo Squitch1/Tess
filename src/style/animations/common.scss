@@ -1,0 +1,13 @@
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent);
+    }
+
+    14% {
+        box-shadow: 0 0 0 4px transparent;
+    }
+
+    25% {
+        box-shadow: 0 0 0 0 transparent;
+    }
+}

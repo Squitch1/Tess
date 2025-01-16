@@ -11,15 +11,13 @@ use tokio::sync::Mutex;
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
-use crate::common::error::PtyError;
+use crate::utils::errors::PtyError;
+use crate::utils::formatter::{Formatter, FormatterParams};
 
 use futures::future::join_all;
 
 use regex_lite::Regex;
 
-use crate::common::title_formatter::{Formatter, FormatterParams};
-#[cfg(target_os = "windows")]
-use crate::pty::utils;
 #[cfg(target_os = "windows")]
 use regex_lite::Captures;
 
@@ -42,6 +40,7 @@ impl Pty {
         command: &str,
         title_formatter: Formatter,
         progress_report: bool,
+        displayed_content_update_report: bool,
         on_read: impl Fn(&str) + std::marker::Send + 'static,
         on_tab_title_update: impl Fn(&str) + std::marker::Send + 'static,
         on_action_progress: impl Fn(u8) + Send + 'static,
@@ -125,7 +124,7 @@ impl Pty {
         let current_progress = Arc::new(AtomicU8::new(0));
 
         let shell_title = Arc::new(std::sync::Mutex::from(None));
-        let pre_parser = Arc::new(std::sync::Mutex::from(vt100::Parser::new(7, 144, 0)));
+        let pre_parser = Arc::new(std::sync::Mutex::from(vt100::Parser::new(6, 144, 0)));
 
         {
             let shell_title = shell_title.clone();
@@ -134,7 +133,7 @@ impl Pty {
             let paused = paused.clone();
 
             std::thread::spawn(move || {
-                let mut buf = [0; 4096];
+                let mut buf = [0; 16384];
                 let mut remaining = 0;
 
                 lazy_static::lazy_static! {
@@ -168,13 +167,15 @@ impl Pty {
                                             - utf8.valid_up_to()
                                             - utf8
                                                 .error_len()
-                                                .unwrap_or(buf.len() - utf8.valid_up_to()));
+                                                .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
                                     buf.rotate_left(utf8.valid_up_to());
                                 }
                             }
 
                             if pre_parser.screen().contents() != previous_cached_content {
-                                on_displayed_content_updated();
+                                if displayed_content_update_report {
+                                    on_displayed_content_updated();
+                                }
 
                                 if progress_tracking && !pre_parser.screen().alternate_screen() {
                                     let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
@@ -183,14 +184,11 @@ impl Pty {
                                             m.as_str()
                                                 .split_once('%')
                                                 .and_then(|(number, _)| number.parse::<f64>().ok())
-                                                .map(|progress| {
-                                                    (progress.ceil() as u64 % 100)
-                                                        .try_into()
-                                                        .unwrap_or_default()
-                                                })
+                                                .map(|progress| (progress.ceil() as u64))
                                                 .unwrap_or_default()
                                         })
                                         .filter(|progress| *progress > 0)
+                                        .filter(|progress| *progress < 100)
                                         .last()
                                         .map_or_else(
                                             || {
@@ -201,22 +199,16 @@ impl Pty {
                                                             .as_str()
                                                             .split_once('/')
                                                             .unwrap_or_default();
-
                                                         let numerator =
                                                             parts.0.parse::<u64>().unwrap_or(0);
                                                         let denominator =
                                                             parts.1.parse::<u64>().unwrap_or(1);
-
                                                         if numerator == 0
                                                             || numerator >= denominator
                                                         {
                                                             0
                                                         } else {
-                                                            u8::try_from(
-                                                                numerator * 100 / denominator,
-                                                            )
-                                                            .unwrap_or_default()
-                                                            .max(1)
+                                                            (numerator * 100 / denominator).max(1)
                                                         }
                                                     })
                                                     .filter(|progress| *progress > 0)
@@ -224,6 +216,8 @@ impl Pty {
                                             },
                                             Some,
                                         )
+                                        .filter(|progress| *progress <= 100)
+                                        .map(|progress| (progress % 100) as u8)
                                         .unwrap_or_default();
 
                                     if fetched_progress != current_progress.load(Ordering::Relaxed)
@@ -289,7 +283,7 @@ impl Pty {
                     #[cfg(target_family = "unix")]
                     let process_leader_pid = master.lock().await.process_group_leader();
                     #[cfg(target_os = "windows")]
-                    let process_leader_pid = Some(utils::get_leader_pid(shell_pid));
+                    let process_leader_pid = Some(crate::utils::pty::get_leader_pid(shell_pid));
 
                     if let Some(fetched_leader_pid) = process_leader_pid {
                         let mut fetched_leader_process = None;
@@ -311,22 +305,24 @@ impl Pty {
                         };
 
                         let mut fetchers: Vec<Pin<Box<dyn futures::Future<Output = ()> + Send>>> =
-                            vec![Box::pin(super::utils::get_process_title(
+                            vec![Box::pin(crate::utils::pty::get_process_title(
                                 fetched_leader_pid,
                                 &mut fetched_leader_process,
                             ))];
 
                         if title_formatter.options.pwd {
-                            fetchers.push(Box::pin(super::utils::get_process_working_dir(
+                            fetchers.push(Box::pin(crate::utils::pty::get_process_working_dir(
                                 fetched_leader_pid,
                                 &mut fetched_pwd,
                             )));
                         }
                         if title_formatter.options.short_pwd {
-                            fetchers.push(Box::pin(super::utils::get_process_short_working_dir(
-                                fetched_leader_pid,
-                                &mut fetched_short_pwd,
-                            )));
+                            fetchers.push(Box::pin(
+                                crate::utils::pty::get_process_short_working_dir(
+                                    fetched_leader_pid,
+                                    &mut fetched_short_pwd,
+                                ),
+                            ));
                         }
 
                         let fetched_data_count = fetchers.len();
@@ -392,7 +388,7 @@ impl Pty {
 
     pub async fn resize(&self, cols: u16, rows: u16) -> Result<(), PtyError> {
         let pre_parser = self.pre_parser.clone();
-        tokio::task::spawn_blocking(move || pre_parser.lock().unwrap().set_size(8, cols))
+        tokio::task::spawn_blocking(move || pre_parser.lock().unwrap().set_size(6, cols.max(144)))
             .await
             .ok();
 
