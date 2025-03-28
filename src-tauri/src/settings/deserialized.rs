@@ -1,24 +1,21 @@
-use crate::configuration::partial::PartialOption;
-use crate::configuration::types::CursorType;
-use crate::configuration::types::RangedInt;
-use crate::configuration::types::{BackgroundMedia, BackgroundType};
-use crate::utils::formatter::Formatter;
-use serde::Deserialize;
-use serde::{ser::SerializeSeq, Serialize, Serializer};
+use super::partial::{default_title_format, PartialSettings};
+use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedInt};
 
-use crate::utils::theme::parse_theme;
+use crate::pty::title_formatter::TitleFormatter;
+use crate::utils::theme;
 
-use super::partial::default_title_format;
+use serde::{ser::SerializeSeq, Deserialize, Serialize, Serializer};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
-pub struct Option {
+pub struct Settings {
     pub app_theme: String,
     pub terminal_theme: TerminalTheme,
     pub background: BackgroundType,
     pub background_transparency: RangedInt<0, 100, 100>,
     pub profiles: Vec<Profile>,
-    pub terminal: TerminalOption,
+    pub terminal: TerminalSettings,
     pub shortcuts: Vec<Shortcut>,
     pub macros: Vec<Macro>,
     pub default_profile: Profile,
@@ -32,30 +29,30 @@ pub struct Option {
     theme: String,
 }
 
-impl Default for Option {
+impl Default for Settings {
     fn default() -> Self {
-        let id = uuid::Uuid::new_v4().to_string();
+        let uuid = uuid::Uuid::new_v4();
 
         Self {
             app_theme: String::default(),
             terminal_theme: TerminalTheme::default(),
             background: BackgroundType::default(),
             profiles: vec![default_profile(
-                id.clone(),
+                uuid,
                 &default_title_format(),
                 RangedInt::default(),
-                TerminalOption::default(),
+                TerminalSettings::default(),
                 TerminalTheme::default(),
             )],
-            terminal: TerminalOption::default(),
+            terminal: TerminalSettings::default(),
             background_transparency: RangedInt::default(),
             shortcuts: default_shortcuts(),
             macros: Vec::default(),
             default_profile: default_profile(
-                id,
+                uuid,
                 &default_title_format(),
                 RangedInt::default(),
-                TerminalOption::default(),
+                TerminalSettings::default(),
                 TerminalTheme::default(),
             ),
             close_confirmation: CloseConfirmation::default(),
@@ -69,167 +66,164 @@ impl Default for Option {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Option {
+impl<'de> serde::Deserialize<'de> for Settings {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let mut partial_option = PartialOption::deserialize(deserializer)?;
+        let partial_settings = PartialSettings::deserialize(deserializer)?;
 
-        if matches!(partial_option.background, BackgroundType::Opaque) {
-            partial_option.background_transparency = RangedInt(100);
-        }
-
-        let (app_theme, terminal_theme) = parse_theme(&partial_option.theme);
+        let (app_theme, terminal_theme) = theme::parse(&partial_settings.theme);
         let app_theme = app_theme.unwrap_or_default();
         let terminal_theme = terminal_theme.unwrap_or_default();
 
-        let mut profiles = vec![];
-
-        if partial_option.profiles.is_empty() {
-            profiles.push(default_profile(
-                uuid::Uuid::new_v4().to_string(),
-                &partial_option.title_format,
-                partial_option.background_transparency,
-                partial_option.terminal.clone(),
+        let profiles = if partial_settings.profiles.is_empty() {
+            vec![default_profile(
+                uuid::Uuid::new_v4(),
+                &partial_settings.title_format,
+                partial_settings.background_transparency,
+                partial_settings.terminal.clone(),
                 terminal_theme.clone(),
-            ));
+            )]
         } else {
-            for partial_profile in partial_option.profiles {
-                let profile_option = TerminalOption {
+            let mut profiles = Vec::with_capacity(partial_settings.profiles.capacity());
+
+            for partial_profile in partial_settings.profiles {
+                let profile_settings = TerminalSettings {
                     buffer_size: partial_profile
                         .buffer_size
-                        .unwrap_or(partial_option.terminal.buffer_size),
+                        .unwrap_or(partial_settings.terminal.buffer_size),
                     cursor: partial_profile
                         .cursor
-                        .unwrap_or(partial_option.terminal.cursor),
+                        .unwrap_or(partial_settings.terminal.cursor),
                     font_size: partial_profile
                         .font_size
-                        .unwrap_or(partial_option.terminal.font_size),
-                    bell: partial_profile.bell.unwrap_or(partial_option.terminal.bell),
+                        .unwrap_or(partial_settings.terminal.font_size),
+                    bell: partial_profile
+                        .bell
+                        .unwrap_or(partial_settings.terminal.bell),
                     font_ligature: partial_profile
                         .font_ligature
-                        .unwrap_or(partial_option.terminal.font_ligature),
+                        .unwrap_or(partial_settings.terminal.font_ligature),
                     show_picture: partial_profile
                         .show_picture
-                        .unwrap_or(partial_option.terminal.show_picture),
+                        .unwrap_or(partial_settings.terminal.show_picture),
                     cursor_blink: partial_profile
                         .cursor_blink
-                        .unwrap_or(partial_option.terminal.cursor_blink),
+                        .unwrap_or(partial_settings.terminal.cursor_blink),
                     draw_bold_in_bright: partial_profile
                         .draw_bold_in_bright
-                        .unwrap_or(partial_option.terminal.draw_bold_in_bright),
-                    show_unread_data_mark: partial_profile
-                        .show_unread_data_mark
-                        .unwrap_or(partial_option.terminal.show_unread_data_mark),
+                        .unwrap_or(partial_settings.terminal.draw_bold_in_bright),
+                    notify_content_change: partial_profile
+                        .notify_change
+                        .unwrap_or(partial_settings.terminal.notify_content_change),
                     line_height: partial_profile
                         .line_height
-                        .unwrap_or(partial_option.terminal.line_height),
+                        .unwrap_or(partial_settings.terminal.line_height),
                     letter_spacing: partial_profile
                         .letter_spacing
-                        .unwrap_or(partial_option.terminal.letter_spacing),
+                        .unwrap_or(partial_settings.terminal.letter_spacing),
                     font_weight: partial_profile
                         .font_weight
-                        .unwrap_or(partial_option.terminal.font_weight),
+                        .unwrap_or(partial_settings.terminal.font_weight),
                     font_weight_bold: partial_profile
                         .font_weight_bold
-                        .unwrap_or(partial_option.terminal.font_weight_bold),
+                        .unwrap_or(partial_settings.terminal.font_weight_bold),
                     progress_tracking: partial_profile
                         .progress_tracking
-                        .unwrap_or(partial_option.terminal.progress_tracking),
+                        .unwrap_or(partial_settings.terminal.progress_tracking),
+                    bracketed_paste: partial_profile
+                        .bracketed_paste
+                        .unwrap_or(partial_settings.terminal.bracketed_paste),
                 };
-
                 let profile_theme = partial_profile.theme.map_or_else(
                     || terminal_theme.clone(),
                     |partial_profile_theme| {
-                        parse_theme(&partial_profile_theme)
+                        theme::parse(&partial_profile_theme)
                             .1
                             .unwrap_or_else(|| terminal_theme.clone())
                     },
                 );
 
                 profiles.push(Profile {
-                    title_format: Formatter::new(
+                    title_format: TitleFormatter::new(
                         &partial_profile
                             .title_format
-                            .unwrap_or_else(|| partial_option.title_format.clone()),
+                            .unwrap_or_else(|| partial_settings.title_format.clone()),
                         &partial_profile.name,
                     ),
                     name: partial_profile.name,
-                    terminal_options: profile_option,
+                    terminal_settings: profile_settings,
                     theme: profile_theme,
                     background_transparency: partial_profile
                         .background_transparency
-                        .unwrap_or(partial_option.background_transparency),
-                    id: uuid::Uuid::parse_str(&partial_profile.id.unwrap_or_default())
-                        .unwrap_or_else(|_| uuid::Uuid::new_v4())
-                        .to_string(),
+                        .unwrap_or(partial_settings.background_transparency),
+                    uuid: partial_profile.uuid.unwrap_or_else(uuid::Uuid::new_v4),
                     command: partial_profile.command,
                     background: partial_profile.background,
                 });
             }
-        }
+
+            profiles
+        };
 
         let mut macros = Vec::new();
-        if let Some(partial_macros) = partial_option.macros {
-            macros.reserve(partial_macros.len());
+        if let Some(partial_macros) = partial_settings.macros {
+            macros.reserve_exact(partial_macros.len());
             for macro_command in partial_macros {
                 macros.push(Macro {
                     content: macro_command.content,
-                    id: macro_command
-                        .id
-                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                    uuid: macro_command.uuid.unwrap_or_else(uuid::Uuid::new_v4),
                 });
             }
         }
 
-        let shortcuts = partial_option
+        let shortcuts = partial_settings
             .shortcuts
-            .map(|shortcuts| {
+            .map_or_else(default_shortcuts, |shortcuts| {
                 shortcuts
                     .iter()
                     .filter(|shortcut| match shortcut.action {
-                        ShortcutAction::OpenProfile(ref profile_id)
-                        | ShortcutAction::SplitSpecificPaneAndOpenProfile(ref profile_id)
-                        | ShortcutAction::SplitFocusedPaneAndOpenProfile(ref profile_id)
-                        | ShortcutAction::SplitTabAndOpenProfile(ref profile_id) => {
-                            profiles.iter().any(|profile| &profile.id == profile_id)
+                        ShortcutAction::OpenProfile(ref profile_uuid)
+                        | ShortcutAction::SplitSpecificPaneAndOpenProfile(ref profile_uuid)
+                        | ShortcutAction::SplitFocusedPaneAndOpenProfile(ref profile_uuid)
+                        | ShortcutAction::SplitTabAndOpenProfile(ref profile_uuid) => {
+                            profiles.iter().any(|profile| &profile.uuid == profile_uuid)
                         }
-                        ShortcutAction::ExecuteMacro(ref macro_id) => macros
+                        ShortcutAction::ExecuteMacro(ref macro_uuid) => macros
                             .iter()
-                            .any(|macro_command| &macro_command.id == macro_id),
+                            .any(|macro_command| &macro_command.uuid == macro_uuid),
                         _ => true,
                     })
                     .cloned()
                     .collect::<Vec<Shortcut>>()
-            })
-            .unwrap_or_else(default_shortcuts);
+            });
 
         Ok(Self {
-            theme: partial_option.theme,
+            theme: partial_settings.theme,
 
             terminal_theme,
             app_theme,
-            background: partial_option.background,
-            terminal: partial_option.terminal,
+            background: partial_settings.background,
+            terminal: partial_settings.terminal,
             profiles: profiles.clone(),
-            background_transparency: partial_option.background_transparency,
+            background_transparency: partial_settings.background_transparency,
             shortcuts,
             macros,
             default_profile: profiles
                 .iter()
-                .find(|&profile| profile.id == partial_option.default_profile)
+                .find(|&profile| profile.uuid == partial_settings.default_profile)
                 .unwrap_or(&profiles[0])
                 .clone(),
-            close_confirmation: partial_option.close_confirmation,
-            desktop_integration: partial_option.desktop_integration,
+            close_confirmation: partial_settings.close_confirmation,
+            desktop_integration: partial_settings.desktop_integration,
 
             #[cfg(target_family = "unix")]
-            webkit_compositing_mode: partial_option.webkit_compositing_mode,
+            webkit_compositing_mode: partial_settings.webkit_compositing_mode,
         })
     }
 }
 
 #[derive(Deserialize, Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
-pub struct TerminalOption {
+pub struct TerminalSettings {
     #[serde(default)]
     buffer_size: RangedInt<500, 5000, 3000>,
     #[serde(default)]
@@ -247,7 +241,7 @@ pub struct TerminalOption {
     #[serde(default)]
     draw_bold_in_bright: bool,
     #[serde(default = "default_to_true")]
-    pub show_unread_data_mark: bool,
+    pub notify_content_change: bool,
     #[serde(default)]
     line_height: RangedInt<100, 200, 100>,
     #[serde(default)]
@@ -258,9 +252,11 @@ pub struct TerminalOption {
     font_weight_bold: RangedInt<1, 9, 6>,
     #[serde(default)]
     pub progress_tracking: bool,
+    #[serde(default = "default_to_true")]
+    pub bracketed_paste: bool,
 }
 
-impl Default for TerminalOption {
+impl Default for TerminalSettings {
     fn default() -> Self {
         Self {
             buffer_size: RangedInt::default(),
@@ -271,12 +267,13 @@ impl Default for TerminalOption {
             bell: false,
             cursor_blink: false,
             draw_bold_in_bright: false,
-            show_unread_data_mark: true,
+            notify_content_change: true,
             line_height: RangedInt::default(),
             letter_spacing: RangedInt::default(),
             font_weight: RangedInt::default(),
             font_weight_bold: RangedInt::default(),
             progress_tracking: false,
+            bracketed_paste: true,
         }
     }
 }
@@ -284,7 +281,7 @@ impl Default for TerminalOption {
 #[derive(Debug, Serialize, Clone)]
 pub struct Macro {
     pub content: String,
-    pub id: String,
+    pub uuid: Uuid,
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize)]
@@ -293,7 +290,7 @@ pub struct Shortcut {
     pub action: ShortcutAction,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum ShortcutAction {
     CloseFocusedTab,
@@ -311,11 +308,11 @@ pub enum ShortcutAction {
     FocusNextTab,
     FocusPrevTab,
     FocusTab(usize),
-    ExecuteMacro(String),
-    OpenProfile(String),
-    SplitTabAndOpenProfile(String),
-    SplitFocusedPaneAndOpenProfile(String),
-    SplitSpecificPaneAndOpenProfile(String),
+    ExecuteMacro(Uuid),
+    OpenProfile(Uuid),
+    SplitTabAndOpenProfile(Uuid),
+    SplitFocusedPaneAndOpenProfile(Uuid),
+    SplitSpecificPaneAndOpenProfile(Uuid),
 }
 
 impl Serialize for ShortcutAction {
@@ -388,14 +385,14 @@ impl Serialize for ShortcutAction {
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct Profile {
     pub name: String,
-    pub terminal_options: TerminalOption,
+    pub terminal_settings: TerminalSettings,
     theme: TerminalTheme,
     background_transparency: RangedInt<0, 100, 100>,
-    background: std::option::Option<BackgroundMedia>,
-    pub id: String,
+    background: Option<BackgroundMedia>,
+    pub uuid: Uuid,
     pub command: String,
     #[serde(skip_serializing)]
-    pub title_format: Formatter,
+    pub title_format: TitleFormatter,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -454,51 +451,50 @@ impl<'de> Deserialize<'de> for TerminalTheme {
         #[derive(Deserialize, Default)]
         struct PartialTerminalTheme {
             #[serde(default)]
-            pub foreground: std::option::Option<String>,
+            pub foreground: Option<String>,
             #[serde(default)]
-            pub background: std::option::Option<String>,
+            pub background: Option<String>,
             #[serde(default)]
-            pub black: std::option::Option<String>,
+            pub black: Option<String>,
             #[serde(default)]
-            pub red: std::option::Option<String>,
+            pub red: Option<String>,
             #[serde(default)]
-            pub green: std::option::Option<String>,
+            pub green: Option<String>,
             #[serde(default)]
-            pub yellow: std::option::Option<String>,
+            pub yellow: Option<String>,
             #[serde(default)]
-            pub blue: std::option::Option<String>,
+            pub blue: Option<String>,
             #[serde(default)]
-            pub magenta: std::option::Option<String>,
+            pub magenta: Option<String>,
             #[serde(default)]
-            pub cyan: std::option::Option<String>,
+            pub cyan: Option<String>,
             #[serde(default)]
-            pub white: std::option::Option<String>,
+            pub white: Option<String>,
             #[serde(default)]
-            pub bright_black: std::option::Option<String>,
+            pub bright_black: Option<String>,
             #[serde(default)]
-            pub bright_red: std::option::Option<String>,
+            pub bright_red: Option<String>,
             #[serde(default)]
-            pub bright_green: std::option::Option<String>,
+            pub bright_green: Option<String>,
             #[serde(default)]
-            pub bright_yellow: std::option::Option<String>,
+            pub bright_yellow: Option<String>,
             #[serde(default)]
-            pub bright_blue: std::option::Option<String>,
+            pub bright_blue: Option<String>,
             #[serde(default)]
-            pub bright_magenta: std::option::Option<String>,
+            pub bright_magenta: Option<String>,
             #[serde(default)]
-            pub bright_cyan: std::option::Option<String>,
+            pub bright_cyan: Option<String>,
             #[serde(default)]
-            pub bright_white: std::option::Option<String>,
+            pub bright_white: Option<String>,
             #[serde(default)]
-            pub cursor: std::option::Option<String>,
+            pub cursor: Option<String>,
             #[serde(default)]
-            pub cursor_accent: std::option::Option<String>,
+            pub cursor_accent: Option<String>,
         }
 
         let partial_terminal_theme =
             PartialTerminalTheme::deserialize(deserializer).unwrap_or_default();
         let default_terminal_theme = Self::default();
-
         Ok(Self {
             foreground: partial_terminal_theme
                 .foreground
@@ -570,73 +566,43 @@ pub struct CloseConfirmation {
     pub group: bool,
     pub window: bool,
     pub app: bool,
-    pub excluded_process: Vec<String>,
+    pub excluded_processes: Vec<String>,
 }
 
 impl<'de> Deserialize<'de> for CloseConfirmation {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct PartialCloseConfirmation {
-            tab: std::option::Option<bool>,
-            group: std::option::Option<bool>,
-            window: std::option::Option<bool>,
-            app: std::option::Option<bool>,
-            excluded_process: std::option::Option<Vec<String>>,
+            tab: Option<bool>,
+            group: Option<bool>,
+            window: Option<bool>,
+            app: Option<bool>,
+            excluded_processes: Option<Vec<String>>,
         }
 
         #[derive(Deserialize)]
         #[serde(untagged)]
-        enum Representation {
+        enum Wrapper {
             Simple(bool),
             Complex(PartialCloseConfirmation),
         }
 
-        match Representation::deserialize(deserializer)? {
-            Representation::Simple(enable) => Ok(Self {
+        match Wrapper::deserialize(deserializer)? {
+            Wrapper::Simple(enable) => Ok(Self {
                 tab: enable,
                 group: enable,
                 window: enable,
                 app: enable,
-                #[cfg(target_family = "unix")]
-                excluded_process: vec![
-                    "sh".to_owned(),
-                    "bash".to_owned(),
-                    "fish".to_owned(),
-                    "zsh".to_owned(),
-                ],
-                #[cfg(target_os = "windows")]
-                excluded_process: vec![
-                    "cmd.exe".to_owned(),
-                    "powershell.exe".to_owned(),
-                    "pwsh.exe".to_owned(),
-                ],
+                ..Default::default()
             }),
-            Representation::Complex(partial_close_confirmation) => Ok(Self {
+            Wrapper::Complex(partial_close_confirmation) => Ok(Self {
                 tab: partial_close_confirmation.tab.unwrap_or(true),
                 group: partial_close_confirmation.group.unwrap_or(true),
                 window: partial_close_confirmation.window.unwrap_or(true),
                 app: partial_close_confirmation.app.unwrap_or(true),
-                #[cfg(target_family = "unix")]
-                excluded_process: partial_close_confirmation.excluded_process.unwrap_or_else(
-                    || {
-                        vec![
-                            "sh".to_owned(),
-                            "bash".to_owned(),
-                            "fish".to_owned(),
-                            "zsh".to_owned(),
-                        ]
-                    },
-                ),
-                #[cfg(target_os = "windows")]
-                excluded_process: partial_close_confirmation.excluded_process.unwrap_or_else(
-                    || {
-                        vec![
-                            "cmd.exe".to_owned(),
-                            "powershell.exe".to_owned(),
-                            "pwsh.exe".to_owned(),
-                        ]
-                    },
-                ),
+                excluded_processes: partial_close_confirmation
+                    .excluded_processes
+                    .unwrap_or_else(default_excluded_processes),
             }),
         }
     }
@@ -649,24 +615,12 @@ impl Default for CloseConfirmation {
             group: true,
             window: true,
             app: true,
-            #[cfg(target_family = "unix")]
-            excluded_process: vec![
-                "sh".to_owned(),
-                "bash".to_owned(),
-                "fish".to_owned(),
-                "zsh".to_owned(),
-            ],
-            #[cfg(target_os = "windows")]
-            excluded_process: vec![
-                "cmd.exe".to_owned(),
-                "powershell.exe".to_owned(),
-                "pwsh.exe".to_owned(),
-            ],
+            excluded_processes: default_excluded_processes(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Copy)]
 pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
@@ -691,25 +645,23 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
     {
         #[derive(Deserialize)]
         struct PartialDesktopIntegration {
-            custom_titlebar: std::option::Option<bool>,
-            dynamic_title: std::option::Option<bool>,
+            custom_titlebar: Option<bool>,
+            dynamic_title: Option<bool>,
         }
 
         #[derive(Deserialize)]
         #[serde(untagged)]
-        enum Representation {
+        enum Wrapper {
             Simple(bool),
             Complex(PartialDesktopIntegration),
         }
 
-        let representation = Representation::deserialize(deserializer)?;
-
-        Ok(match representation {
-            Representation::Simple(enable) => Self {
+        Ok(match Wrapper::deserialize(deserializer)? {
+            Wrapper::Simple(enable) => Self {
                 custom_titlebar: enable,
                 dynamic_title: enable,
             },
-            Representation::Complex(partial_desktop_integration) => Self {
+            Wrapper::Complex(partial_desktop_integration) => Self {
                 dynamic_title: partial_desktop_integration.dynamic_title.unwrap_or(true),
                 #[cfg(target_family = "unix")]
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(false),
@@ -720,32 +672,35 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
     }
 }
 
+#[inline]
 const fn default_to_true() -> bool {
     true
 }
 
+#[inline]
 fn default_profile(
-    id: String,
+    uuid: Uuid,
     title_format: &str,
     background_transparency: RangedInt<0, 100, 100>,
-    terminal_options: TerminalOption,
+    terminal_settings: TerminalSettings,
     theme: TerminalTheme,
 ) -> Profile {
     Profile {
         name: String::from("Default profile"),
-        terminal_options,
+        terminal_settings,
         theme,
         background_transparency,
-        id,
+        uuid,
         #[cfg(target_family = "unix")]
         command: String::from("sh -c $SHELL"),
         #[cfg(target_os = "windows")]
         command: String::from("%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
         background: None,
-        title_format: Formatter::new(title_format, "Default profile"),
+        title_format: TitleFormatter::new(title_format, "Default profile"),
     }
 }
 
+#[inline]
 fn default_shortcuts() -> Vec<Shortcut> {
     vec![
         Shortcut {
@@ -781,4 +736,22 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::FocusPrevTab,
         },
     ]
+}
+
+#[inline]
+fn default_excluded_processes() -> Vec<String> {
+    if cfg!(target_family = "unix") {
+        vec![
+            "sh".to_owned(),
+            "bash".to_owned(),
+            "fish".to_owned(),
+            "zsh".to_owned(),
+        ]
+    } else {
+        vec![
+            "cmd.exe".to_owned(),
+            "powershell.exe".to_owned(),
+            "pwsh.exe".to_owned(),
+        ]
+    }
 }

@@ -1,12 +1,18 @@
-#[cfg(target_os = "windows")]
+use std::mem::size_of;
+use std::{ffi::OsString, os::windows::ffi::OsStringExt};
+use std::{os::raw::c_void, ptr};
+use windows::Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation};
+use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
+use windows::Win32::System::Threading::{
+    PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+};
+use windows_native::ntrtl::RTL_USER_PROCESS_PARAMETERS;
+
 pub fn get_leader_pid(shell_pid: u32) -> u32 {
-    use std::mem::size_of;
-    use windows::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-    };
-
-    use windows::Win32::System::Diagnostics::ToolHelp::TH32CS_SNAPPROCESS;
-
     let mut leader_pid = shell_pid;
 
     let handle = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).unwrap() };
@@ -28,14 +34,7 @@ pub fn get_leader_pid(shell_pid: u32) -> u32 {
     leader_pid
 }
 
-#[cfg(target_os = "windows")]
-pub async fn get_process_title(pid: u32, fetched_title: &mut Option<String>) {
-    use std::{ffi::OsString, os::windows::ffi::OsStringExt};
-    use windows::Win32::{
-        Foundation::CloseHandle,
-        System::Threading::{PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
-    };
-
+pub async fn get_title(pid: u32, fetched_title: &mut Option<String>) {
     *fetched_title = tokio::task::spawn_blocking(move || {
         unsafe {
             windows::Win32::System::Threading::OpenProcess(
@@ -47,7 +46,11 @@ pub async fn get_process_title(pid: u32, fetched_title: &mut Option<String>) {
         .map_or(None, |handle| {
             let mut path = [0; 4096];
             let path_len = unsafe {
-                windows::Win32::System::ProcessStatus::GetModuleFileNameExW(handle, None, &mut path)
+                windows::Win32::System::ProcessStatus::GetModuleFileNameExW(
+                    Some(handle),
+                    None,
+                    &mut path,
+                )
             };
 
             unsafe { CloseHandle(handle).ok() };
@@ -61,61 +64,7 @@ pub async fn get_process_title(pid: u32, fetched_title: &mut Option<String>) {
     .unwrap_or(None);
 }
 
-#[cfg(target_family = "unix")]
-pub async fn get_process_title(pid: i32, fetched_title: &mut Option<String>) {
-    *fetched_title = tokio::task::spawn_blocking(move || {
-        std::fs::read_to_string(format!("/proc/{pid}/comm")).map_or(
-            None,
-            |mut process_leader_title| {
-                process_leader_title.pop();
-
-                if process_leader_title == "tokio-runtime-w" {
-                    None
-                } else if process_leader_title == "sudo" {
-                    std::fs::read_to_string(format!("/proc/{pid}/cmdline")).map_or(
-                        Some(process_leader_title),
-                        |cmdline| {
-                            Some(cmdline.split('\0').take(2).collect::<Vec<&str>>().join(" "))
-                        },
-                    )
-                } else {
-                    Some(process_leader_title)
-                }
-            },
-        )
-    })
-    .await
-    .unwrap();
-}
-
-#[cfg(target_family = "unix")]
-pub async fn get_process_working_dir(pid: i32, fetched_pwd: &mut Option<String>) {
-    *fetched_pwd = tokio::task::spawn_blocking(move || {
-        std::fs::read_link(format!("/proc/{pid}/cwd"))
-            .map_or(None, |path| path.into_os_string().into_string().ok())
-    })
-    .await
-    .unwrap();
-}
-
-#[cfg(target_os = "windows")]
-pub async fn get_process_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
-    use std::mem::size_of;
-    use std::{os::raw::c_void, ptr};
-
-    use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-    use windows::Win32::System::Threading::PEB;
-    use windows::{
-        Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation},
-        Win32::{
-            Foundation::CloseHandle,
-            System::Threading::{
-                PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
-            },
-        },
-    };
-    use windows_native::ntrtl::RTL_USER_PROCESS_PARAMETERS;
-
+pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
     if let Ok(handle) = unsafe {
         windows::Win32::System::Threading::OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
@@ -133,6 +82,7 @@ pub async fn get_process_working_dir(pid: u32, fetched_pwd: &mut Option<String>)
                 size_of::<PROCESS_BASIC_INFORMATION>() as u32,
                 ptr::null_mut(),
             )
+            .ok()
             .map(|()| (handle, pbi))
         }
         .and_then(|(handle, pbi)| {
@@ -183,28 +133,9 @@ pub async fn get_process_working_dir(pid: u32, fetched_pwd: &mut Option<String>)
     }
 }
 
-#[cfg(target_family = "unix")]
-pub async fn get_process_short_working_dir(pid: i32, fetched_short_pwd: &mut Option<String>) {
-    *fetched_short_pwd = tokio::task::spawn_blocking(move || {
-        std::fs::read_link(format!("/proc/{pid}/cwd")).map_or(None, |path| {
-            Some(if dirs_next::home_dir().is_some_and(|home| home == path) {
-                String::from("~")
-            } else {
-                path.file_name().map_or_else(
-                    || String::from("/"),
-                    |dir| dir.to_os_string().to_string_lossy().to_string(),
-                )
-            })
-        })
-    })
-    .await
-    .unwrap();
-}
-
-#[cfg(target_os = "windows")]
-pub async fn get_process_short_working_dir(pid: u32, fetched_short_pwd: &mut Option<String>) {
+pub async fn get_short_working_dir(pid: u32, fetched_short_pwd: &mut Option<String>) {
     let mut fetched_pwd = None;
-    get_process_working_dir(pid, &mut fetched_pwd).await;
+    get_working_dir(pid, &mut fetched_pwd).await;
 
     *fetched_short_pwd = fetched_pwd.map(|path| {
         let path = std::path::PathBuf::from(&path);

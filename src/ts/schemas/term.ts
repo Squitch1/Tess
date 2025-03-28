@@ -1,14 +1,14 @@
 export type terminalDataPayload = {
     data: string;
-    id: string;
+    uuid: string;
 };
 
 export type terminalTitleChangedPayload = {
     title: string;
-    id: string;
+    uuid: string;
 };
 
 export type terminalProgressUpdatedPayload = {
     progress: number;
-    id: string;
+    uuid: string;
 };

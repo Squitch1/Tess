@@ -17,13 +17,13 @@ export class PtyExitError extends FancyError {}
 export class PtyPropertyError extends FancyError {}
 
 export class UnknownProfileError extends FancyError {
-    constructor(id: string) {
-        super(`There is no profile with ID ${id}.`, "Unknown profile");
+    constructor(uuid: string) {
+        super(`There is no profile with ID ${uuid}.`, "Unknown profile");
     }
 }
 export class UnknownMacroError extends FancyError {
-    constructor(id: string) {
-        super(`There is no macro with ID ${id}.`, "Unknown macro");
+    constructor(uuid: string) {
+        super(`There is no macro with ID ${uuid}.`, "Unknown macro");
     }
 }
 export class UnknownTerminalError extends FancyError {

@@ -3,10 +3,10 @@ import tabIcon from "icons/default-tab.png";
 export default class Tab {
     element: HTMLElement;
 
-    id: string;
+    uuid: string;
     index: number;
 
-    onClose: ((id: string) => void) | null = null;
+    onClose: ((uuid: string) => void) | null = null;
 
     title: string = "";
 
@@ -31,8 +31,8 @@ export default class Tab {
     private progressBarElement: HTMLElement;
     private progressBarValueElement: HTMLElement;
 
-    constructor(index: number, id: string, onClose: (id: string) => void) {
-        this.id = id;
+    constructor(index: number, uuid: string, onClose: (uuid: string) => void) {
+        this.uuid = uuid;
         this.index = index;
         this.element = this.generateComponent();
 
@@ -201,7 +201,7 @@ export default class Tab {
         closeButton.addEventListener(
             "click",
             (this.onCloseButtonClick = () => {
-                this.onClose!(this.id);
+                this.onClose!(this.uuid);
             })
         );
 

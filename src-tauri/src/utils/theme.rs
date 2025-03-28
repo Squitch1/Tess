@@ -1,7 +1,7 @@
-use crate::configuration::deserialized::TerminalTheme;
+use crate::settings::deserialized::TerminalTheme;
 
 #[must_use]
-pub fn parse_theme(location: &str) -> (Option<String>, Option<TerminalTheme>) {
+pub fn parse(location: &str) -> (Option<String>, Option<TerminalTheme>) {
     dirs_next::config_dir()
         .unwrap_or_default()
         .join("tess/themes")

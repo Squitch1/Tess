@@ -14,7 +14,7 @@ export default class Pane {
     private popupManager: PopupManager;
     private viewAnchoring: HTMLElement;
 
-    id: string;
+    uuid: string;
     content?: Widget | Pane[];
     element: HTMLElement;
 
@@ -23,8 +23,8 @@ export default class Pane {
     private inSpecificSelection: boolean = false;
     private keydownListener?: (this: Document, ev: KeyboardEvent) => void;
 
-    private onceClosed: (id: string) => void;
-    private onWidgetClosed: (id: string) => void;
+    private onceClosed: (uuid: string) => void;
+    private onWidgetClosed: (uuid: string) => void;
 
     resizeObserver: ResizeObserver;
 
@@ -33,11 +33,11 @@ export default class Pane {
 
     constructor(
         target: HTMLElement,
-        id: string,
+        uuid: string,
         popupManager: PopupManager,
         viewAnchoring: HTMLElement,
-        onceClosed: (id: string) => void,
-        onWidgetClosed: (id: string) => void,
+        onceClosed: (uuid: string) => void,
+        onWidgetClosed: (uuid: string) => void,
         widget?: Widget
     ) {
         this.popupManager = popupManager;
@@ -46,7 +46,7 @@ export default class Pane {
         this.onWidgetClosed = onWidgetClosed;
         this.onceClosed = onceClosed;
 
-        this.id = id;
+        this.uuid = uuid;
 
         this.element = document.createElement("div");
         this.element.classList.add("pane");
@@ -57,8 +57,8 @@ export default class Pane {
             this.element.appendChild(widget.element);
 
             widget.onceClosed = () => {
-                this.onWidgetClosed(widget.id);
-                this.onContentClosed(widget.id);
+                this.onWidgetClosed(widget.uuid);
+                this.onContentClosed(widget.uuid);
             };
             widget.run();
         }
@@ -93,8 +93,8 @@ export default class Pane {
             const previousContent = this.content as Widget;
 
             previousContent.onceClosed = () => {
-                innerPane.onWidgetClosed(previousContent.id);
-                innerPane.onContentClosed(previousContent.id);
+                innerPane.onWidgetClosed(previousContent.uuid);
+                innerPane.onContentClosed(previousContent.uuid);
             };
             previousContent.anchoringPane = innerPane;
             innerPane.content = this.content;
@@ -114,10 +114,10 @@ export default class Pane {
         this.reflowLayout();
     }
 
-    private onContentClosed(id: string) {
+    private onContentClosed(uuid: string) {
         if (this.isSubview) {
             const paneIndex = (this.content as Pane[]).findIndex(
-                (pane) => pane.id === id
+                (pane) => pane.uuid === uuid
             );
 
             const removedPane = (this.content as Pane[]).splice(
@@ -156,15 +156,15 @@ export default class Pane {
                     const widget = this.content as Widget;
                     widget.anchoringPane = this;
                     widget.onceClosed = () => {
-                        this.onWidgetClosed(widget.id);
-                        this.onContentClosed(widget.id);
+                        this.onWidgetClosed(widget.uuid);
+                        this.onContentClosed(widget.uuid);
                     };
                 }
             }
 
             this.reflowLayout();
         } else {
-            this.onceClosed(this.id);
+            this.onceClosed(this.uuid);
         }
     }
 
@@ -489,7 +489,7 @@ export default class Pane {
             const cancelButton = new PopupButton("cancel", "dismiss");
             const confirmButton = new PopupButton("confirm", "validate");
             if (
-                !config.closeConfirmation.group ||
+                !settings.closeConfirmation.group ||
                 (
                     await this.popupManager.sendPopup(
                         new PopupBuilder(

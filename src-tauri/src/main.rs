@@ -3,12 +3,17 @@
     windows_subsystem = "windows"
 )]
 
-use tauri::{Manager, WindowEvent};
-use tess::configuration::types::BackgroundType;
-use tess::utils::Logger;
-use tess::{configuration::deserialized::Option, schemas};
-
 use tess::commands;
+use tess::common::Logger;
+use tess::schemas;
+use tess::settings::deserialized::Settings;
+use tess::settings::types::BackgroundType;
+use tess::states::Ptys;
+
+use std::io::ErrorKind;
+use std::sync::Arc;
+use tauri::{Emitter, Listener, Manager, WindowEvent};
+use tokio::sync::Mutex;
 
 #[cfg(target_family = "unix")]
 use futures::stream::StreamExt;
@@ -17,11 +22,8 @@ use gtk::{glib::ObjectExt, prelude::WidgetExt};
 #[cfg(target_family = "unix")]
 use signal_hook::consts::signal::*;
 
-use tess::utils::states::Ptys;
-
-use std::io::ErrorKind;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+#[cfg(target_os = "windows")]
+use tauri::window::{self, EffectsBuilder};
 
 #[tokio::main]
 async fn main() {
@@ -30,39 +32,53 @@ async fn main() {
     let logger = Logger {};
 
     #[cfg(target_family = "unix")]
-    let config_path = dirs_next::config_dir().map(|path| path.join("tess/config.json"));
+    let settings_path = dirs_next::config_dir()
+        .map(|path| path.join("tess/settings.json"))
+        .unwrap_or_default();
     #[cfg(target_os = "windows")]
-    let config_path = dirs_next::config_dir().map(|path| path.join("Tess/config.json"));
+    let settings_path = dirs_next::config_dir()
+        .map(|path| path.join("Tess/settings.json"))
+        .unwrap_or_default();
 
-    let mut config_error = None;
-    let config = match std::fs::read_to_string(config_path.unwrap_or_default()) {
-        Ok(config_file) => {
-            let parsed_option = serde_json::from_str(&config_file);
-            if let Err(err) = &parsed_option {
-                logger.warn(&format!("Malformed configuration file: {err}."));
-                config_error = Some(err.to_string());
-            }
-            parsed_option.unwrap_or_default()
-        }
-        Err(err) => {
-            if !matches!(err.kind(), ErrorKind::NotFound) {
-                logger.warn("Cannot read configuration file.");
-                config_error = Some("Unable to read the file.".to_owned());
-            }
+    let mut settings_error = None;
+    let settings = match tokio::fs::metadata(&settings_path)
+        .await
+        .map(|metadata| metadata.len())
+        .unwrap_or_default()
+    {
+        0 => Settings::default(),
+        _ => match tokio::fs::read(settings_path).await {
+            Ok(buf) => serde_json::from_slice(&buf)
+                .inspect_err(|err| {
+                    logger.warn(&format!("Malformed configuration file: {err}."));
+                    settings_error = Some(err.to_string());
+                })
+                .unwrap_or_default(),
+            Err(err) => {
+                if !matches!(err.kind(), ErrorKind::NotFound) {
+                    logger.warn("Cannot read configuration file.");
+                    settings_error = Some("Unable to read the file.".to_owned());
+                }
 
-            Option::default()
-        }
+                Settings::default()
+            }
+        },
     };
+
     #[cfg(target_family = "unix")]
-    if !config.webkit_compositing_mode {
-        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    {
+        std::env::set_var("GDK_BACKEND", "x11");
+        if !settings.webkit_compositing_mode {
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        }
     }
 
-    let config = Arc::from(Mutex::from(config));
+    let settings = Arc::new(Mutex::new(settings));
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let app = tauri::Builder::default()
-        .manage(config.clone())
+        .manage(settings.clone())
         .manage(Ptys::default())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             commands::pty_open,
             commands::pty_close,
@@ -73,61 +89,68 @@ async fn main() {
             commands::pty_resume,
             commands::pty_pause,
             commands::utils_close_app,
-            commands::utils_get_configuration,
+            commands::utils_get_settings,
             commands::window_close,
             commands::window_set_title
         ])
         .build(tauri::generate_context!())
         .unwrap();
 
-    match &config.lock().await.background {
-        BackgroundType::Media(media) => {
-            app.fs_scope().allow_file(&media.location).ok();
-        }
-        #[cfg(target_family = "unix")]
-        BackgroundType::Blurred => {
-            todo!()
-        }
-        #[cfg(target_os = "windows")]
-        BackgroundType::Mica => {
-            if window_vibrancy::apply_mica(app.get_window("main").unwrap()).is_err() {
-                logger.warn(
-                    "Cannot apply mica background effect. Switching back to transparent background",
-                );
-            }
-        }
-        #[cfg(target_os = "windows")]
-        BackgroundType::Acrylic => {
-            if window_vibrancy::apply_acrylic(app.get_window("main").unwrap(), None).is_err() {
-                logger.warn("Cannot apply acrylic background effect. Switching back to transparent background");
-            }
-        }
-        #[cfg(target_os = "macos")]
-        BackgroundType::Vibrancy => {
-            todo!()
-        }
-        _ => {}
-    }
-
-    app.get_window("main").unwrap().set_decorations(true).ok();
-
-    #[cfg(target_family = "unix")]
-    app.get_window("main")
-        .unwrap()
-        .gtk_window()
-        .unwrap()
-        .settings()
-        .unwrap()
-        .set_property("gtk-menu-bar-accel", ""); // Fix F10 not being inputed on Linux
-
-    app.fs_scope()
-        .allow_file(&config.lock().await.app_theme)
-        .ok();
-
     app.run(move |app, event| match event {
         tauri::RunEvent::Ready => {
+            {
+                #[cfg(target_os = "windows")]
+                let app = app.clone();
+                let settings = settings.clone();
+                tokio::spawn(async move {
+                    match &settings.lock().await.background {
+                        #[cfg(target_family = "unix")]
+                        BackgroundType::Blurred => {
+                            todo!()
+                        }
+                        #[cfg(target_os = "windows")]
+                        BackgroundType::Acrylic => {
+                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Acrylic).build()).is_err() {
+                                logger.warn("Cannot apply acrylic background effect. Switching back to transparent background");
+                            }
+                        }
+                        #[cfg(target_os = "windows")]
+                        BackgroundType::Mica => {
+                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Mica).build()).is_err() {
+                                logger.warn("Cannot apply mica background effect. Switching back to transparent background");
+                            }
+                        }
+                        #[cfg(target_os = "windows")]
+                        BackgroundType::Tabbed => {
+                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Tabbed).build()).is_err() {
+                                logger.warn("Cannot apply tabbed background effect. Switching back to transparent background");
+                            }
+                        }
+                        #[cfg(target_os = "macos")]
+                        BackgroundType::Vibrancy => {
+                            todo!()
+                        }
+                        _ => {}
+                    }
+                });
+            }
+
             #[cfg(debug_assertions)]
-            app.get_window("main").unwrap().open_devtools();
+            app.get_webview_window("main").unwrap().open_devtools();
+
+            app.get_webview_window("main")
+                .unwrap()
+                .set_decorations(true)
+                .ok();
+
+            #[cfg(target_family = "unix")]
+            app.get_webview_window("main")
+                .unwrap()
+                .gtk_window()
+                .unwrap()
+                .settings()
+                .unwrap()
+                .set_property("gtk-menu-bar-accel", ""); // Fix F10 not being inputed on Linux
 
             #[cfg(target_family = "unix")]
             {
@@ -137,14 +160,14 @@ async fn main() {
                         signal_hook_tokio::Signals::new([SIGQUIT, SIGTERM])
                     {
                         while signals_stream.next().await.is_some() {
-                            let windows_count = app.windows().len();
+                            let windows_count = app.webview_windows().len();
                             if windows_count > 1 {
-                                app.get_window("main")
+                                app.get_webview_window("main")
                                     .unwrap()
                                     .emit("js_app_request_exit", windows_count)
                                     .ok();
                             } else {
-                                app.get_window("main")
+                                app.get_webview_window("main")
                                     .unwrap()
                                     .emit("js_window_request_closing", ())
                                     .ok();
@@ -156,22 +179,24 @@ async fn main() {
                 });
             }
 
-            if let Some(parsing_error) = config_error.clone() {
+            if let Some(parsing_error) = settings_error.clone() {
                 let app = app.clone();
-                app.get_window("main").unwrap().listen("loaded", move |e| {
-                    app.get_window("main")
-                        .unwrap()
-                        .emit(
-                            "js_show_toast",
-                            schemas::utils::Toast {
-                                title: "Malformed configuration",
-                                message: Some(&parsing_error),
-                                r#type: schemas::utils::ToastType::Warn,
-                            },
-                        )
-                        .ok();
-                    app.unlisten(e.id());
-                });
+                app.get_webview_window("main")
+                    .unwrap()
+                    .listen("loaded", move |e| {
+                        app.get_webview_window("main")
+                            .unwrap()
+                            .emit(
+                                "js_show_toast",
+                                schemas::utils::Toast {
+                                    title: "Malformed configuration",
+                                    message: Some(&parsing_error),
+                                    r#type: schemas::utils::ToastType::Warn,
+                                },
+                            )
+                            .ok();
+                        app.unlisten(e.id());
+                    });
             }
 
             logger.info(&format!("Launched in {}ms.", start.elapsed().as_millis()));
@@ -182,8 +207,8 @@ async fn main() {
             ..
         } => tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                if config.lock().await.close_confirmation.window {
-                    app.get_window(&label)
+                if settings.lock().await.close_confirmation.window {
+                    app.get_webview_window(&label)
                         .unwrap()
                         .emit("js_window_request_closing", ())
                         .ok();
