@@ -1,8 +1,7 @@
-import { clipboard } from "@tauri-apps/api";
 import { listen, Event } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 
-import { ShortcutAction } from "schemas/option";
+import { ShortcutAction } from "schemas/settings";
 import Toaster from "managers/toast";
 import TabManager from "managers/tab";
 import PopupManager from "managers/popup";
@@ -19,6 +18,7 @@ import {
     ViewSelectSpecificPaneError,
 } from "schemas/error";
 import { showToastPayload } from "schemas/utils";
+import * as clipboard from "@tauri-apps/plugin-clipboard-manager";
 
 export default class App {
     private target: Element;
@@ -48,20 +48,20 @@ export default class App {
             this.focusedView?.focus();
         };
 
-        this.tabsManager = new TabManager(tabsTarget, (id) =>
-            this.onTabRequestClose(id)
+        this.tabsManager = new TabManager(tabsTarget, (uuid) =>
+            this.onTabRequestClose(uuid)
         );
-        this.tabsManager.onTabFocused = (id) => this.onTabFocused(id);
+        this.tabsManager.onTabFocused = (uuid) => this.onTabFocused(uuid);
         this.tabsManager.onFocusedTabTitleUpdated = (title) =>
             this.onFocusedTabTitleUpdated(title);
 
         this.shortcutsManager = new ShortcutManager(
-            config.shortcuts,
+            settings.shortcuts,
             (action, target) => this.onShortcutExecuted(action, target)
         );
 
         this.terminalManager = new TerminalManager(
-            config.profiles,
+            settings.profiles,
             this.toaster,
             (e, term) => this.shortcutsManager.onKeyPress(e, term)
         );
@@ -95,8 +95,8 @@ export default class App {
         }
     }
 
-    private onTabFocused(id: string) {
-        const view = this.views.find((view) => view.id! === id);
+    private onTabFocused(uuid: string) {
+        const view = this.views.find((view) => view.uuid! === uuid);
         if (view) {
             this.focusedView?.blur();
             view.focus();
@@ -106,15 +106,15 @@ export default class App {
 
     // eslint-disable-next-line class-methods-use-this
     private onFocusedTabTitleUpdated(title: string) {
-        if (config.desktopIntegration.dynamic_title) {
+        if (settings.desktopIntegration.dynamic_title) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("window_set_title", { title });
         }
     }
 
-    private async onTabRequestClose(id: string) {
+    private async onTabRequestClose(uuid: string) {
         try {
-            const view = this.views.find((view) => view.id === id);
+            const view = this.views.find((view) => view.uuid === uuid);
             if (view) {
                 await view.requestClosing();
             }
@@ -123,8 +123,8 @@ export default class App {
         }
     }
 
-    private onViewClosed(id: string) {
-        const view = this.views.find((view) => view.id === id);
+    private onViewClosed(uuid: string) {
+        const view = this.views.find((view) => view.uuid === uuid);
         if (view) {
             view.element!.remove();
             this.views.splice(this.views.indexOf(view), 1);
@@ -134,7 +134,7 @@ export default class App {
             }
         }
 
-        this.tabsManager.closeTab(id);
+        this.tabsManager.closeTab(uuid);
     }
 
     private async onShortcutExecuted(
@@ -152,8 +152,8 @@ export default class App {
                         break;
                     case "executeMacro":
                         if (targetId) {
-                            const macro = config.macros.find(
-                                (macro) => macro.id === action[1]
+                            const macro = settings.macros.find(
+                                (macro) => macro.uuid === action[1]
                             );
                             if (macro) {
                                 await this.terminalManager.insertContent(
@@ -199,23 +199,32 @@ export default class App {
                         break;
                     case "paste":
                         if (targetId) {
-                            const clipboardContent = await clipboard.readText();
-                            if (clipboardContent)
-                                await this.terminalManager.insertContent(
+                            let clipboardContent;
+                            try {
+                                clipboardContent = await clipboard.readText();
+                            } catch (e) {
+                                /* empty */
+                            }
+                            if (clipboardContent) {
+                                this.terminalManager.insertContent(
                                     targetId,
                                     clipboardContent
                                 );
+                            }
                         }
                         break;
                     case "openDefaultProfile":
-                        await this.openProfile(config.defaultProfile.id, true);
+                        await this.openProfile(
+                            settings.defaultProfile.uuid,
+                            true
+                        );
                         break;
                     case "splitSpecificPaneAndOpenDefaultProfile": {
                         const path =
                             await this.focusedView!.selectSpecificPane();
                         await this.focusedView?.splitSpecificWidget(
                             await this.terminalManager.openNew(
-                                config.defaultProfile.id
+                                settings.defaultProfile.uuid
                             ),
                             path
                         );
@@ -224,20 +233,20 @@ export default class App {
                     case "splitFocusedPaneAndOpenDefaultProfile":
                         await this.focusedView?.splitFocusedWidget(
                             await this.terminalManager.openNew(
-                                config.defaultProfile.id
+                                settings.defaultProfile.uuid
                             )
                         );
                         break;
                     case "splitTabAndOpenDefaultProfile":
                         await this.focusedView?.addWidget(
                             await this.terminalManager.openNew(
-                                config.defaultProfile.id
+                                settings.defaultProfile.uuid
                             )
                         );
                         break;
                     case "closeFocusedTab":
                         this.tabsManager.requestTabClosing(
-                            this.tabsManager.getSelected().id
+                            this.tabsManager.getSelected().uuid
                         );
                         break;
                     case "closeFocusedPane":
@@ -288,7 +297,7 @@ export default class App {
     private async closeViews() {
         try {
             if (this.views.length === 1) {
-                this.tabsManager.requestTabClosing(this.views[0].id!);
+                this.tabsManager.requestTabClosing(this.views[0].uuid!);
             } else {
                 const confirmButton = new PopupButton("confirm", "validate");
                 const cancelButton = new PopupButton("cancel", "dismiss");
@@ -333,19 +342,19 @@ export default class App {
         return view;
     }
 
-    async openProfile(profileId: string, focus: boolean) {
+    async openProfile(profileUuid: string, focus: boolean) {
         try {
             const terminalWidget =
-                await this.terminalManager.openNew(profileId);
+                await this.terminalManager.openNew(profileUuid);
 
             const view = this.generateView();
-            this.tabsManager.openNewTab(view.id);
+            this.tabsManager.openNewTab(view.uuid);
             this.target.appendChild(view.element);
-            this.views.push(view);
             await view.addWidget(terminalWidget);
+            this.views.push(view);
 
             if (focus) {
-                this.tabsManager.select(view.id);
+                this.tabsManager.select(view.uuid);
             }
         } catch (e) {
             this.toaster.toast(e as Error);

@@ -1,9 +1,10 @@
 import Pane from "../pane";
 
 export default abstract class Widget {
-    readonly id: string;
+    readonly uuid: string;
     readonly element: HTMLElement;
 
+    initialTitle: string | undefined = undefined;
     anchoringPane?: Pane;
 
     onTitleUpdate: (title: string) => void;
@@ -13,12 +14,14 @@ export default abstract class Widget {
     onceClosed: () => void;
 
     constructor() {
-        this.id = crypto.randomUUID();
+        this.uuid = crypto.randomUUID();
 
         this.element = document.createElement("div");
         this.element.classList.add("widget");
 
-        this.onTitleUpdate = () => {};
+        this.onTitleUpdate = (title) => {
+            this.initialTitle = title;
+        };
         this.onHighlightRequest = () => {};
         this.onProgressUpdated = () => {};
 

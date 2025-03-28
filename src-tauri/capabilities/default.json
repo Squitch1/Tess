@@ -1,0 +1,12 @@
+{
+    "identifier": "migrated",
+    "description": "permissions that were migrated from v1",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+        "core:event:allow-listen",
+        "core:event:allow-emit",
+        "clipboard-manager:allow-read-text",
+        "clipboard-manager:allow-write-text"
+    ]
+}

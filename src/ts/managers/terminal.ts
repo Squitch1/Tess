@@ -3,9 +3,9 @@ import {
     terminalProgressUpdatedPayload,
     terminalTitleChangedPayload,
 } from "schemas/term";
-import { Profile } from "schemas/option";
+import { Profile } from "schemas/settings";
 import { listen, Event } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/core";
 import Terminal from "components/view/widgets/terminal";
 
 import {
@@ -60,13 +60,13 @@ export default class TerminalManager {
 
     private onTerminalTitleChanged(e: Event<terminalTitleChangedPayload>) {
         this.terminals
-            .find((terminal) => terminal.id === e.payload.id)
+            .find((terminal) => terminal.uuid === e.payload.uuid)
             ?.onTitleUpdate(e.payload.title);
     }
 
     private onTerminalProcessExited(e: Event<string>) {
         const terminal = this.terminals.splice(
-            this.terminals.findIndex((terminal) => terminal.id === e.payload),
+            this.terminals.findIndex((terminal) => terminal.uuid === e.payload),
             1
         )[0];
         this.terminalFlows.delete(e.payload);
@@ -76,7 +76,7 @@ export default class TerminalManager {
 
     private onTerminalContentUpdated(e: Event<string>) {
         this.terminals
-            .find((terminal) => terminal.id === e.payload)
+            .find((terminal) => terminal.uuid === e.payload)
             ?.onHighlightRequest();
     }
 
@@ -84,19 +84,19 @@ export default class TerminalManager {
         e: Event<terminalProgressUpdatedPayload>
     ) {
         this.terminals
-            .find((terminal) => terminal.id === e.payload.id)
+            .find((terminal) => terminal.uuid === e.payload.uuid)
             ?.onProgressUpdated(e.payload.progress);
     }
 
     private onTerminalIncomingData(e: Event<terminalDataPayload>) {
         const terminal = this.terminals.find(
-            (terminal) => terminal.id === e.payload.id
+            (terminal) => terminal.uuid === e.payload.uuid
         );
         if (terminal) {
-            let [buffered, paused] = this.terminalFlows.get(e.payload.id)!;
+            let [buffered, paused] = this.terminalFlows.get(e.payload.uuid)!;
 
             if (buffered > 262144 && !paused) {
-                invoke("pty_pause", { id: e.payload.id }).catch((e) =>
+                invoke("pty_pause", { uuid: e.payload.uuid }).catch((e) =>
                     this.toaster.toast(
                         new PtyPropertyError(
                             e as string,
@@ -107,14 +107,16 @@ export default class TerminalManager {
                 paused = true;
             }
             buffered += e.payload.data.length;
-            this.terminalFlows.set(e.payload.id, [buffered, paused]);
+            this.terminalFlows.set(e.payload.uuid, [buffered, paused]);
 
             terminal.xterm.write(e.payload.data, () => {
-                let [buffered, paused] = this.terminalFlows.get(e.payload.id)!;
+                let [buffered, paused] = this.terminalFlows.get(
+                    e.payload.uuid
+                )!;
                 buffered = Math.max(buffered - e.payload.data.length, 0);
 
                 if (buffered < 65536 && paused) {
-                    invoke("pty_resume", { id: e.payload.id }).catch((e) =>
+                    invoke("pty_resume", { uuid: e.payload.uuid }).catch((e) =>
                         this.toaster.toast(
                             new PtyPropertyError(
                                 e as string,
@@ -125,15 +127,15 @@ export default class TerminalManager {
                     paused = false;
                 }
 
-                this.terminalFlows.set(e.payload.id, [buffered, paused]);
+                this.terminalFlows.set(e.payload.uuid, [buffered, paused]);
             });
         }
     }
 
     // eslint-disable-next-line class-methods-use-this
-    private onTerminalResize(id: string, cols: number, rows: number) {
+    private onTerminalResize(uuid: string, cols: number, rows: number) {
         invoke("pty_resize", {
-            id,
+            uuid,
             cols,
             rows,
         }).catch((e) => {
@@ -144,10 +146,10 @@ export default class TerminalManager {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    private async onTerminalNeedClosability(id: string): Promise<boolean> {
+    private async onTerminalNeedClosability(uuid: string): Promise<boolean> {
         return new Promise((resolve, reject) => {
             invoke<boolean>("pty_get_closable", {
-                id,
+                uuid,
             })
                 .then(resolve)
                 .catch((e) =>
@@ -162,10 +164,10 @@ export default class TerminalManager {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    private async onTerminalNeedLeaderName(id: string): Promise<string> {
+    private async onTerminalNeedLeaderName(uuid: string): Promise<string> {
         return new Promise((resolve, reject) => {
             invoke<string>("pty_get_leader_name", {
-                id,
+                uuid,
             })
                 .then(resolve)
                 .catch((e) =>
@@ -180,8 +182,8 @@ export default class TerminalManager {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    private onTerminalOutgoingData(id: string, data: string) {
-        invoke("pty_write", { data, id }).catch((e) => {
+    private onTerminalOutgoingData(uuid: string, data: string) {
+        invoke("pty_write", { data, uuid }).catch((e) => {
             this.toaster.toast(
                 new PtyWriteError(e as string, "Unable to handle data stream")
             );
@@ -189,69 +191,72 @@ export default class TerminalManager {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    private async onTerminalExit(id: string): Promise<void> {
+    private async onTerminalExit(uuid: string): Promise<void> {
         try {
-            return await invoke<void>("pty_close", { id });
+            return await invoke<void>("pty_close", { uuid });
         } catch (e) {
             throw new PtyExitError(e as string, "Unable to dispose terminal");
         }
     }
 
-    async openNew(profileId: string): Promise<Terminal> {
+    async openNew(profileUuid: string): Promise<Terminal> {
         const profile = this.profiles.find(
-            (profile) => profile.id === profileId
+            (profile) => profile.uuid === profileUuid
         );
         if (!profile) {
-            throw new UnknownProfileError(profileId);
+            throw new UnknownProfileError(profileUuid);
         }
 
         const terminal = new Terminal(profile);
         try {
+            this.terminals.push(terminal);
+            this.terminalFlows.set(terminal.uuid, [0, false]);
             await invoke("pty_open", {
-                id: terminal.id,
-                profileId,
+                uuid: terminal.uuid,
+                profileUuid,
             });
         } catch (e) {
+            this.terminals.pop();
+            this.terminalFlows.delete(terminal.uuid);
             throw new PtyCreateError(e as string, "Unable to create terminal");
         }
 
         terminal.onTerminalResize = (cols, rows) =>
-            this.onTerminalResize(terminal.id, cols, rows);
+            this.onTerminalResize(terminal.uuid, cols, rows);
         terminal.onTerminalNeedClosability = async () =>
-            this.onTerminalNeedClosability(terminal.id);
+            this.onTerminalNeedClosability(terminal.uuid);
         terminal.onTerminalNeedLeaderName = async () =>
-            this.onTerminalNeedLeaderName(terminal.id);
+            this.onTerminalNeedLeaderName(terminal.uuid);
         terminal.onTerminalOutgoingData = (data) =>
-            this.onTerminalOutgoingData(terminal.id, data);
-        terminal.onTerminalExit = async () => this.onTerminalExit(terminal.id);
+            this.onTerminalOutgoingData(terminal.uuid, data);
+        terminal.onTerminalExit = async () =>
+            this.onTerminalExit(terminal.uuid);
         terminal.onTerminalKeyPress = (e) =>
             this.onTerminalKeyPressed(e, terminal);
-        this.terminals.push(terminal);
-        this.terminalFlows.set(terminal.id, [0, false]);
         return terminal;
     }
 
-    getSelection(id: string): string {
+    getSelection(uuid: string): string {
         try {
             return this.terminals
-                .find((terminal) => terminal.id === id)!
+                .find((terminal) => terminal.uuid === uuid)!
                 .xterm.getSelection();
         } catch {
             throw new UnknownTerminalError(
-                `There is no terminal with ID ${id}.`
+                `There is no terminal with ID ${uuid}.`
             );
         }
     }
 
-    // eslint-disable-next-line class-methods-use-this
-    async insertContent(id: string, data: string) {
-        try {
-            await invoke("pty_write", { data, id });
-        } catch (e) {
-            throw new PtyWriteError(
-                (e as Error).message,
-                "Unable to handle data stream"
+    insertContent(uuid: string, data: string) {
+        const terminal = this.terminals.find(
+            (terminal) => terminal.uuid === uuid
+        );
+        if (!terminal) {
+            throw new UnknownTerminalError(
+                `There is no terminal with ID ${uuid}.`
             );
         }
+        terminal.xterm.paste(data);
     }
 }

@@ -1,28 +1,24 @@
-use std::ffi::OsString;
-use std::io::{Read, Write};
-use std::sync::{mpsc, Arc};
-use std::time::Duration;
+use super::process;
+use super::title_formatter::{Params, TitleFormatter};
 
-use std::pin::Pin;
-
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-
-use tokio::sync::Mutex;
-
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-
-use crate::utils::errors::PtyError;
-use crate::utils::formatter::{Formatter, FormatterParams};
+use crate::common::errors::PtyError;
 
 use futures::future::join_all;
-
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use regex_lite::Regex;
+use std::ffi::OsString;
+use std::io::{Read, Write};
+use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
 
 #[cfg(target_os = "windows")]
 use regex_lite::Captures;
 
 pub struct Pty {
-    writer: Box<dyn Write + Send>,
+    writer: Mutex<Box<dyn Write + Send>>,
     child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
     master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
     paused: Arc<AtomicBool>,
@@ -38,14 +34,14 @@ unsafe impl Sync for Pty {}
 impl Pty {
     pub fn build_and_run(
         command: &str,
-        title_formatter: Formatter,
-        progress_report: bool,
-        displayed_content_update_report: bool,
-        on_read: impl Fn(&str) + std::marker::Send + 'static,
-        on_tab_title_update: impl Fn(&str) + std::marker::Send + 'static,
-        on_action_progress: impl Fn(u8) + Send + 'static,
-        on_displayed_content_updated: impl Fn() + Send + 'static,
-        once_exit: impl FnOnce() + std::marker::Send + 'static,
+        title_formatter: TitleFormatter,
+        report_progress: bool,
+        notify: bool,
+        on_read: impl Fn(&str) + Send + 'static,
+        on_title_update: impl Fn(&str) + Send + 'static,
+        on_progress: impl Fn(u8) + Send + 'static,
+        on_notify: impl Fn() + Send + 'static,
+        once_exit: impl FnOnce() + Send + 'static,
     ) -> Result<Self, PtyError> {
         #[cfg(target_os = "windows")]
         lazy_static::lazy_static! {
@@ -79,18 +75,20 @@ impl Pty {
             .openpty(PtySize::default())
             .map_err(|err| PtyError::Creation(err.to_string()))?;
 
-        let writer = pty_pair
-            .master
-            .take_writer()
-            .map_err(|err| PtyError::Creation(err.to_string()))?;
+        let writer = Mutex::new(
+            pty_pair
+                .master
+                .take_writer()
+                .map_err(|err| PtyError::Creation(err.to_string()))?,
+        );
         let mut reader = pty_pair
             .master
             .try_clone_reader()
             .map_err(|err| PtyError::Creation(err.to_string()))?;
-        let master = Arc::new(Mutex::from(pty_pair.master));
+        let master = Arc::new(Mutex::new(pty_pair.master));
 
         #[cfg(target_family = "unix")]
-        let child = Arc::from(Mutex::new(
+        let child = Arc::new(Mutex::new(
             pty_pair
                 .slave
                 .spawn_command(builded_command)
@@ -100,7 +98,7 @@ impl Pty {
         #[cfg(target_os = "windows")]
         let mut shell_pid = 0;
         #[cfg(target_os = "windows")]
-        let child = Arc::from(Mutex::new(
+        let child = Arc::new(Mutex::new(
             pty_pair
                 .slave
                 .spawn_command(builded_command)
@@ -113,18 +111,16 @@ impl Pty {
                 .map_err(|err| PtyError::Creation(err.to_string()))?,
         ));
 
-        let leader_process = Arc::new(Mutex::from(String::new()));
+        let leader_name = Arc::new(Mutex::new(String::new()));
 
+        let paused = Arc::new(AtomicBool::new(false));
         let closed = Arc::new(AtomicBool::new(false));
 
-        let (exit_sender, exit_receiver) = mpsc::channel::<()>();
-        let paused = Arc::from(AtomicBool::new(false));
-
-        let progress_tracking = progress_report | title_formatter.options.action_progress;
+        let progress_tracking = report_progress | title_formatter.options.progress;
         let current_progress = Arc::new(AtomicU8::new(0));
 
-        let shell_title = Arc::new(std::sync::Mutex::from(None));
-        let pre_parser = Arc::new(std::sync::Mutex::from(vt100::Parser::new(6, 144, 0)));
+        let shell_title = Arc::new(std::sync::Mutex::new(None));
+        let pre_parser = Arc::new(std::sync::Mutex::new(vt100::Parser::new(6, 144, 0)));
 
         {
             let shell_title = shell_title.clone();
@@ -142,113 +138,110 @@ impl Pty {
                 }
 
                 loop {
-                    if !paused.load(Ordering::Relaxed) {
-                        buf[remaining..].fill(0);
+                    if paused.load(Ordering::Relaxed) {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        continue;
+                    }
 
-                        if reader
-                            .read(&mut buf[remaining..])
-                            .is_ok_and(|bytes| bytes > 0)
-                        {
-                            let mut pre_parser = pre_parser.lock().unwrap();
-                            let previous_cached_content = pre_parser.screen().contents();
-                            match std::str::from_utf8(&buf) {
-                                Ok(parsed_buf) => {
-                                    pre_parser.process(parsed_buf.as_bytes());
-                                    on_read(parsed_buf);
-                                    remaining = 0;
-                                }
-                                Err(utf8) => {
-                                    pre_parser.process(&buf[..utf8.valid_up_to()]);
-                                    on_read(unsafe {
-                                        std::str::from_utf8_unchecked(&buf[..utf8.valid_up_to()])
-                                    });
-                                    remaining = buf[utf8.valid_up_to()..].len()
-                                        - (buf.len()
-                                            - utf8.valid_up_to()
-                                            - utf8
-                                                .error_len()
-                                                .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
-                                    buf.rotate_left(utf8.valid_up_to());
-                                }
+                    buf[remaining..].fill(0);
+                    if let Ok(bytes) = reader.read(&mut buf[remaining..]) {
+                        if bytes == 0 {
+                            break;
+                        }
+
+                        let mut pre_parser = pre_parser.lock().unwrap();
+                        let previous_cached_content = pre_parser.screen().contents();
+                        match std::str::from_utf8(&buf) {
+                            Ok(parsed_buf) => {
+                                pre_parser.process(parsed_buf.as_bytes());
+                                on_read(parsed_buf);
+                                remaining = 0;
+                            }
+                            Err(utf8) => {
+                                pre_parser.process(&buf[..utf8.valid_up_to()]);
+                                on_read(unsafe {
+                                    std::str::from_utf8_unchecked(&buf[..utf8.valid_up_to()])
+                                });
+                                remaining = buf[utf8.valid_up_to()..].len()
+                                    - (buf.len()
+                                        - utf8.valid_up_to()
+                                        - utf8
+                                            .error_len()
+                                            .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
+                                buf.rotate_left(utf8.valid_up_to());
+                            }
+                        }
+
+                        let cached_content = pre_parser.screen().contents();
+                        if cached_content != previous_cached_content {
+                            if notify {
+                                on_notify();
                             }
 
-                            if pre_parser.screen().contents() != previous_cached_content {
-                                if displayed_content_update_report {
-                                    on_displayed_content_updated();
-                                }
+                            if progress_tracking && !pre_parser.screen().alternate_screen() {
+                                let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
+                                    .find_iter(&cached_content)
+                                    .map(|m| {
+                                        m.as_str()
+                                            .split_once('%')
+                                            .and_then(|(number, _)| number.parse::<f64>().ok())
+                                            .map(|progress| (progress.ceil() as u64))
+                                            .unwrap_or_default()
+                                    })
+                                    .filter(|progress| *progress > 0)
+                                    .filter(|progress| *progress < 100)
+                                    .last()
+                                    .map_or_else(
+                                        || {
+                                            PROGRESS_PARSING_FRAC_REGEX
+                                                .find_iter(&cached_content)
+                                                .map(|m| {
+                                                    let parts = m
+                                                        .as_str()
+                                                        .split_once('/')
+                                                        .unwrap_or_default();
+                                                    let numerator =
+                                                        parts.0.parse::<u64>().unwrap_or(0);
+                                                    let denominator =
+                                                        parts.1.parse::<u64>().unwrap_or(1);
+                                                    if numerator == 0 || numerator >= denominator {
+                                                        0
+                                                    } else {
+                                                        (numerator * 100 / denominator).max(1)
+                                                    }
+                                                })
+                                                .filter(|progress| *progress > 0)
+                                                .last()
+                                        },
+                                        Some,
+                                    )
+                                    .filter(|progress| *progress <= 100)
+                                    .map(|progress| (progress % 100) as u8)
+                                    .unwrap_or_default();
 
-                                if progress_tracking && !pre_parser.screen().alternate_screen() {
-                                    let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
-                                        .find_iter(&pre_parser.screen().contents())
-                                        .map(|m| {
-                                            m.as_str()
-                                                .split_once('%')
-                                                .and_then(|(number, _)| number.parse::<f64>().ok())
-                                                .map(|progress| (progress.ceil() as u64))
-                                                .unwrap_or_default()
-                                        })
-                                        .filter(|progress| *progress > 0)
-                                        .filter(|progress| *progress < 100)
-                                        .last()
-                                        .map_or_else(
-                                            || {
-                                                PROGRESS_PARSING_FRAC_REGEX
-                                                    .find_iter(&pre_parser.screen().contents())
-                                                    .map(|m| {
-                                                        let parts = m
-                                                            .as_str()
-                                                            .split_once('/')
-                                                            .unwrap_or_default();
-                                                        let numerator =
-                                                            parts.0.parse::<u64>().unwrap_or(0);
-                                                        let denominator =
-                                                            parts.1.parse::<u64>().unwrap_or(1);
-                                                        if numerator == 0
-                                                            || numerator >= denominator
-                                                        {
-                                                            0
-                                                        } else {
-                                                            (numerator * 100 / denominator).max(1)
-                                                        }
-                                                    })
-                                                    .filter(|progress| *progress > 0)
-                                                    .last()
-                                            },
-                                            Some,
-                                        )
-                                        .filter(|progress| *progress <= 100)
-                                        .map(|progress| (progress % 100) as u8)
-                                        .unwrap_or_default();
+                                if fetched_progress != current_progress.load(Ordering::Relaxed) {
+                                    current_progress.store(fetched_progress, Ordering::Relaxed);
 
-                                    if fetched_progress != current_progress.load(Ordering::Relaxed)
-                                    {
-                                        current_progress.store(fetched_progress, Ordering::Relaxed);
-
-                                        if progress_report {
-                                            on_action_progress(fetched_progress);
-                                        }
-                                    }
-                                } else if current_progress.load(Ordering::Relaxed) != 0
-                                    && progress_tracking
-                                {
-                                    current_progress.store(0, Ordering::Relaxed);
-
-                                    if progress_report {
-                                        on_action_progress(0);
+                                    if report_progress {
+                                        on_progress(fetched_progress);
                                     }
                                 }
-                            }
+                            } else if current_progress.load(Ordering::Relaxed) != 0
+                                && progress_tracking
+                            {
+                                current_progress.store(0, Ordering::Relaxed);
 
-                            if title_formatter.options.shell_title {
-                                if let Ok(mut lock) = shell_title.lock() {
-                                    *lock = Some(pre_parser.screen().title().to_owned());
+                                if report_progress {
+                                    on_progress(0);
                                 }
                             }
                         }
-                    }
 
-                    if exit_receiver.try_recv().is_ok() {
-                        break;
+                        if title_formatter.options.shell_title {
+                            if let Ok(mut lock) = shell_title.lock() {
+                                *lock = Some(pre_parser.screen().title().to_owned());
+                            }
+                        }
                     }
                 }
             });
@@ -257,7 +250,7 @@ impl Pty {
         {
             let closed = closed.clone();
             let child = child.clone();
-            let leader_process = leader_process.clone();
+            let leader_name = leader_name.clone();
 
             #[cfg(target_family = "unix")]
             let master = master.clone();
@@ -266,27 +259,24 @@ impl Pty {
                 let mut interval = tokio::time::interval(Duration::from_millis(20));
                 let mut current_title = String::new();
 
-                on_tab_title_update(&title_formatter.format(&FormatterParams::default()));
+                on_title_update(&title_formatter.format(&Params::default()));
 
                 loop {
                     interval.tick().await;
 
                     if matches!(child.lock().await.try_wait(), Ok(Some(_))) {
-                        exit_sender.send(()).ok();
-
                         closed.store(true, Ordering::Relaxed);
                         once_exit();
-
                         break;
                     }
 
                     #[cfg(target_family = "unix")]
-                    let process_leader_pid = master.lock().await.process_group_leader();
+                    let leader_pid = master.lock().await.process_group_leader();
                     #[cfg(target_os = "windows")]
-                    let process_leader_pid = Some(crate::utils::pty::get_leader_pid(shell_pid));
+                    let leader_pid = Some(process::get_leader_pid(shell_pid));
 
-                    if let Some(fetched_leader_pid) = process_leader_pid {
-                        let mut fetched_leader_process = None;
+                    if let Some(fetched_leader_pid) = leader_pid {
+                        let mut fetched_leader_name = None;
                         let mut fetched_pwd = None;
                         let mut fetched_short_pwd = None;
                         let fetched_progress = match current_progress.load(Ordering::Relaxed) {
@@ -305,50 +295,48 @@ impl Pty {
                         };
 
                         let mut fetchers: Vec<Pin<Box<dyn futures::Future<Output = ()> + Send>>> =
-                            vec![Box::pin(crate::utils::pty::get_process_title(
+                            vec![Box::pin(process::get_title(
                                 fetched_leader_pid,
-                                &mut fetched_leader_process,
+                                &mut fetched_leader_name,
                             ))];
 
                         if title_formatter.options.pwd {
-                            fetchers.push(Box::pin(crate::utils::pty::get_process_working_dir(
+                            fetchers.push(Box::pin(process::get_working_dir(
                                 fetched_leader_pid,
                                 &mut fetched_pwd,
                             )));
                         }
                         if title_formatter.options.short_pwd {
-                            fetchers.push(Box::pin(
-                                crate::utils::pty::get_process_short_working_dir(
-                                    fetched_leader_pid,
-                                    &mut fetched_short_pwd,
-                                ),
-                            ));
+                            fetchers.push(Box::pin(process::get_short_working_dir(
+                                fetched_leader_pid,
+                                &mut fetched_short_pwd,
+                            )));
                         }
 
                         let fetched_data_count = fetchers.len();
                         join_all(fetchers).await;
 
                         if fetched_data_count > 1
-                            || title_formatter.options.action_progress
+                            || title_formatter.options.progress
                             || title_formatter.options.shell_title
-                            || title_formatter.options.leader_process
+                            || title_formatter.options.leader_name
                         {
-                            let generated_title = title_formatter.format(&FormatterParams {
-                                pwd: fetched_pwd,
-                                short_pwd: fetched_short_pwd,
-                                leader_process: fetched_leader_process.clone(),
+                            let generated_title = title_formatter.format(&Params {
+                                pwd: fetched_pwd.as_deref(),
+                                short_pwd: fetched_short_pwd.as_deref(),
+                                leader_name: fetched_leader_name.as_deref(),
                                 progress: fetched_progress,
-                                shell_title: fetched_shell_title,
+                                shell_title: fetched_shell_title.as_deref(),
                             });
 
                             if generated_title != current_title {
-                                on_tab_title_update(&generated_title);
+                                on_title_update(&generated_title);
                                 current_title = generated_title;
                             }
                         }
 
-                        if let Some(fetched_leader_process) = fetched_leader_process {
-                            *leader_process.lock().await = fetched_leader_process;
+                        if let Some(fetched_leader_name) = fetched_leader_name {
+                            *leader_name.lock().await = fetched_leader_name;
                         }
                     }
                 }
@@ -361,13 +349,15 @@ impl Pty {
             master,
             paused,
             pre_parser,
-            leader_name: leader_process,
+            leader_name,
             closed,
         })
     }
 
-    pub fn write(&mut self, content: &str) -> Result<(), PtyError> {
+    pub async fn write(&self, content: &str) -> Result<(), PtyError> {
         self.writer
+            .lock()
+            .await
             .write(content.as_bytes())
             .map_err(|err| PtyError::Write(err.to_string()))
             .map(|_| ())

@@ -1,91 +1,92 @@
-name: 'Generate binaries'
+name: "Generate binaries"
 
 on:
-  release:
-    types: [published]
+    release:
+        types: [published]
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  generate-linux-binaries:
-    name: Build linux binary for target ${{ matrix.target }}
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - i686-unknown-linux-gnu
+    generate-linux-binaries:
+        name: Build linux binary for target ${{ matrix.target }}
+        strategy:
+            matrix:
+                target:
+                    - x86_64-unknown-linux-gnu
+                    - i686-unknown-linux-gnu
 
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'latest'
+            - name: Install NodeJS
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "latest"
 
-      - name: Install Rustup
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
-          rustup component add rust-src
+            - name: Install Rustup
+              run: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+                  rustup component add rust-src
 
-      - name: Install Cross
-        run: |
-          cargo install cross --git https://github.com/cross-rs/cross
-      
-      - name: Build frontend
-        run: |
-          npm i
-          npm run build
+            - name: Install Cross
+              run: |
+                  cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build binary
-        run: |
-          cd src-tauri
-          CROSS_NO_WARNINGS=0 cross +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
-          mv target/${{ matrix.target }}/release/tess target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+            - name: Build frontend
+              run: |
+                  npm i
+                  npm run build
 
-      - name: Publish binary
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+            - name: Build binary
+              run: |
+                  cd src-tauri
+                  CROSS_NO_WARNINGS=0 REMOVE_UNUSED_COMMANDS=$(pwd) RUSTFLAGS="-Zlocation-detail=none -Zfmt-debug=none -Clto" cross +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
+                  mv target/${{ matrix.target }}/release/tess target/${{ matrix.target }}/release/tess-${{ matrix.target }}
 
+            - name: Publish binary
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
 
-  generate-windows-binaries:
-    name: Build Windows binary for target ${{ matrix.target }}
-    strategy:
-      matrix:
-        target:
-          - x86_64-pc-windows-msvc
+    generate-windows-binaries:
+        name: Build Windows binary for target ${{ matrix.target }}
+        strategy:
+            matrix:
+                target:
+                    - x86_64-pc-windows-msvc
 
-    runs-on: windows-2019
-    steps:
-      - uses: actions/checkout@v4
+        runs-on: windows-2019
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'latest'
+            - name: Install NodeJS
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "latest"
 
-      - name: Install Rustup
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
-          rustup component add rust-src
-      
-      - name: Build frontend
-        run: |
-          npm i
-          npm run build
+            - name: Install Rustup
+              run: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+                  rustup component add rust-src
 
-      - name: Build binary
-        run: |
-          cd src-tauri
-          cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
-          mv target/${{ matrix.target }}/release/tess.exe target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+            - name: Build frontend
+              run: |
+                  npm i
+                  npm run build
 
-      - name: Publish binary
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+            - name: Build binary
+              run: |
+                  cd src-tauri
+                  $env:REMOVE_UNUSED_COMMANDS = $PWD.Path
+                  $env:RUSTFLAGS = "-Zlocation-detail=none -Zfmt-debug=none -Clto"
+                  cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
+                  mv target/${{ matrix.target }}/release/tess.exe target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+
+            - name: Publish binary
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe

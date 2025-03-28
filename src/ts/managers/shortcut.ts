@@ -1,4 +1,4 @@
-import { Shortcut, ShortcutAction } from "schemas/option";
+import { Shortcut, ShortcutAction } from "schemas/settings";
 import Terminal from "components/view/widgets/terminal";
 
 export default class ShortcutManager {
@@ -52,7 +52,7 @@ export default class ShortcutManager {
                     ) {
                         this.onShortcutExecutedCallback(
                             correspondingShortcut[1],
-                            target.id
+                            target.uuid
                         );
 
                         e.preventDefault();

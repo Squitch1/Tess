@@ -1,5 +1,5 @@
-import { Profile } from "schemas/option";
-import { convertFileSrc } from "@tauri-apps/api/tauri";
+import { Profile } from "schemas/settings";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { Terminal as Xterm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { CanvasAddon } from "@xterm/addon-canvas";
@@ -65,16 +65,17 @@ export default class Terminal extends Widget {
             allowProposedApi: true,
             fontFamily: "Fira Code, monospace",
             allowTransparency: profile.backgroundTransparency < 100,
-            fontSize: profile.terminalOptions.fontSize,
+            fontSize: profile.terminalSettings.fontSize,
             drawBoldTextInBrightColors:
-                profile.terminalOptions.drawBoldInBright,
-            cursorBlink: profile.terminalOptions.cursorBlink,
-            scrollback: profile.terminalOptions.bufferSize,
-            lineHeight: profile.terminalOptions.lineHeight / 100,
-            cursorStyle: profile.terminalOptions.cursor,
-            letterSpacing: profile.terminalOptions.letterSpacing,
-            fontWeight: profile.terminalOptions.fontWeight * 100,
-            fontWeightBold: profile.terminalOptions.fontWeightBold * 100,
+                profile.terminalSettings.drawBoldInBright,
+            cursorBlink: profile.terminalSettings.cursorBlink,
+            scrollback: profile.terminalSettings.bufferSize,
+            lineHeight: profile.terminalSettings.lineHeight / 100,
+            cursorStyle: profile.terminalSettings.cursor,
+            letterSpacing: profile.terminalSettings.letterSpacing,
+            fontWeight: profile.terminalSettings.fontWeight * 100,
+            fontWeightBold: profile.terminalSettings.fontWeightBold * 100,
+            ignoreBracketedPasteMode: !profile.terminalSettings.bracketedPaste,
             theme,
         });
 

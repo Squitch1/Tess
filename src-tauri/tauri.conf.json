@@ -2,62 +2,44 @@
     "build": {
         "beforeBuildCommand": "npm run build",
         "beforeDevCommand": "npm run dev",
-        "devPath": "http://localhost:5173",
-        "distDir": "./dist"
+        "frontendDist": "./dist",
+        "devUrl": "http://localhost:5173",
+        "removeUnusedCommands": true
     },
-    "package": {
-        "productName": "tess",
-        "version": "0.7.0"
-    },
-    "tauri": {
-        "allowlist": {
-            "clipboard": {
-                "all": true
-            },
-            "protocol": {
-                "asset": true,
-                "assetScope": ["**"]
-            }
+    "bundle": {
+        "active": true,
+        "category": "DeveloperTool",
+        "copyright": "",
+        "targets": [],
+        "externalBin": [],
+
+        "windows": {
+            "certificateThumbprint": null,
+            "digestAlgorithm": "sha256",
+            "timestampUrl": ""
         },
-        "bundle": {
-            "active": true,
-            "category": "DeveloperTool",
-            "copyright": "",
+        "longDescription": "",
+        "macOS": {
+            "entitlements": null,
+            "exceptionDomain": "",
+            "frameworks": [],
+            "providerShortName": null,
+            "signingIdentity": null
+        },
+        "resources": [],
+        "shortDescription": "",
+        "linux": {
             "deb": {
                 "depends": []
-            },
-            "externalBin": [],
-            "icon": [
-                "icons/32x32.png",
-                "icons/128x128.png",
-                "icons/128x128@2x.png",
-                "icons/icon.icns",
-                "icons/icon.ico"
-            ],
-            "identifier": "dev.tessapp",
-            "longDescription": "",
-            "macOS": {
-                "entitlements": null,
-                "exceptionDomain": "",
-                "frameworks": [],
-                "providerShortName": null,
-                "signingIdentity": null
-            },
-            "resources": [],
-            "shortDescription": "",
-            "targets": "all",
-            "windows": {
-                "certificateThumbprint": null,
-                "digestAlgorithm": "sha256",
-                "timestampUrl": ""
             }
-        },
-        "security": {
-            "csp": null
-        },
-        "updater": {
-            "active": false
-        },
+        }
+    },
+    "productName": "tess",
+    "mainBinaryName": "tess",
+    "version": "0.7.0",
+    "identifier": "dev.tessapp",
+    "plugins": {},
+    "app": {
         "windows": [
             {
                 "title": "Tess",
@@ -68,8 +50,19 @@
                 "fullscreen": false,
                 "resizable": true,
                 "transparent": true,
-                "decorations": false
+                "decorations": false,
+                "useHttpsScheme": true
             }
-        ]
+        ],
+        "security": {
+            "assetProtocol": {
+                "scope": {
+                    "allow": ["**"],
+                    "requireLiteralLeadingDot": false
+                },
+                "enable": true
+            },
+            "csp": null
+        }
     }
 }

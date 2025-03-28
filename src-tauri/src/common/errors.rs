@@ -22,3 +22,9 @@ impl serde::Serialize for PtyError {
         serializer.serialize_str(self.to_string().as_ref())
     }
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum BadFileFormatError {
+    #[error("File at {0} is not an image.")]
+    Image(String),
+}

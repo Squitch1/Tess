@@ -1,6 +1,7 @@
-use serde::de::Error;
-use serde::Deserialize;
-use serde::{Serialize, Serializer};
+use crate::common::errors::BadFileFormatError;
+
+use serde::{de::Error, Deserialize, Serialize, Serializer};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RangedInt<const MIN: u32, const MAX: u32, const DEF: u32>(pub u32);
@@ -51,8 +52,32 @@ pub enum BackgroundType {
     Acrylic,
     #[cfg(target_os = "windows")]
     Mica,
+    #[cfg(target_os = "windows")]
+    Tabbed,
     #[cfg(target_os = "macos")]
     Vibrancy,
+}
+
+impl FromStr for BackgroundType {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "opaque" => Ok(Self::Opaque),
+            "transparent" => Ok(Self::Transparent),
+            #[cfg(target_family = "unix")]
+            "blurred" => Ok(Self::Blurred),
+            #[cfg(target_os = "windows")]
+            "acrylic" => Ok(Self::Acrylic),
+            #[cfg(target_os = "windows")]
+            "mica" => Ok(Self::Mica),
+            #[cfg(target_os = "windows")]
+            "tabbed" => Ok(Self::Tabbed),
+            #[cfg(target_os = "macos")]
+            "vibrancy" => Ok(Self::Vibrancy),
+            _ => Ok(Self::Media(BackgroundMedia::from_str(s)?)),
+        }
+    }
 }
 
 impl Default for BackgroundType {
@@ -65,35 +90,15 @@ impl<'de> serde::Deserialize<'de> for BackgroundType {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Debug, Deserialize)]
         #[serde(untagged)]
-        enum OptionRepresentation {
+        enum Wrapper {
             Simple(String),
             Complex(BackgroundMedia),
         }
 
-        let option_representation = OptionRepresentation::deserialize(deserializer)?;
-
-        Ok(
-            if let OptionRepresentation::Simple(option_value) = option_representation {
-                match option_value.to_lowercase().as_str() {
-                    "opaque" => Self::Opaque,
-                    "transparent" => Self::Transparent,
-                    #[cfg(target_family = "unix")]
-                    "blurred" => Self::Blurred,
-                    #[cfg(target_os = "windows")]
-                    "acrylic" => Self::Acrylic,
-                    #[cfg(target_os = "windows")]
-                    "mica" => Self::Mica,
-                    #[cfg(target_os = "macos")]
-                    "vibrancy" => Self::Vibrancy,
-                    _ => BackgroundMedia::deserialize_from_string(option_value)
-                        .map_or_else(Self::default, Self::Media),
-                }
-            } else if let OptionRepresentation::Complex(background_media) = option_representation {
-                Self::Media(background_media)
-            } else {
-                Self::default()
-            },
-        )
+        Ok(match Wrapper::deserialize(deserializer)? {
+            Wrapper::Simple(value) => Self::from_str(&value).unwrap_or_default(),
+            Wrapper::Complex(media) => Self::Media(media),
+        })
     }
 }
 
@@ -117,19 +122,18 @@ pub struct BackgroundMedia {
     pub location: String,
 }
 
-impl BackgroundMedia {
-    #[must_use]
-    pub fn deserialize_from_string(value: String) -> Option<Self> {
-        std::fs::read(&value).map_or(None, |file| {
-            if infer::is_image(&file) {
-                Some(Self {
-                    location: value,
-                    blur: RangedInt::default(),
-                })
-            } else {
-                None
-            }
-        })
+impl std::str::FromStr for BackgroundMedia {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(path: &str) -> Result<Self, Self::Err> {
+        if infer::is_image(&std::fs::read(path)?) {
+            Ok(Self {
+                location: path.to_owned(),
+                blur: RangedInt::default(),
+            })
+        } else {
+            Err(Box::new(BadFileFormatError::Image(path.to_owned())))
+        }
     }
 }
 
@@ -142,15 +146,11 @@ impl<'de> serde::Deserialize<'de> for BackgroundMedia {
         }
 
         let partial_background_media = PartialBackgroundMedia::deserialize(deserializer)?;
-        if std::fs::read(&partial_background_media.location)
-            .is_ok_and(|file| infer::is_image(&file))
-        {
-            Ok(Self {
-                blur: partial_background_media.blur.unwrap_or_default(),
-                location: partial_background_media.location,
+        Self::from_str(&partial_background_media.location)
+            .map(|mut media| {
+                media.blur = partial_background_media.blur.unwrap_or_default();
+                media
             })
-        } else {
-            Err(D::Error::custom("File not found or format not supported"))
-        }
+            .map_err(D::Error::custom)
     }
 }

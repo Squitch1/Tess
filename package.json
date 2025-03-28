@@ -26,8 +26,9 @@
         "vite": "^3.2.3"
     },
     "dependencies": {
-        "@tauri-apps/api": "^1.2.0",
-        "@tauri-apps/cli": "^1.2.1",
+        "@tauri-apps/api": "^2.2.0",
+        "@tauri-apps/cli": "^2.2.5",
+        "@tauri-apps/plugin-clipboard-manager": "^2.2.1",
         "@xterm/addon-canvas": "^0.6.0",
         "@xterm/addon-fit": "^0.9.0",
         "@xterm/xterm": "5.4.0"

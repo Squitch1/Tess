@@ -4,29 +4,29 @@ enum TitlePart {
     Dynamic([String; 3]),
 }
 #[derive(Default, Clone, Copy, Debug)]
-pub struct FormatterOptions {
+pub struct Options {
     pub pwd: bool,
     pub short_pwd: bool,
-    pub leader_process: bool,
-    pub action_progress: bool,
+    pub leader_name: bool,
+    pub progress: bool,
     pub shell_title: bool,
 }
 #[derive(Default)]
-pub struct FormatterParams {
-    pub pwd: Option<String>,
-    pub short_pwd: Option<String>,
-    pub leader_process: Option<String>,
+pub struct Params<'a> {
+    pub pwd: Option<&'a str>,
+    pub short_pwd: Option<&'a str>,
+    pub leader_name: Option<&'a str>,
     pub progress: Option<u8>,
-    pub shell_title: Option<String>,
+    pub shell_title: Option<&'a str>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Formatter {
+pub struct TitleFormatter {
     parts: Vec<TitlePart>,
-    pub options: FormatterOptions,
+    pub options: Options,
 }
 
-impl Formatter {
+impl TitleFormatter {
     #[must_use]
     pub fn new(title: &str, profile_name: &str) -> Self {
         let mut parts = Vec::new();
@@ -35,7 +35,7 @@ impl Formatter {
         let mut current_placeholder_part = 0;
         let mut in_placeholder = false;
         let mut escaped = false;
-        let mut format_option = FormatterOptions::default();
+        let mut format_option = Options::default();
 
         for char in title.chars() {
             if escaped {
@@ -64,8 +64,8 @@ impl Formatter {
 
                                     current_placeholder_parts = Default::default();
                                 }
-                                placeholder @ ("pwd" | "short_pwd" | "leader_process"
-                                | "action_progress" | "shell_title") => {
+                                placeholder @ ("pwd" | "short_pwd" | "leader_name" | "progress"
+                                | "shell_title") => {
                                     parts.push(TitlePart::Static(std::mem::take(
                                         &mut current_static_part,
                                     )));
@@ -76,8 +76,8 @@ impl Formatter {
                                     match placeholder {
                                         "pwd" => format_option.pwd = true,
                                         "short_pwd" => format_option.short_pwd = true,
-                                        "leader_process" => format_option.leader_process = true,
-                                        "action_progress" => format_option.action_progress = true,
+                                        "leader_name" => format_option.leader_name = true,
+                                        "progress" => format_option.progress = true,
                                         "shell_title" => format_option.shell_title = true,
                                         _ => unreachable!(),
                                     }
@@ -132,7 +132,7 @@ impl Formatter {
     }
 
     #[must_use]
-    pub fn format(&self, params: &FormatterParams) -> String {
+    pub fn format(&self, params: &Params) -> String {
         self.parts
             .iter()
             .map(|part| match part {
@@ -142,27 +142,27 @@ impl Formatter {
                     match (content[1].as_str(), params) {
                         (
                             "pwd",
-                            FormatterParams {
+                            Params {
                                 pwd: Some(value), ..
                             },
                         )
                         | (
                             "short_pwd",
-                            FormatterParams {
+                            Params {
                                 short_pwd: Some(value),
                                 ..
                             },
                         )
                         | (
-                            "leader_process",
-                            FormatterParams {
-                                leader_process: Some(value),
+                            "leader_name",
+                            Params {
+                                leader_name: Some(value),
                                 ..
                             },
                         )
                         | (
                             "shell_title",
-                            FormatterParams {
+                            Params {
                                 shell_title: Some(value),
                                 ..
                             },
@@ -174,8 +174,8 @@ impl Formatter {
                             output
                         }
                         (
-                            "action_progress",
-                            FormatterParams {
+                            "progress",
+                            Params {
                                 progress: Some(value),
                                 ..
                             },

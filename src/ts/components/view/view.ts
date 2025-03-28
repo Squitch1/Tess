@@ -13,17 +13,17 @@ import computeLayout from "utils/tilling";
 import Pane from "./pane";
 
 export default class View {
-    id: string;
+    uuid: string;
     element: HTMLElement;
 
     onceClosed: () => void;
 
-    onWidgetAdded: (id: string) => void;
-    onWidgetFocused: (id: string) => void;
-    onWidgetTitleUpdated: (id: string, title: string) => void;
-    onWidgetRequestHighlight: (id: string) => void;
-    onWidgetProgressUpdated: (id: string, progress: number) => void;
-    onWidgetClosed: (id: string) => void;
+    onWidgetAdded: (uuid: string) => void;
+    onWidgetFocused: (uuid: string) => void;
+    onWidgetTitleUpdated: (uuid: string, title: string) => void;
+    onWidgetRequestHighlight: (uuid: string) => void;
+    onWidgetProgressUpdated: (uuid: string, progress: number) => void;
+    onWidgetClosed: (uuid: string) => void;
 
     popupManager: PopupManager;
     toaster: Toaster;
@@ -48,7 +48,7 @@ export default class View {
     private rowsSpan: number = 1;
 
     constructor(viewId: string, popupManager: PopupManager, toaster: Toaster) {
-        this.id = viewId;
+        this.uuid = viewId;
 
         this.element = document.createElement("div");
         this.element.classList.add("view");
@@ -97,20 +97,24 @@ export default class View {
 
     private linkWidget(widget: Widget) {
         widget.onTitleUpdate = (title) =>
-            this.onWidgetTitleUpdated(widget.id, title);
+            this.onWidgetTitleUpdated(widget.uuid, title);
         widget.onHighlightRequest = () =>
-            this.onWidgetRequestHighlight(widget.id);
+            this.onWidgetRequestHighlight(widget.uuid);
         widget.onProgressUpdated = (progress) =>
-            this.onWidgetProgressUpdated(widget.id, progress);
+            this.onWidgetProgressUpdated(widget.uuid, progress);
 
         widget.element.addEventListener("focusin", () => {
-            if (this.focusHistory[0] !== widget.id) {
-                this.focusHistory.unshift(widget.id);
+            if (this.focusHistory[0] !== widget.uuid) {
+                this.focusHistory.unshift(widget.uuid);
             }
 
             this.focusedWidget = widget;
-            this.onWidgetFocused(widget.id);
+            this.onWidgetFocused(widget.uuid);
         });
+
+        if (widget.initialTitle) {
+            this.onWidgetTitleUpdated(widget.uuid, widget.initialTitle);
+        }
     }
 
     async addWidget(widget: Widget) {
@@ -129,9 +133,8 @@ export default class View {
             widget
         );
 
+        this.onWidgetAdded(widget.uuid);
         this.linkWidget(widget);
-
-        this.onWidgetAdded(widget.id);
 
         this.element.appendChild(pane.element);
         this.panes.push(pane);
@@ -140,33 +143,33 @@ export default class View {
         this.focusedWidget = widget;
     }
 
-    private onWidgetClosing(id: string) {
-        const widget = this.widgets.find((widget) => widget.id === id);
+    private onWidgetClosing(uuid: string) {
+        const widget = this.widgets.find((widget) => widget.uuid === uuid);
         if (widget) {
             widget.dispose();
 
             this.widgets.splice(this.widgets.indexOf(widget), 1);
-            this.onWidgetClosed(id);
+            this.onWidgetClosed(uuid);
             if (this.widgets.length === 0) {
                 this.resizeObserver.disconnect();
                 this.onceClosed();
             }
             this.focusHistory = this.focusHistory.filter(
-                (widgetId) => widgetId !== id
+                (widgetId) => widgetId !== uuid
             );
-            if (this.focusedWidget?.id === id && this.widgets.length > 0) {
+            if (this.focusedWidget?.uuid === uuid && this.widgets.length > 0) {
                 const previouslyFocusedWidgetId = this.focusHistory.shift()!;
                 this.focusedWidget = this.widgets.find(
-                    (widget) => widget.id === previouslyFocusedWidgetId
+                    (widget) => widget.uuid === previouslyFocusedWidgetId
                 );
-                this.onWidgetFocused(this.focusedWidget!.id);
+                this.onWidgetFocused(this.focusedWidget!.uuid);
             }
         }
     }
 
-    private onPaneClosing(id: string) {
+    private onPaneClosing(uuid: string) {
         const closedPane = this.panes.splice(
-            this.panes.findIndex((pane) => pane.id === id),
+            this.panes.findIndex((pane) => pane.uuid === uuid),
             1
         )[0];
         closedPane.element.remove();
@@ -179,8 +182,8 @@ export default class View {
         await Promise.all(this.widgets.map((widget) => widget.close()));
     }
 
-    async closeWidget(id: string) {
-        await this.widgets.find((widget) => widget.id === id)?.close();
+    async closeWidget(uuid: string) {
+        await this.widgets.find((widget) => widget.uuid === uuid)?.close();
     }
 
     cancelSelectSpecific() {
@@ -214,7 +217,7 @@ export default class View {
             const confirmButton = new PopupButton("confirm", "validate");
             try {
                 if (
-                    !config.closeConfirmation.group ||
+                    !settings.closeConfirmation.group ||
                     (
                         await this.popupManager.sendPopup(
                             new PopupBuilder(
@@ -232,18 +235,18 @@ export default class View {
                 this.closingAllRequested = false;
             }
         } else {
-            await this.requestWidgetClosing(this.widgets[0].id);
+            await this.requestWidgetClosing(this.widgets[0].uuid);
         }
     }
 
-    async requestWidgetClosing(id: string) {
+    async requestWidgetClosing(uuid: string) {
         if (this.widgetClosingRequested) {
             return;
         }
 
         this.cancelSelectSpecific();
 
-        const widget = this.widgets.find((widget) => widget.id === id);
+        const widget = this.widgets.find((widget) => widget.uuid === uuid);
 
         if (widget) {
             this.widgetClosingRequested = true;
@@ -268,10 +271,10 @@ export default class View {
                             )
                         ).action === "confirm"
                     ) {
-                        await this.closeWidget(id);
+                        await this.closeWidget(uuid);
                     }
                 } else {
-                    await this.closeWidget(id);
+                    await this.closeWidget(uuid);
                 }
             } finally {
                 this.widgetClosingRequested = false;
@@ -335,7 +338,7 @@ export default class View {
         this.focusedWidget?.anchoringPane?.split(widget);
 
         this.focusedWidget = widget;
-        this.onWidgetAdded(widget.id);
+        this.onWidgetAdded(widget.uuid);
     }
 
     async splitSpecificWidget(widget: Widget, path: number[]) {
@@ -354,7 +357,7 @@ export default class View {
         this.linkWidget(widget);
         this.widgets.push(widget);
         this.focusedWidget = widget;
-        this.onWidgetAdded(widget.id);
+        this.onWidgetAdded(widget.uuid);
     }
 
     selectSpecificPane(): Promise<number[]> {

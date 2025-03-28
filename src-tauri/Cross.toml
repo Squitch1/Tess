@@ -3,3 +3,6 @@ image = "squitch/cross:i686-unknown-linux-gnu-tauri"
 
 [target.x86_64-unknown-linux-gnu]
 image = "squitch/cross:x86_64-unknown-linux-gnu-tauri"
+
+[build.env]
+passthrough = ["REMOVE_UNUSED_COMMANDS"]

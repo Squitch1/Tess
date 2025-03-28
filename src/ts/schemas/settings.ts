@@ -1,4 +1,4 @@
-export type Option = {
+export type Settings = {
     appTheme: string;
     closeConfirmation: CloseConfirmation;
     desktopIntegration: DesktopInetgration;
@@ -46,10 +46,10 @@ export type ShortcutAction =
 
 type Macro = {
     content: string;
-    id: string;
+    uuid: string;
 };
 
-export type TerminalOptions = {
+export type TerminalSettings = {
     bell: boolean;
     bufferSize: number;
     cursor: "bar" | "underline" | "block";
@@ -63,13 +63,14 @@ export type TerminalOptions = {
     lineHeight: number;
     showPicture: boolean;
     showUnreadDataMark: boolean;
+    bracketedPaste: boolean;
 };
 
 export type Profile = {
     name: string;
-    terminalOptions: TerminalOptions;
+    terminalSettings: TerminalSettings;
     theme: TerminalTheme;
-    id: string;
+    uuid: string;
     backgroundTransparency: number;
     background: BackgroundMedia | null;
     command: string;

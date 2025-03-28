@@ -1,6 +1,6 @@
-import { Option } from "schemas/option";
+import { Settings } from "schemas/settings";
 
 declare global {
     // eslint-disable-next-line vars-on-top, no-var
-    var config: Option;
+    var settings: Settings;
 }
