@@ -3,27 +3,21 @@
     windows_subsystem = "windows"
 )]
 
-use tess::commands;
 use tess::common::Logger;
 use tess::schemas;
 use tess::settings::deserialized::Settings;
-use tess::settings::types::BackgroundType;
 use tess::states::Ptys;
+use tess::{commands, utils};
 
 use std::io::ErrorKind;
 use std::sync::Arc;
 use tauri::{Emitter, Listener, Manager, WindowEvent};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 #[cfg(target_family = "unix")]
 use futures::stream::StreamExt;
 #[cfg(target_family = "unix")]
-use gtk::{glib::ObjectExt, prelude::WidgetExt};
-#[cfg(target_family = "unix")]
 use signal_hook::consts::signal::*;
-
-#[cfg(target_os = "windows")]
-use tauri::window::{self, EffectsBuilder};
 
 #[tokio::main]
 async fn main() {
@@ -73,9 +67,34 @@ async fn main() {
         }
     }
 
-    let settings = Arc::new(Mutex::new(settings));
+    let window_close_confirmation = settings.close_confirmation.window;
+    let settings = Arc::new(RwLock::new(settings));
+    let cloned_settings = settings.clone();
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let app = tauri::Builder::default()
+        .setup(move |app| {
+            let webview_window = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(async { utils::window::create(app.handle(), cloned_settings).await })
+            })?;
+            webview_window.clone().once("loaded", move |_| {
+                if settings_error.is_some() {
+                    webview_window
+                        .emit(
+                            "js_show_toast",
+                            schemas::utils::Toast {
+                                title: "Malformed configuration",
+                                message: settings_error.as_deref(),
+                                r#type: schemas::utils::ToastType::Warn,
+                            },
+                        )
+                        .ok();
+                }
+
+                logger.info(&format!("Launched in {}ms.", start.elapsed().as_millis()));
+            });
+            Ok(())
+        })
         .manage(settings.clone())
         .manage(Ptys::default())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -95,63 +114,8 @@ async fn main() {
         ])
         .build(tauri::generate_context!())
         .unwrap();
-
     app.run(move |app, event| match event {
         tauri::RunEvent::Ready => {
-            {
-                #[cfg(target_os = "windows")]
-                let app = app.clone();
-                let settings = settings.clone();
-                tokio::spawn(async move {
-                    match &settings.lock().await.background {
-                        #[cfg(target_family = "unix")]
-                        BackgroundType::Blurred => {
-                            todo!()
-                        }
-                        #[cfg(target_os = "windows")]
-                        BackgroundType::Acrylic => {
-                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Acrylic).build()).is_err() {
-                                logger.warn("Cannot apply acrylic background effect. Switching back to transparent background");
-                            }
-                        }
-                        #[cfg(target_os = "windows")]
-                        BackgroundType::Mica => {
-                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Mica).build()).is_err() {
-                                logger.warn("Cannot apply mica background effect. Switching back to transparent background");
-                            }
-                        }
-                        #[cfg(target_os = "windows")]
-                        BackgroundType::Tabbed => {
-                            if app.get_webview_window("main").unwrap().set_effects(EffectsBuilder::new().effect(window::Effect::Tabbed).build()).is_err() {
-                                logger.warn("Cannot apply tabbed background effect. Switching back to transparent background");
-                            }
-                        }
-                        #[cfg(target_os = "macos")]
-                        BackgroundType::Vibrancy => {
-                            todo!()
-                        }
-                        _ => {}
-                    }
-                });
-            }
-
-            #[cfg(debug_assertions)]
-            app.get_webview_window("main").unwrap().open_devtools();
-
-            app.get_webview_window("main")
-                .unwrap()
-                .set_decorations(true)
-                .ok();
-
-            #[cfg(target_family = "unix")]
-            app.get_webview_window("main")
-                .unwrap()
-                .gtk_window()
-                .unwrap()
-                .settings()
-                .unwrap()
-                .set_property("gtk-menu-bar-accel", ""); // Fix F10 not being inputed on Linux
-
             #[cfg(target_family = "unix")]
             {
                 let app = app.clone();
@@ -161,16 +125,15 @@ async fn main() {
                     {
                         while signals_stream.next().await.is_some() {
                             let windows_count = app.webview_windows().len();
+                            let webview_window = app
+                                .get_focused_window()
+                                .unwrap_or(app.windows().values().next().unwrap().clone());
                             if windows_count > 1 {
-                                app.get_webview_window("main")
-                                    .unwrap()
+                                webview_window
                                     .emit("js_app_request_exit", windows_count)
                                     .ok();
                             } else {
-                                app.get_webview_window("main")
-                                    .unwrap()
-                                    .emit("js_window_request_closing", ())
-                                    .ok();
+                                webview_window.emit("js_window_request_closing", ()).ok();
                             }
                         }
                     } else {
@@ -178,45 +141,21 @@ async fn main() {
                     }
                 });
             }
-
-            if let Some(parsing_error) = settings_error.clone() {
-                let app = app.clone();
-                app.get_webview_window("main")
-                    .unwrap()
-                    .listen("loaded", move |e| {
-                        app.get_webview_window("main")
-                            .unwrap()
-                            .emit(
-                                "js_show_toast",
-                                schemas::utils::Toast {
-                                    title: "Malformed configuration",
-                                    message: Some(&parsing_error),
-                                    r#type: schemas::utils::ToastType::Warn,
-                                },
-                            )
-                            .ok();
-                        app.unlisten(e.id());
-                    });
-            }
-
-            logger.info(&format!("Launched in {}ms.", start.elapsed().as_millis()));
         }
         tauri::RunEvent::WindowEvent {
             label,
             event: WindowEvent::CloseRequested { api, .. },
             ..
-        } => tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                if settings.lock().await.close_confirmation.window {
-                    app.get_webview_window(&label)
-                        .unwrap()
-                        .emit("js_window_request_closing", ())
-                        .ok();
+        } => {
+            if window_close_confirmation {
+                app.get_webview_window(&label)
+                    .unwrap()
+                    .emit("js_window_request_closing", ())
+                    .ok();
 
-                    api.prevent_close()
-                }
-            })
-        }),
+                api.prevent_close()
+            }
+        }
         _ => (),
     })
 }

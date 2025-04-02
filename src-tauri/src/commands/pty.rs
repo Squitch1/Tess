@@ -6,24 +6,25 @@ use crate::states::Ptys;
 
 use std::sync::Arc;
 use tauri::Emitter;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 #[tauri::command]
-pub async fn pty_open(
+pub async fn pty_open<'a>(
     app: tauri::AppHandle,
     uuid: Uuid,
     profile_uuid: Uuid,
-    settings: tauri::State<'_, Arc<Mutex<Settings>>>,
+    command: Option<&'a str>,
+    settings: tauri::State<'_, Arc<RwLock<Settings>>>,
     ptys: tauri::State<'_, Ptys>,
 ) -> Result<(), PtyError> {
+    let settings = settings.read().await;
     let app_title_update = app.clone();
     let app_progress_update = app.clone();
     let app_displayed_content_update = app.clone();
     let app_pty_closed = app.clone();
 
-    let locked_settings = settings.lock().await;
-    let opening_profile = locked_settings
+    let opening_profile = settings
         .profiles
         .iter()
         .find(|profile| profile.uuid == profile_uuid)
@@ -32,7 +33,7 @@ pub async fn pty_open(
     ptys.0.write().await.insert(
         uuid,
         Pty::build_and_run(
-            &opening_profile.command,
+            command.unwrap_or(&opening_profile.command),
             opening_profile.title_format.clone(),
             opening_profile.terminal_settings.progress_tracking,
             opening_profile.terminal_settings.notify_content_change,
@@ -79,7 +80,7 @@ pub async fn pty_open(
 #[tauri::command]
 pub async fn pty_close(ptys: tauri::State<'_, Ptys>, uuid: Uuid) -> Result<(), PtyError> {
     let mut ptys = ptys.0.write().await;
-    ptys.get(&uuid)
+    ptys.get_mut(&uuid)
         .ok_or(PtyError::UnknownPty)?
         .kill()
         .await
@@ -122,11 +123,10 @@ pub async fn pty_resize(
 #[tauri::command]
 pub async fn pty_get_closable(
     ptys: tauri::State<'_, Ptys>,
-    settings: tauri::State<'_, Arc<Mutex<Settings>>>,
+    settings: tauri::State<'_, Arc<RwLock<Settings>>>,
     uuid: Uuid,
 ) -> Result<bool, PtyError> {
-    let settings = settings.lock().await;
-
+    let settings = settings.read().await;
     if settings.close_confirmation.tab {
         let locked_ptys = ptys.0.read().await;
         let pty = locked_ptys.get(&uuid).ok_or(PtyError::UnknownPty)?;

@@ -26,7 +26,6 @@
             "providerShortName": null,
             "signingIdentity": null
         },
-        "resources": [],
         "shortDescription": "",
         "linux": {
             "deb": {
@@ -40,20 +39,6 @@
     "identifier": "dev.tessapp",
     "plugins": {},
     "app": {
-        "windows": [
-            {
-                "title": "Tess",
-                "width": 1440,
-                "height": 810,
-                "minWidth": 640,
-                "minHeight": 360,
-                "fullscreen": false,
-                "resizable": true,
-                "transparent": true,
-                "decorations": false,
-                "useHttpsScheme": true
-            }
-        ],
         "security": {
             "assetProtocol": {
                 "scope": {
