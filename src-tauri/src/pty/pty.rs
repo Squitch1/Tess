@@ -1,6 +1,7 @@
 use super::process;
 use super::title_formatter::{Params, TitleFormatter};
 
+use crate::common::consts::PTY_BUFFER_SIZE;
 use crate::common::errors::PtyError;
 
 use futures::future::join_all;
@@ -19,7 +20,7 @@ use regex_lite::Captures;
 
 pub struct Pty {
     writer: Mutex<Box<dyn Write + Send>>,
-    child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
+    child: Box<dyn Child + Send + Sync>,
     master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
     paused: Arc<AtomicBool>,
     pre_parser: Arc<std::sync::Mutex<vt100::Parser>>,
@@ -49,7 +50,7 @@ impl Pty {
         }
 
         #[cfg(target_os = "windows")]
-        let builded_command = CommandBuilder::from_argv(
+        let built_command = CommandBuilder::from_argv(
             PROGRAMM_PARSING_REGEX
                 .replace_all(command, |env_variable: &Captures| {
                     std::env::var(&env_variable[1]).unwrap_or_default()
@@ -61,7 +62,7 @@ impl Pty {
 
         #[cfg(target_family = "unix")]
         #[allow(unused_mut)]
-        let mut builded_command = CommandBuilder::from_argv(
+        let mut built_command = CommandBuilder::from_argv(
             command
                 .split(' ')
                 .map(std::ffi::OsString::from)
@@ -69,7 +70,7 @@ impl Pty {
         );
 
         #[cfg(target_family = "unix")]
-        builded_command.env("TERM", "xterm-256color");
+        built_command.env("TERM", "xterm-256color");
 
         let pty_pair = native_pty_system()
             .openpty(PtySize::default())
@@ -88,33 +89,29 @@ impl Pty {
         let master = Arc::new(Mutex::new(pty_pair.master));
 
         #[cfg(target_family = "unix")]
-        let child = Arc::new(Mutex::new(
-            pty_pair
-                .slave
-                .spawn_command(builded_command)
-                .map_err(|err| PtyError::Creation(err.to_string()))?,
-        ));
+        let child = pty_pair
+            .slave
+            .spawn_command(built_command)
+            .map_err(|err| PtyError::Creation(err.to_string()))?;
 
         #[cfg(target_os = "windows")]
         let mut shell_pid = 0;
         #[cfg(target_os = "windows")]
-        let child = Arc::new(Mutex::new(
-            pty_pair
-                .slave
-                .spawn_command(builded_command)
-                .and_then(|child| {
-                    shell_pid = child
-                        .process_id()
-                        .ok_or(PtyError::Creation("PID not found".to_owned()))?;
-                    Ok(child)
-                })
-                .map_err(|err| PtyError::Creation(err.to_string()))?,
-        ));
+        let child = pty_pair
+            .slave
+            .spawn_command(built_command)
+            .and_then(|child| {
+                shell_pid = child
+                    .process_id()
+                    .ok_or(PtyError::Creation("PID not found".to_owned()))?;
+                Ok(child)
+            })
+            .map_err(|err| PtyError::Creation(err.to_string()))?;
 
         let leader_name = Arc::new(Mutex::new(String::new()));
 
-        let paused = Arc::new(AtomicBool::new(false));
         let closed = Arc::new(AtomicBool::new(false));
+        let paused = Arc::new(AtomicBool::new(false));
 
         let progress_tracking = report_progress | title_formatter.options.progress;
         let current_progress = Arc::new(AtomicU8::new(0));
@@ -123,13 +120,14 @@ impl Pty {
         let pre_parser = Arc::new(std::sync::Mutex::new(vt100::Parser::new(6, 144, 0)));
 
         {
+            let closed = closed.clone();
+            let paused = paused.clone();
             let shell_title = shell_title.clone();
             let pre_parser = pre_parser.clone();
             let current_progress = current_progress.clone();
-            let paused = paused.clone();
 
             std::thread::spawn(move || {
-                let mut buf = [0; 16384];
+                let mut buf = [0; PTY_BUFFER_SIZE];
                 let mut remaining = 0;
 
                 lazy_static::lazy_static! {
@@ -139,117 +137,118 @@ impl Pty {
 
                 loop {
                     if paused.load(Ordering::Relaxed) {
-                        std::thread::sleep(std::time::Duration::from_millis(10));
+                        std::thread::sleep(Duration::from_millis(10));
                         continue;
                     }
 
                     buf[remaining..].fill(0);
-                    if let Ok(bytes) = reader.read(&mut buf[remaining..]) {
-                        if bytes == 0 {
-                            break;
+                    match reader.read(&mut buf[remaining..]) {
+                        Ok(0) => break,
+                        Err(_) => continue,
+                        _ => (),
+                    };
+                    let mut pre_parser = pre_parser.lock().unwrap();
+                    let previous_cached_content = pre_parser.screen().contents();
+                    match std::str::from_utf8(&buf) {
+                        Ok(parsed_buf) => {
+                            pre_parser.process(parsed_buf.as_bytes());
+                            on_read(parsed_buf);
+                            remaining = 0;
+                        }
+                        Err(utf8) => {
+                            pre_parser.process(&buf[..utf8.valid_up_to()]);
+                            on_read(unsafe {
+                                std::str::from_utf8_unchecked(&buf[..utf8.valid_up_to()])
+                            });
+                            remaining = buf[utf8.valid_up_to()..].len()
+                                - (buf.len()
+                                    - utf8.valid_up_to()
+                                    - utf8
+                                        .error_len()
+                                        .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
+                            buf.rotate_left(utf8.valid_up_to());
+                        }
+                    }
+
+                    let cached_content = pre_parser.screen().contents();
+                    if cached_content != previous_cached_content {
+                        if notify {
+                            on_notify();
                         }
 
-                        let mut pre_parser = pre_parser.lock().unwrap();
-                        let previous_cached_content = pre_parser.screen().contents();
-                        match std::str::from_utf8(&buf) {
-                            Ok(parsed_buf) => {
-                                pre_parser.process(parsed_buf.as_bytes());
-                                on_read(parsed_buf);
-                                remaining = 0;
-                            }
-                            Err(utf8) => {
-                                pre_parser.process(&buf[..utf8.valid_up_to()]);
-                                on_read(unsafe {
-                                    std::str::from_utf8_unchecked(&buf[..utf8.valid_up_to()])
-                                });
-                                remaining = buf[utf8.valid_up_to()..].len()
-                                    - (buf.len()
-                                        - utf8.valid_up_to()
-                                        - utf8
-                                            .error_len()
-                                            .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
-                                buf.rotate_left(utf8.valid_up_to());
-                            }
-                        }
+                        if progress_tracking && !pre_parser.screen().alternate_screen() {
+                            let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
+                                .find_iter(&cached_content)
+                                .map(|m| {
+                                    m.as_str()
+                                        .split('%')
+                                        .next()
+                                        .and_then(|number| number.parse::<f64>().ok())
+                                        .map(|progress| (progress.ceil() as u64))
+                                        .unwrap_or_default()
+                                })
+                                .filter(|progress| (0..100).contains(progress))
+                                .last()
+                                .map_or_else(
+                                    || {
+                                        PROGRESS_PARSING_FRAC_REGEX
+                                            .find_iter(&cached_content)
+                                            .map(|m| {
+                                                let (numerator, denominator) = m
+                                                    .as_str()
+                                                    .split_once('/')
+                                                    .map_or((0, 1), |(n, d)| {
+                                                        (
+                                                            n.parse().unwrap_or(0),
+                                                            d.parse().unwrap_or(1),
+                                                        )
+                                                    });
+                                                if numerator == 0 || numerator >= denominator {
+                                                    0
+                                                } else {
+                                                    (numerator * 100 / denominator).max(1)
+                                                }
+                                            })
+                                            .filter(|progress| *progress > 0)
+                                            .last()
+                                    },
+                                    Some,
+                                )
+                                .filter(|progress| *progress <= 100)
+                                .map(|progress| (progress % 100) as u8)
+                                .unwrap_or_default();
 
-                        let cached_content = pre_parser.screen().contents();
-                        if cached_content != previous_cached_content {
-                            if notify {
-                                on_notify();
-                            }
-
-                            if progress_tracking && !pre_parser.screen().alternate_screen() {
-                                let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
-                                    .find_iter(&cached_content)
-                                    .map(|m| {
-                                        m.as_str()
-                                            .split_once('%')
-                                            .and_then(|(number, _)| number.parse::<f64>().ok())
-                                            .map(|progress| (progress.ceil() as u64))
-                                            .unwrap_or_default()
-                                    })
-                                    .filter(|progress| *progress > 0)
-                                    .filter(|progress| *progress < 100)
-                                    .last()
-                                    .map_or_else(
-                                        || {
-                                            PROGRESS_PARSING_FRAC_REGEX
-                                                .find_iter(&cached_content)
-                                                .map(|m| {
-                                                    let parts = m
-                                                        .as_str()
-                                                        .split_once('/')
-                                                        .unwrap_or_default();
-                                                    let numerator =
-                                                        parts.0.parse::<u64>().unwrap_or(0);
-                                                    let denominator =
-                                                        parts.1.parse::<u64>().unwrap_or(1);
-                                                    if numerator == 0 || numerator >= denominator {
-                                                        0
-                                                    } else {
-                                                        (numerator * 100 / denominator).max(1)
-                                                    }
-                                                })
-                                                .filter(|progress| *progress > 0)
-                                                .last()
-                                        },
-                                        Some,
-                                    )
-                                    .filter(|progress| *progress <= 100)
-                                    .map(|progress| (progress % 100) as u8)
-                                    .unwrap_or_default();
-
-                                if fetched_progress != current_progress.load(Ordering::Relaxed) {
-                                    current_progress.store(fetched_progress, Ordering::Relaxed);
-
-                                    if report_progress {
-                                        on_progress(fetched_progress);
-                                    }
-                                }
-                            } else if current_progress.load(Ordering::Relaxed) != 0
-                                && progress_tracking
-                            {
-                                current_progress.store(0, Ordering::Relaxed);
+                            if fetched_progress != current_progress.load(Ordering::Relaxed) {
+                                current_progress.store(fetched_progress, Ordering::Relaxed);
 
                                 if report_progress {
-                                    on_progress(0);
+                                    on_progress(fetched_progress);
                                 }
                             }
-                        }
+                        } else if current_progress.load(Ordering::Relaxed) != 0 && progress_tracking
+                        {
+                            current_progress.store(0, Ordering::Relaxed);
 
-                        if title_formatter.options.shell_title {
-                            if let Ok(mut lock) = shell_title.lock() {
-                                *lock = Some(pre_parser.screen().title().to_owned());
+                            if report_progress {
+                                on_progress(0);
                             }
                         }
                     }
+
+                    if title_formatter.options.shell_title {
+                        if let Ok(mut lock) = shell_title.lock() {
+                            *lock = Some(pre_parser.screen().title().to_owned());
+                        }
+                    }
                 }
+
+                closed.store(true, Ordering::Relaxed);
+                once_exit();
             });
         }
 
         {
             let closed = closed.clone();
-            let child = child.clone();
             let leader_name = leader_name.clone();
 
             #[cfg(target_family = "unix")]
@@ -264,9 +263,7 @@ impl Pty {
                 loop {
                     interval.tick().await;
 
-                    if matches!(child.lock().await.try_wait(), Ok(Some(_))) {
-                        closed.store(true, Ordering::Relaxed);
-                        once_exit();
+                    if closed.load(Ordering::Relaxed) {
                         break;
                     }
 
@@ -363,13 +360,11 @@ impl Pty {
             .map(|_| ())
     }
 
-    pub async fn kill(&self) -> Result<(), PtyError> {
+    pub async fn kill(&mut self) -> Result<(), PtyError> {
         if self.closed.load(Ordering::Relaxed) {
             Ok(())
         } else {
             self.child
-                .lock()
-                .await
                 .kill()
                 .map_err(|err| PtyError::Kill(err.to_string()))
                 .map(|()| self.closed.store(true, Ordering::Relaxed))

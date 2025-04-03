@@ -40,7 +40,6 @@ window.addEventListener("load", () =>
             document.querySelector(".tabs")!,
             document.querySelector(".toasts")!
         );
-        await app.openProfile(settings.defaultProfile.uuid, true);
 
         document.querySelector(".open")!.addEventListener("click", async () => {
             await app.openProfile(settings.defaultProfile.uuid, true);

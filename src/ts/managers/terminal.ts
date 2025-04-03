@@ -64,13 +64,17 @@ export default class TerminalManager {
             ?.onTitleUpdate(e.payload.title);
     }
 
-    private onTerminalProcessExited(e: Event<string>) {
+    private async onTerminalProcessExited(e: Event<string>) {
+        try {
+            await invoke<void>("pty_close", { uuid: e.payload });
+        } catch (e) {
+            /* empty */
+        }
         const terminal = this.terminals.splice(
             this.terminals.findIndex((terminal) => terminal.uuid === e.payload),
             1
         )[0];
         this.terminalFlows.delete(e.payload);
-
         terminal.onceClosed();
     }
 

@@ -17,7 +17,7 @@ import {
     UnkownSplitPathError,
     ViewSelectSpecificPaneError,
 } from "schemas/error";
-import { showToastPayload } from "schemas/utils";
+import { openTabPayload, showToastPayload } from "schemas/common";
 import * as clipboard from "@tauri-apps/plugin-clipboard-manager";
 
 export default class App {
@@ -78,6 +78,12 @@ export default class App {
                 e.payload.type
             )
         );
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        listen<openTabPayload>("js_open_tab", async (e) => {
+            if (e.payload.profile) {
+                await this.openProfile(e.payload.profile.uuid, true);
+            }
+        });
     }
 
     private async closeAllWindows(e: Event<number>) {

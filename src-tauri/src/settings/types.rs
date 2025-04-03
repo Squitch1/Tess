@@ -122,7 +122,7 @@ pub struct BackgroundMedia {
     pub location: String,
 }
 
-impl std::str::FromStr for BackgroundMedia {
+impl FromStr for BackgroundMedia {
     type Err = Box<dyn std::error::Error>;
 
     fn from_str(path: &str) -> Result<Self, Self::Err> {
