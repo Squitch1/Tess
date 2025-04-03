@@ -31,7 +31,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        let uuid = uuid::Uuid::new_v4();
+        let uuid = Uuid::new_v4();
 
         Self {
             app_theme: String::default(),
@@ -76,7 +76,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
 
         let profiles = if partial_settings.profiles.is_empty() {
             vec![default_profile(
-                uuid::Uuid::new_v4(),
+                Uuid::new_v4(),
                 &partial_settings.title_format,
                 partial_settings.background_transparency,
                 partial_settings.terminal.clone(),
@@ -155,7 +155,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     background_transparency: partial_profile
                         .background_transparency
                         .unwrap_or(partial_settings.background_transparency),
-                    uuid: partial_profile.uuid.unwrap_or_else(uuid::Uuid::new_v4),
+                    uuid: partial_profile.uuid.unwrap_or_else(Uuid::new_v4),
                     command: partial_profile.command,
                     background: partial_profile.background,
                 });
@@ -170,7 +170,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
             for macro_command in partial_macros {
                 macros.push(Macro {
                     content: macro_command.content,
-                    uuid: macro_command.uuid.unwrap_or_else(uuid::Uuid::new_v4),
+                    uuid: macro_command.uuid.unwrap_or_else(Uuid::new_v4),
                 });
             }
         }

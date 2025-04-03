@@ -10,11 +10,11 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 #[tauri::command]
-pub async fn pty_open<'a>(
+pub async fn pty_open(
     app: tauri::AppHandle,
     uuid: Uuid,
     profile_uuid: Uuid,
-    command: Option<&'a str>,
+    command: Option<&str>,
     settings: tauri::State<'_, Arc<RwLock<Settings>>>,
     ptys: tauri::State<'_, Ptys>,
 ) -> Result<(), PtyError> {

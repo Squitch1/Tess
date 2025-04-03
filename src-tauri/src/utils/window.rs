@@ -13,7 +13,6 @@ use tokio::sync::RwLock;
 #[cfg(target_os = "windows")]
 use tauri::window::{self, EffectsBuilder};
 
-#[must_use]
 pub async fn create(
     app: &AppHandle,
     settings: Arc<RwLock<Settings>>,
@@ -77,6 +76,7 @@ pub async fn create(
 
     let cloned_webview = webview.clone();
     let default_profile_uuid = settings.default_profile.uuid;
+    drop(settings);
     webview.once("loaded", move |_| {
         cloned_webview.show().unwrap();
 
