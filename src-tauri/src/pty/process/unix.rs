@@ -36,7 +36,7 @@ pub async fn get_working_dir(pid: i32, fetched_pwd: &mut Option<String>) {
 pub async fn get_short_working_dir(pid: i32, fetched_short_pwd: &mut Option<String>) {
     *fetched_short_pwd = tokio::task::spawn_blocking(move || {
         std::fs::read_link(format!("/proc/{pid}/cwd")).map_or(None, |path| {
-            Some(if dirs_next::home_dir().is_some_and(|home| home == path) {
+            Some(if dirs::home_dir().is_some_and(|home| home == path) {
                 String::from("~")
             } else {
                 path.file_name().map_or_else(

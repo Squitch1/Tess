@@ -26,11 +26,11 @@ async fn main() {
     let logger = Logger {};
 
     #[cfg(target_family = "unix")]
-    let settings_path = dirs_next::config_dir()
+    let settings_path = dirs::config_dir()
         .map(|path| path.join("tess/settings.json"))
         .unwrap_or_default();
     #[cfg(target_os = "windows")]
-    let settings_path = dirs_next::config_dir()
+    let settings_path = dirs::config_dir()
         .map(|path| path.join("Tess/settings.json"))
         .unwrap_or_default();
 

@@ -24,7 +24,7 @@ tokio = { version = "1", default-features = false, features = [
     "macros",
     "time",
 ] }
-dirs-next = "2.0.0"
+dirs = "6"
 uuid = { version = "1.15", features = ["v4", "serde"] }
 thiserror = "1.0.50"
 lazy_static = "1.4.0"
