@@ -139,7 +139,7 @@ pub async fn get_short_working_dir(pid: u32, fetched_short_pwd: &mut Option<Stri
 
     *fetched_short_pwd = fetched_pwd.map(|path| {
         let path = std::path::PathBuf::from(&path);
-        if dirs_next::home_dir().is_some_and(|home| path == home) {
+        if dirs::home_dir().is_some_and(|home| path == home) {
             String::from("~")
         } else {
             path.file_name().map_or_else(
