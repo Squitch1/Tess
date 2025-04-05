@@ -83,7 +83,6 @@ pub async fn pty_close(ptys: tauri::State<'_, Ptys>, uuid: Uuid) -> Result<(), P
     ptys.get_mut(&uuid)
         .ok_or(PtyError::UnknownPty)?
         .kill()
-        .await
         .inspect(|()| {
             ptys.remove(&uuid);
         })

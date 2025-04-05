@@ -32,6 +32,7 @@ regex-lite = "0.1.5"
 vt100 = "0.15.2"
 futures = "0.3.29"
 tauri-plugin-clipboard-manager = "2"
+bitcode = "0.6.6"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.17"

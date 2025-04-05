@@ -1,4 +1,4 @@
-import { listen, Event } from "@tauri-apps/api/event";
+import { Event } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
 import { ShortcutAction } from "schemas/settings";
@@ -67,11 +67,15 @@ export default class App {
         );
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        listen("js_window_request_closing", () => this.closeViews());
+        webviewWindow.listen("js_window_request_closing", () =>
+            this.closeViews()
+        );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        listen<number>("js_app_request_exit", (e) => this.closeAllWindows(e));
+        webviewWindow.listen<number>("js_app_request_exit", (e) =>
+            this.closeAllWindows(e)
+        );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        listen<showToastPayload>("js_show_toast", (e) =>
+        webviewWindow.listen<showToastPayload>("js_show_toast", (e) =>
             this.toaster.toast(
                 e.payload.title,
                 e.payload.message,
@@ -79,7 +83,7 @@ export default class App {
             )
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        listen<openTabPayload>("js_open_tab", async (e) => {
+        webviewWindow.listen<openTabPayload>("js_open_tab", async (e) => {
             if (e.payload.profile) {
                 await this.openProfile(e.payload.profile.uuid, true);
             }

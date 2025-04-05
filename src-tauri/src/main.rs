@@ -4,6 +4,7 @@
 )]
 
 use tess::common::Logger;
+use tess::ipc::TransmissionPayload;
 use tess::schemas;
 use tess::settings::deserialized::Settings;
 use tess::states::Ptys;
@@ -22,8 +23,31 @@ use signal_hook::consts::signal::*;
 #[tokio::main]
 async fn main() {
     let start = std::time::Instant::now();
-
     let logger = Logger {};
+
+    match tess::ipc::Client::new(dirs::runtime_dir().unwrap().join("tess.sock")).await {
+        Ok(mut socket) => {
+            let payload = &bitcode::encode(&TransmissionPayload::default());
+            let mut n = 0;
+            while n < payload.len() {
+                match socket.send(&payload[n..]).await {
+                    Ok(x) => n += x,
+                    Err(e) => {
+                        logger.fatal(&format!("Unable to send data through socket: {e}."));
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+        #[cfg(target_os = "linux")]
+        Err(e) if e.kind() == ErrorKind::ConnectionRefused => {
+            tokio::fs::remove_file(dirs::runtime_dir().unwrap().join("tess.sock"))
+                .await
+                .ok();
+        }
+        Err(_) => (),
+    }
 
     #[cfg(target_family = "unix")]
     let settings_path = dirs::config_dir()
@@ -73,14 +97,78 @@ async fn main() {
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let app = tauri::Builder::default()
         .setup(move |app| {
-            let webview_window = tokio::task::block_in_place(|| {
+            match tess::ipc::Server::new(dirs::runtime_dir().unwrap().join("tess.sock")) {
+                Err(_) => {
+                    logger.warn(
+                        "IPC server cannot be created; an external connection is impossible.",
+                    );
+                }
+                Ok(server) => {
+                    let app = app.handle().clone();
+                    let cloned_settings = cloned_settings.clone();
+                    server.listen(move |payload| {
+                        println!("Received payload = {payload:?}");
+
+                        tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current().block_on(async {
+                                match payload {
+                                    Err(_) => todo!(),
+                                    Ok(payload) => {
+                                        // TODO: refactor here and better payload destruction to rteduce code indentation
+                                        if payload.window {
+                                            if let Err(e) =
+                                                utils::window::create(&app, cloned_settings.clone())
+                                                    .await
+                                            {
+                                                logger
+                                                    .warn(&format!("Window creation failed: {e}."));
+                                                app.emit_to(
+                                                    utils::window::get_focused_or_random(&app)
+                                                        .label(),
+                                                    "js_show_toast",
+                                                    schemas::utils::Toast {
+                                                        title: "Window creation failed",
+                                                        message: Some(&e.to_string()),
+                                                        r#type: schemas::utils::ToastType::Error,
+                                                    },
+                                                )
+                                                .ok();
+                                            }
+
+                                            return;
+                                        }
+
+                                        app.emit_to(
+                                            utils::window::get_focused_or_random(&app).label(),
+                                            "js_open_tab",
+                                            schemas::utils::OpenTab::Profile {
+                                                uuid: cloned_settings
+                                                    .read()
+                                                    .await
+                                                    .default_profile
+                                                    .uuid
+                                                    .into(),
+                                                executable: None,
+                                            },
+                                        )
+                                        .ok();
+                                    }
+                                }
+                            })
+                        })
+                    });
+                }
+            }
+
+            let window = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current()
                     .block_on(async { utils::window::create(app.handle(), cloned_settings).await })
             })?;
-            webview_window.clone().once("loaded", move |_| {
+            window.clone().once("loaded", move |_| {
                 if settings_error.is_some() {
-                    webview_window
-                        .emit(
+                    window
+                        .emit_to(
+                            window.label(),
                             "js_show_toast",
                             schemas::utils::Toast {
                                 title: "Malformed configuration",
@@ -114,7 +202,7 @@ async fn main() {
         ])
         .build(tauri::generate_context!())
         .unwrap();
-    app.run(move |app, event| match event {
+    app.run_return(move |app, event| match event {
         tauri::RunEvent::Ready => {
             #[cfg(target_family = "unix")]
             {
@@ -124,20 +212,23 @@ async fn main() {
                         signal_hook_tokio::Signals::new([SIGQUIT, SIGTERM])
                     {
                         while signals_stream.next().await.is_some() {
-                            let windows_count = app.webview_windows().len();
-                            let webview_window = app
-                                .get_focused_window()
-                                .unwrap_or(app.windows().values().next().unwrap().clone());
-                            if windows_count > 1 {
-                                webview_window
-                                    .emit("js_app_request_exit", windows_count)
+                            let window = utils::window::get_focused_or_random(&app);
+                            if app.webview_windows().len() > 1 {
+                                window
+                                    .emit_to(
+                                        window.label(),
+                                        "js_app_request_exit",
+                                        app.webview_windows().len(),
+                                    )
                                     .ok();
                             } else {
-                                webview_window.emit("js_window_request_closing", ()).ok();
+                                window
+                                    .emit_to(window.label(), "js_window_request_closing", ())
+                                    .ok();
                             }
                         }
                     } else {
-                        logger.fatal("Unable to register the signal handler.")
+                        logger.warn("Unable to register the signal handler.")
                     }
                 });
             }
@@ -150,12 +241,12 @@ async fn main() {
             if window_close_confirmation {
                 app.get_webview_window(&label)
                     .unwrap()
-                    .emit("js_window_request_closing", ())
+                    .emit_to(label, "js_window_request_closing", ())
                     .ok();
 
                 api.prevent_close()
             }
         }
         _ => (),
-    })
+    });
 }

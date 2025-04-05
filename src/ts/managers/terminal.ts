@@ -70,12 +70,14 @@ export default class TerminalManager {
         } catch (e) {
             /* empty */
         }
-        const terminal = this.terminals.splice(
-            this.terminals.findIndex((terminal) => terminal.uuid === e.payload),
-            1
-        )[0];
-        this.terminalFlows.delete(e.payload);
-        terminal.onceClosed();
+        const index = this.terminals.findIndex(
+            (terminal) => terminal.uuid === e.payload
+        );
+        if (index > -1) {
+            const terminal = this.terminals.splice(index, 1)[0];
+            this.terminalFlows.delete(e.payload);
+            terminal.onceClosed();
+        }
     }
 
     private onTerminalContentUpdated(e: Event<string>) {
