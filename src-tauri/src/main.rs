@@ -3,8 +3,9 @@
     windows_subsystem = "windows"
 )]
 
+use tess::common::consts::IPC_SOCKET_ADDR;
 use tess::common::Logger;
-use tess::ipc::TransmissionPayload;
+use tess::ipc;
 use tess::schemas;
 use tess::settings::deserialized::Settings;
 use tess::states::Ptys;
@@ -25,9 +26,9 @@ async fn main() {
     let start = std::time::Instant::now();
     let logger = Logger {};
 
-    match tess::ipc::Client::new(dirs::runtime_dir().unwrap().join("tess.sock")).await {
+    match ipc::Client::new(&*IPC_SOCKET_ADDR).await {
         Ok(mut socket) => {
-            let payload = &bitcode::encode(&TransmissionPayload::default());
+            let payload = &bitcode::encode(&ipc::TransmissionPayload::default());
             let mut n = 0;
             while n < payload.len() {
                 match socket.send(&payload[n..]).await {
@@ -97,7 +98,7 @@ async fn main() {
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let app = tauri::Builder::default()
         .setup(move |app| {
-            match tess::ipc::Server::new(dirs::runtime_dir().unwrap().join("tess.sock")) {
+            match ipc::Server::new(&*IPC_SOCKET_ADDR) {
                 Err(_) => {
                     logger.warn(
                         "IPC server cannot be created; an external connection is impossible.",

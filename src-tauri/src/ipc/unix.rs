@@ -1,9 +1,9 @@
+use super::TransmissionPayload;
+
 use std::io::Error;
 use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
-
-use super::TransmissionPayload;
 
 pub struct Client {
     sender: UnixStream,
@@ -33,6 +33,7 @@ impl Server {
             addr,
         })
     }
+
     pub fn listen(
         self,
         callback: impl Fn(Result<TransmissionPayload, Box<dyn std::error::Error>>)
@@ -41,10 +42,18 @@ impl Server {
             + 'static,
     ) {
         tokio::spawn(async move {
+            let mut buf = Vec::new();
             loop {
-                let (mut stream, _) = self.listener.accept().await.unwrap();
-
-                let mut buf = Vec::new();
+                let mut stream = match self.listener.accept().await {
+                    Ok((stream, _)) => stream,
+                    Err(e) => {
+                        Logger {}.warn(&format!(
+                            "IPC server stopped: {e}; an external connection is impossible."
+                        ));
+                        break;
+                    }
+                };
+                buf.clear();
                 callback(
                     stream
                         .read_to_end(&mut buf)
