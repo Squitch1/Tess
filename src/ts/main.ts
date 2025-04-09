@@ -1,6 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { Settings } from "schemas/settings";
 import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import App from "./app";
 
 window.addEventListener("contextmenu", (e) => {
@@ -10,6 +11,7 @@ window.addEventListener("contextmenu", (e) => {
 window.addEventListener("load", () =>
     invoke<Settings>("utils_get_settings").then(async (settings) => {
         globalThis.settings = settings;
+        globalThis.webviewWindow = getCurrentWebviewWindow();
 
         if (
             settings.background !== "opaque" &&

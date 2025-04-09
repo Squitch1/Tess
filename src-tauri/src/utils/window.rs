@@ -7,29 +7,40 @@ use crate::{
 use crate::common::Logger;
 
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Listener, WebviewWindow};
+use tauri::{AppHandle, Emitter, Listener, Manager, WebviewWindow, Window};
 use tokio::sync::RwLock;
 
 #[cfg(target_os = "windows")]
 use tauri::window::{self, EffectsBuilder};
 
+#[inline]
+#[must_use]
+pub fn get_focused_or_random(app: &AppHandle) -> Window {
+    app.get_focused_window()
+        .unwrap_or_else(|| app.windows().values().next().unwrap().clone())
+}
+
 pub async fn create(
     app: &AppHandle,
     settings: Arc<RwLock<Settings>>,
+    tab: schemas::utils::OpenTab,
 ) -> Result<WebviewWindow, tauri::Error> {
-    let webview =
-        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("Tess")
-            .transparent(true)
-            .inner_size(1440f64, 810f64)
-            .min_inner_size(640f64, 360f64)
-            .use_https_scheme(true)
-            .visible(false)
-            .build()?;
+    let webview = tauri::WebviewWindowBuilder::new(
+        app,
+        uuid::Uuid::new_v4()
+            .as_simple()
+            .encode_lower(&mut uuid::Uuid::encode_buffer()),
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("Tess")
+    .transparent(true)
+    .inner_size(1440f64, 810f64)
+    .min_inner_size(640f64, 360f64)
+    .use_https_scheme(true)
+    .visible(false)
+    .build()?;
 
-    let settings = settings.read().await;
-
-    match settings.background {
+    match settings.read().await.background {
         #[cfg(target_family = "unix")]
         BackgroundType::Blurred => {
             todo!()
@@ -75,8 +86,6 @@ pub async fn create(
     }
 
     let cloned_webview = webview.clone();
-    let default_profile_uuid = settings.default_profile.uuid;
-    drop(settings);
     webview.once("loaded", move |_| {
         cloned_webview.show().unwrap();
 
@@ -84,13 +93,7 @@ pub async fn create(
         cloned_webview.open_devtools();
 
         cloned_webview
-            .emit(
-                "js_open_tab",
-                schemas::utils::OpenTab::Profile {
-                    uuid: default_profile_uuid.into(),
-                    executable: None,
-                },
-            )
+            .emit_to(cloned_webview.label(), "js_open_tab", tab)
             .ok();
     });
 

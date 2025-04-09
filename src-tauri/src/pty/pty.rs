@@ -360,7 +360,7 @@ impl Pty {
             .map(|_| ())
     }
 
-    pub async fn kill(&mut self) -> Result<(), PtyError> {
+    pub fn kill(&mut self) -> Result<(), PtyError> {
         if self.closed.load(Ordering::Relaxed) {
             Ok(())
         } else {

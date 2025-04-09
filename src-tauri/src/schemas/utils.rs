@@ -15,11 +15,20 @@ pub enum ToastType {
     Info,
 }
 
-#[derive(serde::Serialize, Clone, Copy)]
+#[derive(serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum OpenTab<'a> {
+pub enum OpenTab {
     Profile {
         uuid: Option<Uuid>,
-        executable: Option<&'a str>,
+        command: Option<String>,
     },
+}
+
+impl Default for OpenTab {
+    fn default() -> Self {
+        Self::Profile {
+            uuid: None,
+            command: None,
+        }
+    }
 }

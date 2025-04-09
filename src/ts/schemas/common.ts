@@ -9,6 +9,6 @@ export type openTabPayload = {
 };
 
 export type openTabProfilePayload = {
-    uuid: string;
-    executable?: string;
+    uuid?: string;
+    command?: string;
 };
