@@ -6,6 +6,7 @@
 use tess::common::consts::IPC_SOCKET_ADDR;
 use tess::common::Logger;
 use tess::ipc;
+use tess::ipc::TransmissionPayload;
 use tess::schemas;
 use tess::settings::deserialized::Settings;
 use tess::states::Ptys;
@@ -43,9 +44,7 @@ async fn main() {
         }
         #[cfg(target_os = "linux")]
         Err(e) if e.kind() == ErrorKind::ConnectionRefused => {
-            tokio::fs::remove_file(dirs::runtime_dir().unwrap().join("tess.sock"))
-                .await
-                .ok();
+            tokio::fs::remove_file(&*IPC_SOCKET_ADDR).await.ok();
         }
         Err(_) => (),
     }
@@ -108,51 +107,50 @@ async fn main() {
                     let app = app.handle().clone();
                     let cloned_settings = cloned_settings.clone();
                     server.listen(move |payload| {
-                        println!("Received payload = {payload:?}");
-
                         tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
                                 match payload {
                                     Err(_) => todo!(),
-                                    Ok(payload) => {
-                                        // TODO: refactor here and better payload destruction to rteduce code indentation
-                                        if payload.window {
-                                            if let Err(e) =
-                                                utils::window::create(&app, cloned_settings.clone())
-                                                    .await
-                                            {
-                                                logger
-                                                    .warn(&format!("Window creation failed: {e}."));
-                                                app.emit_to(
-                                                    utils::window::get_focused_or_random(&app)
-                                                        .label(),
-                                                    "js_show_toast",
-                                                    schemas::utils::Toast {
-                                                        title: "Window creation failed",
-                                                        message: Some(&e.to_string()),
-                                                        r#type: schemas::utils::ToastType::Error,
-                                                    },
-                                                )
-                                                .ok();
-                                            }
-
-                                            return;
-                                        }
-
+                                    Ok(TransmissionPayload {
+                                        window: false,
+                                        command,
+                                    }) => {
                                         app.emit_to(
                                             utils::window::get_focused_or_random(&app).label(),
                                             "js_open_tab",
                                             schemas::utils::OpenTab::Profile {
-                                                uuid: cloned_settings
-                                                    .read()
-                                                    .await
-                                                    .default_profile
-                                                    .uuid
-                                                    .into(),
-                                                executable: None,
+                                                uuid: None,
+                                                command: command.map(str::to_owned),
                                             },
                                         )
                                         .ok();
+                                    }
+                                    Ok(TransmissionPayload {
+                                        window: true,
+                                        command,
+                                    }) => {
+                                        if let Err(e) = utils::window::create(
+                                            &app,
+                                            cloned_settings.clone(),
+                                            schemas::utils::OpenTab::Profile {
+                                                uuid: None,
+                                                command: command.map(str::to_owned),
+                                            },
+                                        )
+                                        .await
+                                        {
+                                            logger.warn(&format!("Window creation failed: {e}."));
+                                            app.emit_to(
+                                                utils::window::get_focused_or_random(&app).label(),
+                                                "js_show_toast",
+                                                schemas::utils::Toast {
+                                                    title: "Window creation failed",
+                                                    message: Some(&e.to_string()),
+                                                    r#type: schemas::utils::ToastType::Error,
+                                                },
+                                            )
+                                            .ok();
+                                        }
                                     }
                                 }
                             })
@@ -162,8 +160,14 @@ async fn main() {
             }
 
             let window = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current()
-                    .block_on(async { utils::window::create(app.handle(), cloned_settings).await })
+                tokio::runtime::Handle::current().block_on(async {
+                    utils::window::create(
+                        app.handle(),
+                        cloned_settings,
+                        schemas::utils::OpenTab::default(),
+                    )
+                    .await
+                })
             })?;
             window.clone().once("loaded", move |_| {
                 if settings_error.is_some() {

@@ -13,14 +13,14 @@ pub use windows::*;
 #[derive(bitcode::Decode, bitcode::Encode, Debug)]
 pub struct TransmissionPayload<'a> {
     pub window: bool,
-    pub exec: Option<&'a str>,
+    pub command: Option<&'a str>,
 }
 
 impl Default for TransmissionPayload<'_> {
     fn default() -> Self {
         Self {
             window: false,
-            exec: None,
+            command: None,
         }
     }
 }

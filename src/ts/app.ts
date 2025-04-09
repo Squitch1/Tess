@@ -85,7 +85,11 @@ export default class App {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<openTabPayload>("js_open_tab", async (e) => {
             if (e.payload.profile) {
-                await this.openProfile(e.payload.profile.uuid, true);
+                await this.openProfile(
+                    e.payload.profile.uuid ?? settings.defaultProfile.uuid,
+                    true,
+                    e.payload.profile.command
+                );
             }
         });
     }
@@ -352,10 +356,12 @@ export default class App {
         return view;
     }
 
-    async openProfile(profileUuid: string, focus: boolean) {
+    async openProfile(profileUuid: string, focus: boolean, command?: string) {
         try {
-            const terminalWidget =
-                await this.terminalManager.openNew(profileUuid);
+            const terminalWidget = await this.terminalManager.openNew(
+                profileUuid,
+                command
+            );
 
             const view = this.generateView();
             this.tabsManager.openNewTab(view.uuid);

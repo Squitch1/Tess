@@ -205,7 +205,7 @@ export default class TerminalManager {
         }
     }
 
-    async openNew(profileUuid: string): Promise<Terminal> {
+    async openNew(profileUuid: string, command?: string): Promise<Terminal> {
         const profile = this.profiles.find(
             (profile) => profile.uuid === profileUuid
         );
@@ -220,6 +220,7 @@ export default class TerminalManager {
             await invoke("pty_open", {
                 uuid: terminal.uuid,
                 profileUuid,
+                command,
             });
         } catch (e) {
             this.terminals.pop();

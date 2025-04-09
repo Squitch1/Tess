@@ -23,6 +23,7 @@ pub fn get_focused_or_random(app: &AppHandle) -> Window {
 pub async fn create(
     app: &AppHandle,
     settings: Arc<RwLock<Settings>>,
+    tab: schemas::utils::OpenTab,
 ) -> Result<WebviewWindow, tauri::Error> {
     let webview = tauri::WebviewWindowBuilder::new(
         app,
@@ -39,9 +40,7 @@ pub async fn create(
     .visible(false)
     .build()?;
 
-    let settings = settings.read().await;
-
-    match settings.background {
+    match settings.read().await.background {
         #[cfg(target_family = "unix")]
         BackgroundType::Blurred => {
             todo!()
@@ -87,8 +86,6 @@ pub async fn create(
     }
 
     let cloned_webview = webview.clone();
-    let default_profile_uuid = settings.default_profile.uuid;
-    drop(settings);
     webview.once("loaded", move |_| {
         cloned_webview.show().unwrap();
 
@@ -96,14 +93,7 @@ pub async fn create(
         cloned_webview.open_devtools();
 
         cloned_webview
-            .emit_to(
-                cloned_webview.label(),
-                "js_open_tab",
-                schemas::utils::OpenTab::Profile {
-                    uuid: default_profile_uuid.into(),
-                    executable: None,
-                },
-            )
+            .emit_to(cloned_webview.label(), "js_open_tab", tab)
             .ok();
     });
 

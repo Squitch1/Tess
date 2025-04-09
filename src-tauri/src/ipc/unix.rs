@@ -1,7 +1,9 @@
 use super::TransmissionPayload;
 
+use crate::common::Logger;
+
 use std::io::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
@@ -10,7 +12,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(addr: PathBuf) -> Result<Self, Error> {
+    pub async fn new(addr: impl AsRef<Path>) -> Result<Self, Error> {
         Ok(Self {
             sender: UnixStream::connect(addr).await?,
         })
@@ -27,10 +29,10 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(addr: PathBuf) -> Result<Self, Error> {
+    pub fn new(addr: impl AsRef<Path>) -> Result<Self, Error> {
         Ok(Self {
-            listener: UnixListener::bind(addr.clone())?,
-            addr,
+            listener: UnixListener::bind(addr.as_ref())?,
+            addr: addr.as_ref().into(),
         })
     }
 
