@@ -110,7 +110,21 @@ async fn main() {
                         tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
                                 match payload {
-                                    Err(_) => todo!(),
+                                    Err(_) => {
+                                        logger.warn("Unable to receive data through socket.");
+                                        app.emit_to(
+                                            utils::window::get_focused_or_random(&app).label(),
+                                            "js_show_toast",
+                                            schemas::utils::Toast {
+                                                title: "Socket failure",
+                                                message: Some(
+                                                    "Unable to receive data through socket.",
+                                                ),
+                                                r#type: schemas::utils::ToastType::Error,
+                                            },
+                                        )
+                                        .ok();
+                                    }
                                     Ok(TransmissionPayload {
                                         window: false,
                                         command,
