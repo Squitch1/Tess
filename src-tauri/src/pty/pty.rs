@@ -7,7 +7,7 @@ use crate::common::errors::PtyError;
 use futures::future::join_all;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use regex_lite::Regex;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::io::{Read, Write};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
@@ -35,6 +35,7 @@ unsafe impl Sync for Pty {}
 impl Pty {
     pub fn build_and_run(
         command: &str,
+        workdir: Option<impl AsRef<OsStr>>,
         title_formatter: TitleFormatter,
         report_progress: bool,
         notify: bool,
@@ -71,6 +72,10 @@ impl Pty {
 
         #[cfg(target_family = "unix")]
         built_command.env("TERM", "xterm-256color");
+
+        if let Some(workdir) = workdir {
+            built_command.cwd(workdir);
+        }
 
         let pty_pair = native_pty_system()
             .openpty(PtySize::default())
@@ -146,7 +151,7 @@ impl Pty {
                         Ok(0) => break,
                         Err(_) => continue,
                         _ => (),
-                    };
+                    }
                     let mut pre_parser = pre_parser.lock().unwrap();
                     let previous_cached_content = pre_parser.screen().contents();
                     match std::str::from_utf8(&buf) {

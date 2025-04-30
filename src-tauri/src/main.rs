@@ -3,15 +3,15 @@
     windows_subsystem = "windows"
 )]
 
+use tess::cli;
 use tess::common::consts::IPC_SOCKET_ADDR;
 use tess::common::Logger;
 use tess::ipc;
-use tess::ipc::TransmissionPayload;
 use tess::schemas;
-use tess::settings::deserialized::Settings;
 use tess::states::Ptys;
 use tess::{commands, utils};
 
+use clap::Parser;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use tauri::{Emitter, Listener, Manager, WindowEvent};
@@ -27,9 +27,42 @@ async fn main() {
     let start = std::time::Instant::now();
     let logger = Logger {};
 
+    let cli = cli::Cli::parse();
+
+    if cli.version {
+        println!(
+            "{} {}{}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            option_env!("GIT_COMMIT_INFO")
+                .map(|commit_info| format!(" ({commit_info})"))
+                .unwrap_or_default()
+        );
+        return;
+    }
+
+    let mut launch_args = match cli {
+        cli::Cli {
+            default_command: None,
+            command: None,
+            ..
+        } => cli::RunCommand::default(),
+        cli::Cli {
+            default_command: Some(command),
+            ..
+        }
+        | cli::Cli {
+            command: Some(cli::Commands::Run(command)),
+            ..
+        } => command,
+    };
+    launch_args.workdir = launch_args
+        .workdir
+        .and_then(|workdir| workdir.canonicalize().ok());
+
     match ipc::Client::new(&*IPC_SOCKET_ADDR).await {
         Ok(mut socket) => {
-            let payload = &bitcode::encode(&ipc::TransmissionPayload::default());
+            let payload = &bitcode::encode(&ipc::TransmissionPayload::from(&launch_args));
             let mut n = 0;
             while n < payload.len() {
                 match socket.send(&payload[n..]).await {
@@ -49,39 +82,7 @@ async fn main() {
         Err(_) => (),
     }
 
-    #[cfg(target_family = "unix")]
-    let settings_path = dirs::config_dir()
-        .map(|path| path.join("tess/settings.json"))
-        .unwrap_or_default();
-    #[cfg(target_os = "windows")]
-    let settings_path = dirs::config_dir()
-        .map(|path| path.join("Tess/settings.json"))
-        .unwrap_or_default();
-
-    let mut settings_error = None;
-    let settings = match tokio::fs::metadata(&settings_path)
-        .await
-        .map(|metadata| metadata.len())
-        .unwrap_or_default()
-    {
-        0 => Settings::default(),
-        _ => match tokio::fs::read(settings_path).await {
-            Ok(buf) => serde_json::from_slice(&buf)
-                .inspect_err(|err| {
-                    logger.warn(&format!("Malformed configuration file: {err}."));
-                    settings_error = Some(err.to_string());
-                })
-                .unwrap_or_default(),
-            Err(err) => {
-                if !matches!(err.kind(), ErrorKind::NotFound) {
-                    logger.warn("Cannot read configuration file.");
-                    settings_error = Some("Unable to read the file.".to_owned());
-                }
-
-                Settings::default()
-            }
-        },
-    };
+    let (settings, settings_error) = utils::settings::read().await;
 
     #[cfg(target_family = "unix")]
     {
@@ -106,69 +107,55 @@ async fn main() {
                 Ok(server) => {
                     let app = app.handle().clone();
                     let cloned_settings = cloned_settings.clone();
-                    server.listen(move |payload| {
-                        tokio::task::block_in_place(|| {
+                    server.listen(move |payload| match payload {
+                        Err(_) => {
+                            logger.warn("Unable to receive data through socket.");
+                            app.emit_to(
+                                utils::window::get_focused_or_random(&app).label(),
+                                "js_show_toast",
+                                schemas::utils::Toast {
+                                    title: "Socket failure",
+                                    message: Some("Unable to receive data through socket."),
+                                    r#type: schemas::utils::ToastType::Error,
+                                },
+                            )
+                            .ok();
+                        }
+                        Ok(payload) => tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
-                                match payload {
-                                    Err(_) => {
-                                        logger.warn("Unable to receive data through socket.");
-                                        app.emit_to(
-                                            utils::window::get_focused_or_random(&app).label(),
-                                            "js_show_toast",
-                                            schemas::utils::Toast {
-                                                title: "Socket failure",
-                                                message: Some(
-                                                    "Unable to receive data through socket.",
-                                                ),
-                                                r#type: schemas::utils::ToastType::Error,
-                                            },
-                                        )
-                                        .ok();
-                                    }
-                                    Ok(TransmissionPayload {
-                                        window: false,
-                                        command,
-                                    }) => {
-                                        app.emit_to(
-                                            utils::window::get_focused_or_random(&app).label(),
-                                            "js_open_tab",
-                                            schemas::utils::OpenTab::Profile {
-                                                uuid: None,
-                                                command: command.map(str::to_owned),
-                                            },
-                                        )
-                                        .ok();
-                                    }
-                                    Ok(TransmissionPayload {
-                                        window: true,
-                                        command,
-                                    }) => {
-                                        if let Err(e) = utils::window::create(
-                                            &app,
-                                            cloned_settings.clone(),
-                                            schemas::utils::OpenTab::Profile {
-                                                uuid: None,
-                                                command: command.map(str::to_owned),
-                                            },
-                                        )
-                                        .await
-                                        {
-                                            logger.warn(&format!("Window creation failed: {e}."));
-                                            app.emit_to(
-                                                utils::window::get_focused_or_random(&app).label(),
-                                                "js_show_toast",
-                                                schemas::utils::Toast {
-                                                    title: "Window creation failed",
-                                                    message: Some(&e.to_string()),
-                                                    r#type: schemas::utils::ToastType::Error,
-                                                },
-                                            )
-                                            .ok();
-                                        }
-                                    }
+                                if payload.open_in_tab.unwrap_or(
+                                    cloned_settings.read().await.desktop_integration.open_in_tab,
+                                ) {
+                                    app.emit_to(
+                                        utils::window::get_focused_or_random(&app).label(),
+                                        "js_open_tab",
+                                        schemas::utils::OpenTab::from(payload),
+                                    )
+                                    .ok();
+                                    return;
+                                }
+
+                                if let Err(e) = utils::window::create(
+                                    &app,
+                                    cloned_settings.clone(),
+                                    schemas::utils::OpenTab::from(payload),
+                                )
+                                .await
+                                {
+                                    logger.warn(&format!("Window creation failed: {e}."));
+                                    app.emit_to(
+                                        utils::window::get_focused_or_random(&app).label(),
+                                        "js_show_toast",
+                                        schemas::utils::Toast {
+                                            title: "Window creation failed",
+                                            message: Some(&e.to_string()),
+                                            r#type: schemas::utils::ToastType::Error,
+                                        },
+                                    )
+                                    .ok();
                                 }
                             })
-                        })
+                        }),
                     });
                 }
             }
@@ -178,7 +165,7 @@ async fn main() {
                     utils::window::create(
                         app.handle(),
                         cloned_settings,
-                        schemas::utils::OpenTab::default(),
+                        schemas::utils::OpenTab::from(launch_args),
                     )
                     .await
                 })

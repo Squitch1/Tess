@@ -63,7 +63,7 @@ export default class TabManager {
         });
     }
 
-    openNewTab(uuid: string): string {
+    openNew(uuid: string): string {
         const tab = new Tab(this.tabs.length + 1, uuid, (id) => {
             if (this.selectedTab !== tab) {
                 this.onTabFocused(this.selectedTab!.uuid);

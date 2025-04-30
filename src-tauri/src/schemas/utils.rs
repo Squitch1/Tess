@@ -1,3 +1,6 @@
+use crate::{cli::RunCommand, ipc::TransmissionPayload};
+
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(serde::Serialize, Clone, Copy)]
@@ -21,6 +24,7 @@ pub enum OpenTab {
     Profile {
         uuid: Option<Uuid>,
         command: Option<String>,
+        workdir: Option<PathBuf>,
     },
 }
 
@@ -29,6 +33,27 @@ impl Default for OpenTab {
         Self::Profile {
             uuid: None,
             command: None,
+            workdir: None,
+        }
+    }
+}
+
+impl From<TransmissionPayload<'_>> for OpenTab {
+    fn from(payload: TransmissionPayload) -> Self {
+        Self::Profile {
+            uuid: payload.profile.map(Uuid::from_u128),
+            command: payload.command.map(str::to_owned),
+            workdir: payload.workdir.map(PathBuf::from),
+        }
+    }
+}
+
+impl From<RunCommand> for OpenTab {
+    fn from(cmd: RunCommand) -> Self {
+        Self::Profile {
+            uuid: cmd.profile,
+            command: cmd.command,
+            workdir: cmd.workdir,
         }
     }
 }

@@ -10,17 +10,29 @@ pub use unix::*;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
-#[derive(bitcode::Decode, bitcode::Encode, Debug)]
+use crate::cli::RunCommand;
+
+#[derive(bitcode::Decode, bitcode::Encode, Debug, Default)]
 pub struct TransmissionPayload<'a> {
-    pub window: bool,
+    pub open_in_tab: Option<bool>,
     pub command: Option<&'a str>,
+    pub workdir: Option<&'a str>,
+    pub profile: Option<u128>,
 }
 
-impl Default for TransmissionPayload<'_> {
-    fn default() -> Self {
+impl<'a> From<&'a RunCommand> for TransmissionPayload<'a> {
+    fn from(cmd: &'a RunCommand) -> Self {
+        let open_in_tab = if cmd.tab || cmd.window {
+            Some(cmd.tab)
+        } else {
+            None
+        };
+
         Self {
-            window: false,
-            command: None,
+            open_in_tab,
+            command: cmd.command.as_deref(),
+            workdir: cmd.workdir.as_ref().and_then(|p| p.to_str()),
+            profile: cmd.profile.map(|uuid| uuid.as_u128()),
         }
     }
 }
