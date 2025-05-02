@@ -13,7 +13,7 @@ pub struct RunCommand {
     /// Command to be executed
     #[arg(short = 'e', long)]
     pub command: Option<String>,
-    /// Initial working directory. Must be valid Unicode
+    /// Initial working directory (must be valid Unicode).
     #[arg(short, long, value_name="DIR", value_hint = ValueHint::DirPath)]
     pub workdir: Option<PathBuf>,
     /// The profile to use
