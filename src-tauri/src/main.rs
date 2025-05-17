@@ -12,7 +12,6 @@ use tess::states::Ptys;
 use tess::{commands, utils};
 
 use clap::Parser;
-use std::io::ErrorKind;
 use std::sync::Arc;
 use tauri::{Emitter, Listener, Manager, WindowEvent};
 use tokio::sync::RwLock;
@@ -21,9 +20,19 @@ use tokio::sync::RwLock;
 use futures::stream::StreamExt;
 #[cfg(target_family = "unix")]
 use signal_hook::consts::signal::*;
+#[cfg(target_family = "unix")]
+use std::io::ErrorKind;
+
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 #[tokio::main]
 async fn main() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS).ok();
+    };
+
     let start = std::time::Instant::now();
     let logger = Logger {};
 
@@ -39,6 +48,11 @@ async fn main() {
                 .unwrap_or_default()
         );
         return;
+    }
+
+    #[cfg(target_os = "windows")]
+    unsafe {
+        FreeConsole().ok();
     }
 
     let mut launch_args = match cli {
@@ -81,6 +95,8 @@ async fn main() {
         }
         Err(_) => (),
     }
+
+    // TODO: DetachConsole
 
     let (settings, settings_error) = utils::settings::read().await;
 

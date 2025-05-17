@@ -51,7 +51,7 @@ impl Pty {
         }
 
         #[cfg(target_os = "windows")]
-        let built_command = CommandBuilder::from_argv(
+        let mut built_command = CommandBuilder::from_argv(
             PROGRAMM_PARSING_REGEX
                 .replace_all(command, |env_variable: &Captures| {
                     std::env::var(&env_variable[1]).unwrap_or_default()
