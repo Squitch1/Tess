@@ -88,7 +88,8 @@ export default class App {
                 await this.openProfile(
                     e.payload.profile.uuid ?? settings.defaultProfile.uuid,
                     true,
-                    e.payload.profile.command
+                    e.payload.profile.command,
+                    e.payload.profile.workdir
                 );
             }
         });
@@ -356,15 +357,21 @@ export default class App {
         return view;
     }
 
-    async openProfile(profileUuid: string, focus: boolean, command?: string) {
+    async openProfile(
+        profileUuid: string,
+        focus: boolean,
+        command?: string,
+        workdir?: string
+    ) {
         try {
             const terminalWidget = await this.terminalManager.openNew(
                 profileUuid,
-                command
+                command,
+                workdir
             );
 
             const view = this.generateView();
-            this.tabsManager.openNewTab(view.uuid);
+            this.tabsManager.openNew(view.uuid);
             this.target.appendChild(view.element);
             await view.addWidget(terminalWidget);
             this.views.push(view);

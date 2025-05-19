@@ -15,6 +15,7 @@ pub async fn pty_open(
     uuid: Uuid,
     profile_uuid: Uuid,
     command: Option<&str>,
+    workdir: Option<&str>,
     settings: tauri::State<'_, Arc<RwLock<Settings>>>,
     ptys: tauri::State<'_, Ptys>,
 ) -> Result<(), PtyError> {
@@ -34,6 +35,7 @@ pub async fn pty_open(
         uuid,
         Pty::build_and_run(
             command.unwrap_or(&opening_profile.command),
+            workdir,
             opening_profile.title_format.clone(),
             opening_profile.terminal_settings.progress_tracking,
             opening_profile.terminal_settings.notify_content_change,

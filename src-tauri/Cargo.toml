@@ -5,7 +5,7 @@ description = "Fast. Lightweight. Famous. Terminal for the new era."
 authors = ["Squitch"]
 repository = "https://github.com/SquitchYT/Tess"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.87"
 homepage = "https://tessapp.net"
 license = "Mozilla Public License 2.0"
 categories = ["development-tools"]
@@ -23,7 +23,7 @@ tokio = { version = "1", default-features = false, features = [
     "rt",
     "macros",
     "time",
-    "net"
+    "net",
 ] }
 dirs = "6"
 uuid = { version = "1.15", features = ["v4", "serde"] }
@@ -34,6 +34,12 @@ vt100 = "0.15.2"
 futures = "0.3.29"
 tauri-plugin-clipboard-manager = "2"
 bitcode = "0.6.6"
+clap = { version = "4.5.35", default-features = false, features = [
+    "derive",
+    "std",
+    "help",
+    "usage",
+] }
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.17"
@@ -44,6 +50,7 @@ windows = { version = "^0.60.0", features = [
     "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_Threading",
     "Win32_System_ProcessStatus",
+    "Win32_System_Console",
     "Win32_System_Diagnostics_Debug",
     "Win32_System_Kernel",
     "Wdk_System_Threading",

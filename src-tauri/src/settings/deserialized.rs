@@ -624,6 +624,7 @@ impl Default for CloseConfirmation {
 pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
+    pub open_in_tab: bool,
 }
 
 impl Default for DesktopIntegration {
@@ -634,6 +635,7 @@ impl Default for DesktopIntegration {
             #[cfg(target_os = "windows")]
             custom_titlebar: true,
             dynamic_title: true,
+            open_in_tab: true,
         }
     }
 }
@@ -647,6 +649,7 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
         struct PartialDesktopIntegration {
             custom_titlebar: Option<bool>,
             dynamic_title: Option<bool>,
+            open_in_tab: Option<bool>,
         }
 
         #[derive(Deserialize)]
@@ -660,6 +663,7 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
             Wrapper::Simple(enable) => Self {
                 custom_titlebar: enable,
                 dynamic_title: enable,
+                open_in_tab: enable,
             },
             Wrapper::Complex(partial_desktop_integration) => Self {
                 dynamic_title: partial_desktop_integration.dynamic_title.unwrap_or(true),
@@ -667,6 +671,7 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(false),
                 #[cfg(target_os = "windows")]
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(true),
+                open_in_tab: partial_desktop_integration.open_in_tab.unwrap_or(true),
             },
         })
     }

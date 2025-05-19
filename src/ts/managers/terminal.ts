@@ -205,7 +205,11 @@ export default class TerminalManager {
         }
     }
 
-    async openNew(profileUuid: string, command?: string): Promise<Terminal> {
+    async openNew(
+        profileUuid: string,
+        command?: string,
+        workdir?: string
+    ): Promise<Terminal> {
         const profile = this.profiles.find(
             (profile) => profile.uuid === profileUuid
         );
@@ -221,6 +225,7 @@ export default class TerminalManager {
                 uuid: terminal.uuid,
                 profileUuid,
                 command,
+                workdir,
             });
         } catch (e) {
             this.terminals.pop();
