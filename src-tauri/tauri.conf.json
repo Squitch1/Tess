@@ -1,6 +1,6 @@
 {
     "build": {
-        "beforeBuildCommand": "npm run build",
+        "beforeBuildCommand": "mkdir -p src-tauri/dist",
         "beforeDevCommand": "npm run dev",
         "frontendDist": "./dist",
         "devUrl": "http://localhost:5173",

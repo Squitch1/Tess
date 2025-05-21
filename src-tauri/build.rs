@@ -1,6 +1,6 @@
 use std::process::Command;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some((commit_date, commit_hash)) = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
@@ -22,5 +22,10 @@ fn main() {
         println!("cargo:rustc-env=GIT_COMMIT_INFO={commit_hash} {commit_date}");
     }
 
-    tauri_build::build();
+    println!("cargo::rerun-if-changed=dist");
+    if !tauri_build::is_dev() {
+        Command::new("npm").args(["run", "build"]).output()?;
+    }
+
+    Ok(tauri_build::build())
 }
