@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{process::Command, time::Duration};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some((commit_date, commit_hash)) = Command::new("git")
@@ -23,8 +23,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("cargo::rerun-if-changed=dist");
+    println!("cargo::rerun-if-changed=../src");
+
     if !tauri_build::is_dev() {
-        Command::new("npm").args(["run", "build"]).output()?;
+        let timestamp = std::fs::metadata("dist/index.html")
+            .and_then(|b| b.modified())
+            .map(|time| time.elapsed().unwrap_or(Duration::MAX));
+        if timestamp.is_err()
+            || timestamp
+                .as_ref()
+                .is_ok_and(|todo| *todo > Duration::from_secs(30))
+        {
+            Command::new("npm").args(["run", "build"]).output()?;
+        }
     }
 
     Ok(tauri_build::build())
