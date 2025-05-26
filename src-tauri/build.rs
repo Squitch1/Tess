@@ -1,5 +1,10 @@
 use std::{process::Command, time::Duration};
 
+#[cfg(windows)]
+pub const NPM: &str = "npm.cmd";
+#[cfg(not(windows))]
+pub const NPM: &str = "npm";
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some((commit_date, commit_hash)) = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
@@ -26,17 +31,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo::rerun-if-changed=../src");
 
     if !tauri_build::is_dev() {
-        let timestamp = std::fs::metadata("dist/index.html")
-            .and_then(|b| b.modified())
+        let duration = std::fs::metadata("dist/index.html")
+            .and_then(|m| m.modified())
             .map(|time| time.elapsed().unwrap_or(Duration::MAX));
-        if timestamp.is_err()
-            || timestamp
+        if duration.is_err()
+            || duration
                 .as_ref()
-                .is_ok_and(|todo| *todo > Duration::from_secs(30))
+                .is_ok_and(|duration| duration > &Duration::from_secs(30))
         {
-            Command::new("npm").args(["run", "build"]).output()?;
+            Command::new(NPM).args(["run", "build"]).output()?;
         }
     }
 
-    Ok(tauri_build::build())
+    tauri_build::build();
+    Ok(())
 }
