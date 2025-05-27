@@ -29,7 +29,11 @@ pub async fn pty_open(
         .profiles
         .iter()
         .find(|profile| profile.uuid == profile_uuid)
-        .ok_or(PtyError::UnknownPty)?;
+        .ok_or_else(|| {
+            PtyError::Creation(String::from(
+                "There is no profile corresponding to this ID.",
+            ))
+        })?;
 
     ptys.0.write().await.insert(
         uuid,
