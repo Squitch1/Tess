@@ -1,18 +1,18 @@
-@import "variables";
+@use "variables";
 
-@import "animations/tab";
-@import "animations/popup";
-@import "animations/toast";
-@import "animations/common";
+@use "animations/tab";
+@use "animations/popup";
+@use "animations/toast";
+@use "animations/common";
 
-@import "ui/titlebar";
+@use "ui/titlebar";
 
-@import "components/interface/toast";
-@import "components/interface/popup";
-@import "components/interface/tab";
-@import "components/view/common";
+@use "components/interface/toast" as *;
+@use "components/interface/popup" as *;
+@use "components/interface/tab" as *;
+@use "components/view/common" as *;
 
-@import "../../node_modules/@xterm/xterm/css/xterm.css";
+@use "../../node_modules/@xterm/xterm/css/xterm.css";
 
 @font-face {
     font-family: "Inter";

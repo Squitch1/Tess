@@ -9,9 +9,31 @@ export default defineConfig({
     envPrefix: ["VITE_", "TAURI_"],
     build: {
         target: ["es2021", "chrome100", "safari13"],
-        minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
+        minify: !process.env.TAURI_DEBUG ? "terser" : false,
         sourcemap: !!process.env.TAURI_DEBUG,
         outDir: "../src-tauri/dist",
+        terserOptions: {
+            compress: {
+                drop_console: true,
+                drop_debugger: true,
+                ecma: 2018,
+                passes: 2,
+                unsafe: true,
+                hoist_funs: true,
+                hoist_vars: true,
+                keep_fargs: false,
+                pure_getters: true,
+                pure_new: true,
+                unsafe_arrows: true,
+                unsafe_math: true,
+                unsafe_proto: true,
+            },
+        },
+        rollupOptions: {
+            output: {
+                assetFileNames: "[hash:4][extname]",
+            },
+        },
     },
     root: "./src",
     css: {
@@ -19,7 +41,7 @@ export default defineConfig({
             scss: {
                 additionalData:
                     process.platform === "linux"
-                        ? '@import "./target/linux.scss";'
+                        ? '@use "./target/linux.scss";'
                         : "",
             },
         },

@@ -26,6 +26,7 @@ pub struct Settings {
     pub webkit_compositing_mode: bool,
 
     #[serde(skip_serializing)]
+    #[allow(dead_code)]
     theme: String,
 }
 

@@ -1,7 +1,7 @@
-@import "pane";
-@import "view";
+@use "pane";
+@use "view";
 
-@import "widgets/base";
+@use "widgets/base";
 
 @counter-style base36 {
     system: fixed;

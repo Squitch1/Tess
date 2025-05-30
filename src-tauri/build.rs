@@ -1,6 +1,11 @@
-use std::process::Command;
+use std::{process::Command, time::Duration};
 
-fn main() {
+#[cfg(windows)]
+pub const NPM: &str = "npm.cmd";
+#[cfg(not(windows))]
+pub const NPM: &str = "npm";
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some((commit_date, commit_hash)) = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
@@ -22,5 +27,22 @@ fn main() {
         println!("cargo:rustc-env=GIT_COMMIT_INFO={commit_hash} {commit_date}");
     }
 
+    println!("cargo::rerun-if-changed=dist");
+    println!("cargo::rerun-if-changed=../src");
+
+    if !tauri_build::is_dev() {
+        let duration = std::fs::metadata("dist/index.html")
+            .and_then(|m| m.modified())
+            .map(|time| time.elapsed().unwrap_or(Duration::MAX));
+        if duration.is_err()
+            || duration
+                .as_ref()
+                .is_ok_and(|duration| duration > &Duration::from_secs(30))
+        {
+            Command::new(NPM).args(["run", "build"]).output()?;
+        }
+    }
+
     tauri_build::build();
+    Ok(())
 }

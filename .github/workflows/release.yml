@@ -34,13 +34,9 @@ jobs:
               run: |
                   cargo install cross --git https://github.com/cross-rs/cross
 
-            - name: Build frontend
-              run: |
-                  npm i
-                  npm run build
-
             - name: Build binary
               run: |
+                  npm i
                   cd src-tauri
                   CROSS_NO_WARNINGS=0 REMOVE_UNUSED_COMMANDS=$(pwd) RUSTFLAGS="-Zlocation-detail=none -Zfmt-debug=none -Clto" cross +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
                   mv target/${{ matrix.target }}/release/tess target/${{ matrix.target }}/release/tess-${{ matrix.target }}
@@ -72,13 +68,9 @@ jobs:
                   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
                   rustup component add rust-src
 
-            - name: Build frontend
-              run: |
-                  npm i
-                  npm run build
-
             - name: Build binary
               run: |
+                  npm i
                   cd src-tauri
                   $env:REMOVE_UNUSED_COMMANDS = $PWD.Path
                   $env:RUSTFLAGS = "-Zlocation-detail=none -Zfmt-debug=none -Clto"
