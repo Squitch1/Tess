@@ -147,33 +147,31 @@ impl Pty {
                     }
 
                     buf[remaining..].fill(0);
-                    match reader.read(&mut buf[remaining..]) {
+                    let read = match reader.read(&mut buf[remaining..]) {
                         Ok(0) => break,
+                        Ok(n) => n,
                         Err(_) => continue,
-                        _ => (),
-                    }
+                    };
                     let mut pre_parser = pre_parser.lock().unwrap();
                     let previous_cached_content = pre_parser.screen().contents();
-                    match std::str::from_utf8(&buf) {
-                        Ok(parsed_buf) => {
-                            pre_parser.process(parsed_buf.as_bytes());
-                            on_read(parsed_buf);
-                            remaining = 0;
-                        }
-                        Err(utf8) => {
-                            pre_parser.process(&buf[..utf8.valid_up_to()]);
-                            on_read(unsafe {
-                                std::str::from_utf8_unchecked(&buf[..utf8.valid_up_to()])
-                            });
-                            remaining = buf[utf8.valid_up_to()..].len()
-                                - (buf.len()
-                                    - utf8.valid_up_to()
-                                    - utf8
-                                        .error_len()
-                                        .unwrap_or_else(|| buf.len() - utf8.valid_up_to()));
-                            buf.rotate_left(utf8.valid_up_to());
+                    let mut consummed = 0;
+                    let mut processed_buf = std::io::Cursor::new([0; PTY_BUFFER_SIZE]);
+                    let mut chunks = buf[..remaining + read].utf8_chunks();
+                    while let Some(chunk) = chunks.next() {
+                        pre_parser.process(chunk.valid().as_bytes());
+                        processed_buf.write(chunk.valid().as_bytes()).ok();
+                        consummed += chunk.valid().len();
+
+                        if !chunk.invalid().is_empty() && (read + remaining) - consummed >= 4 {
+                            consummed += chunk.invalid().len();
+                            processed_buf.write("\u{FFFD}".as_bytes()).ok();
                         }
                     }
+                    unsafe {
+                        on_read(std::str::from_utf8_unchecked(processed_buf.get_ref()));
+                    }
+                    remaining = (remaining + read) - consummed;
+                    buf.rotate_left(consummed);
 
                     let cached_content = pre_parser.screen().contents();
                     if cached_content != previous_cached_content {

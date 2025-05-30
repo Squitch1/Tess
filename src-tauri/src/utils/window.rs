@@ -10,6 +10,11 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewWindow, Window};
 use tokio::sync::RwLock;
 
+#[cfg(target_family = "unix")]
+use gtk::glib::gobject_ffi::g_signal_handlers_destroy;
+#[cfg(target_family = "unix")]
+use webkit2gtk::glib::ObjectExt;
+
 #[cfg(target_os = "windows")]
 use tauri::window::{self, EffectsBuilder};
 
@@ -39,6 +44,16 @@ pub async fn create(
     .use_https_scheme(true)
     .visible(false)
     .build()?;
+
+    #[cfg(target_family = "unix")]
+    webview.with_webview(|gtk_webview| unsafe {
+        if let Some(handler) = gtk_webview
+            .inner()
+            .data::<gtk::GestureZoom>("wk-view-zoom-gesture")
+        {
+            g_signal_handlers_destroy(handler.as_ptr().cast());
+        }
+    }).ok();
 
     match settings.read().await.background {
         #[cfg(target_family = "unix")]

@@ -76,7 +76,9 @@ export default class TerminalManager {
         if (index > -1) {
             const terminal = this.terminals.splice(index, 1)[0];
             this.terminalFlows.delete(e.payload);
-            terminal.onceClosed();
+            setTimeout(() => {
+                terminal.onceClosed();
+            }, 0);
         }
     }
 
