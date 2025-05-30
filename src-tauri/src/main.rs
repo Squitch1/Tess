@@ -96,8 +96,6 @@ async fn main() {
         Err(_) => (),
     }
 
-    // TODO: DetachConsole
-
     let (settings, settings_error) = utils::settings::read().await;
 
     #[cfg(target_family = "unix")]
