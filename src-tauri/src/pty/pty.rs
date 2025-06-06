@@ -1,7 +1,7 @@
 use super::process;
 use super::title_formatter::{Params, TitleFormatter};
 
-use crate::common::consts::PTY_BUFFER_SIZE;
+use crate::common::consts::{PTY_BUFFER_SIZE, TESS_VERSION};
 use crate::common::errors::PtyError;
 
 use futures::future::join_all;
@@ -70,6 +70,9 @@ impl Pty {
                 .collect::<Vec<OsString>>(),
         );
 
+        built_command.env("COLORTERM", "truecolor");
+        built_command.env("TERM_PROGRAM", "Tess");
+        built_command.env("TERM_PROGRAM_VERSION", TESS_VERSION);
         #[cfg(target_family = "unix")]
         built_command.env("TERM", "xterm-256color");
 
