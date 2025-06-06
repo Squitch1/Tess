@@ -6,46 +6,24 @@
         "devUrl": "http://localhost:5173",
         "removeUnusedCommands": true
     },
-    "bundle": {
-        "active": true,
-        "category": "DeveloperTool",
-        "copyright": "",
-        "targets": [],
-        "externalBin": [],
-
-        "windows": {
-            "certificateThumbprint": null,
-            "digestAlgorithm": "sha256",
-            "timestampUrl": ""
-        },
-        "longDescription": "",
-        "macOS": {
-            "entitlements": null,
-            "exceptionDomain": "",
-            "frameworks": [],
-            "providerShortName": null,
-            "signingIdentity": null
-        },
-        "shortDescription": "",
-        "linux": {
-            "deb": {
-                "depends": []
-            }
-        }
-    },
     "productName": "tess",
     "mainBinaryName": "tess",
-    "version": "0.7.0",
     "identifier": "dev.tessapp",
-    "plugins": {},
+    "bundle": {
+        "icon": [
+            "../icons/128x128/tess.png",
+            "../icons/system/tess.ico",
+            "../icons/system/tess.icns"
+        ]
+    },
     "app": {
         "security": {
             "assetProtocol": {
+                "enable": true,
                 "scope": {
                     "allow": ["**"],
                     "requireLiteralLeadingDot": false
-                },
-                "enable": true
+                }
             },
             "csp": null
         }

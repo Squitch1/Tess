@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/bin/tess -w %f
+Icon=tess-alt
+Name=Tess
+Comment=Launch a shell at this location
+Comment[fr_FR]=Lance un shell à cet emplacement 
+GenericName=Terminal
+Categories=System;TerminalEmulator;GTK;
+MimeType=inode/directory;
+Terminal=false
+NoDisplay=true

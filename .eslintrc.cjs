@@ -9,7 +9,7 @@ module.exports = {
     ],
     plugins: ["prettier"],
     parserOptions: {
-        project: ["./tsconfig.json"],
+        project: ["tsconfig.json"],
     },
     rules: {
         "prettier/prettier": "error",
@@ -42,11 +42,12 @@ module.exports = {
         ],
         "@typescript-eslint/switch-exhaustiveness-check": "error",
         "@typescript-eslint/no-floating-promises": "error",
+        "import/no-unresolved": [2, { ignore: [".png$"] }],
     },
     settings: {
         "import/resolver": {
             node: {
-                moduleDirectory: ["node_modules", "src/ts", "src/assets"],
+                moduleDirectory: ["node_modules", "src/ts", "icons"],
                 extensions: [".js", ".jsx", ".ts", ".tsx"],
             },
         },

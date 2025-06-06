@@ -1,8 +1,7 @@
 {
-    "name": "tess",
     "private": true,
-    "version": "0.0.0",
     "type": "module",
+    "license": "MIT",
     "scripts": {
         "dev": "vite",
         "build": "vite build --emptyOutDir"

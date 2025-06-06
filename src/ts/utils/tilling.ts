@@ -13,7 +13,7 @@ export default function computeLayout(
     const factorizations = computeFactorizations(childCount);
 
     let optimalLayout = factorizations[0];
-    let optimalAspectRationDiff = Math.abs(
+    let optimalAspectRatioDiff = Math.abs(
         parentWidth / parentHeight -
             parentWidth / optimalLayout[0] / (parentHeight / optimalLayout[1])
     );
@@ -29,9 +29,9 @@ export default function computeLayout(
                         parentHeight /
                             factorization[1] /
                             (parentWidth / factorization[0])
-                ) < optimalAspectRationDiff
+                ) < optimalAspectRatioDiff
             ) {
-                optimalAspectRationDiff = Math.abs(
+                optimalAspectRatioDiff = Math.abs(
                     parentWidth / parentHeight -
                         parentHeight /
                             factorization[1] /
@@ -45,9 +45,9 @@ export default function computeLayout(
                     parentWidth /
                         factorization[0] /
                         (parentHeight / factorization[1])
-            ) < optimalAspectRationDiff
+            ) < optimalAspectRatioDiff
         ) {
-            optimalAspectRationDiff = Math.abs(
+            optimalAspectRatioDiff = Math.abs(
                 parentWidth / parentHeight -
                     parentWidth /
                         factorization[0] /

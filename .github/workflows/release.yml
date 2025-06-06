@@ -8,14 +8,38 @@ permissions:
     contents: write
 
 jobs:
-    generate-linux-binaries:
-        name: Build linux binary for target ${{ matrix.target }}
-        strategy:
-            matrix:
-                target:
-                    - x86_64-unknown-linux-gnu
-                    - i686-unknown-linux-gnu
+    ensure-project-version:
+        name: Check if Version is Up to Date
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
 
+            - name: Install Tools
+              run: |
+                  sudo apt-get update 
+                  sudo apt-get -y install jq devscripts
+
+            - name: Install Rustup
+              run: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+
+            - name: Check Version
+              run: |
+                  CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r .packages[0].version)
+                  EXPECTED_DEB_VERSION=$(echo $CARGO_VERSION | tr '-' '~')
+                  if [[ $CARGO_VERSION != ${{ github.event.release.tag_name }} ]]; then
+                      echo "::error file=src-tauri/Cargo.toml::[Version Check] The Cargo manifest version seems out-of-date."
+                      exit 1
+                  fi
+                  if [[ $EXPECTED_DEB_VERSION != $(dpkg-parsechangelog -l packaging/linux/deb/debian/changelog -S Version | cut -d '-' --fields 1) ]]; then
+                    echo "::error file=packaging/linux/deb/debian/changelog::[Version Check] The Debian changelog seems out-of-date."
+                    exit 1;
+                  fi
+
+    check-linux-build:
+        name: Check Linux Build
+        needs:
+            - ensure-project-version
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
@@ -23,7 +47,51 @@ jobs:
             - name: Install NodeJS
               uses: actions/setup-node@v4
               with:
-                  node-version: "latest"
+                  node-version: latest
+
+            - name: Install Rustup
+              run: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+
+            - name: Install Cross
+              run: |
+                  cargo install cross --git https://github.com/cross-rs/cross
+
+            - name: Build Frontend
+              run: |
+                  npm i  
+                  npm run build
+
+            - name: Check Build
+              run: |
+                  cross +nightly check --manifest-path=src-tauri/Cargo.toml
+              env:
+                  GEN_RESOURCES: true
+                  SKIP_FRONTEND: true
+
+            - name: Upload Man Pages Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: man-pages
+                  path: src-tauri/gen/man/
+
+    generate-linux-binaries:
+        name: Build Linux Binary for Target ${{ matrix.target }}
+        needs:
+            - check-linux-build
+        strategy:
+            matrix:
+                target:
+                    - x86_64-unknown-linux-gnu
+                    - i686-unknown-linux-gnu
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install NodeJS
+              uses: actions/setup-node@v4
+              with:
+                  node-version: latest
 
             - name: Install Rustup
               run: |
@@ -34,51 +102,139 @@ jobs:
               run: |
                   cargo install cross --git https://github.com/cross-rs/cross
 
-            - name: Build binary
+            - name: Build Frontend
               run: |
-                  npm i
-                  cd src-tauri
-                  CROSS_NO_WARNINGS=0 REMOVE_UNUSED_COMMANDS=$(pwd) RUSTFLAGS="-Zlocation-detail=none -Zfmt-debug=none -Clto" cross +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
-                  mv target/${{ matrix.target }}/release/tess target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+                  npm i  
+                  npm run build
 
-            - name: Publish binary
+            - name: Build Binary
+              run: |
+                  cross +nightly build -Z build-std=std,panic_abort \
+                    -Z build-std-features=panic_immediate_abort \
+                    --target ${{ matrix.target }} \
+                    --manifest-path=src-tauri/Cargo.toml \
+                    --release
+                  mv src-tauri/target/${{ matrix.target }}/release/tess \
+                    src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+              env:
+                  REMOVE_UNUSED_COMMANDS: ${{ github.workspace }}/src-tauri
+                  SKIP_FRONTEND: true
+                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto
+
+            - name: Upload Binary Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tess-${{ matrix.target }}
+                  path: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+
+            - name: Publish Binary
               uses: softprops/action-gh-release@v2
               with:
-                  files: |
-                      src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+                  files: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
+
+    generate-linux-packages:
+        name: Build ${{ matrix.package }} Package for Target ${{ matrix.target }}
+        needs:
+            - generate-linux-binaries
+        strategy:
+            matrix:
+                target:
+                    - x86_64-unknown-linux-gnu
+                    - i686-unknown-linux-gnu
+                package:
+                    - deb
+                include:
+                    - arch: x86_64
+                      target: x86_64-unknown-linux-gnu
+                    - arch: i686
+                      target: i686-unknown-linux-gnu
+                    - arch: amd64
+                      target: x86_64-unknown-linux-gnu
+                      package: deb
+                    - arch: i386
+                      target: i686-unknown-linux-gnu
+                      package: deb
+                    - docker: debian:bookworm
+                      package: deb
+        runs-on: ubuntu-22.04
+        container:
+            image: ${{ matrix.docker }}
+            options: --privileged
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Fetch Binary Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: tess-${{ matrix.target }}
+                  path: packaging/linux/resources/binaries/
+
+            - name: Fetch Man Pages Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: man-pages
+                  path: packaging/linux/resources/man/
+
+            - name: Bootstrap
+              run: packaging/linux/${{ matrix.package }}/bootstrap.sh
+              env:
+                  ARCH: ${{ matrix.arch }}
+
+            - name: Build Package
+              run: packaging/linux/${{ matrix.package }}/build.sh
+              env:
+                  USE_PREBUILT: ${{ github.workspace }}/packaging/linux/resources/binaries/tess-${{ matrix.target }}
+                  ARCH: ${{ matrix.arch }}
+
+            - name: Publish Package
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: packaging/out/linux/*.deb
 
     generate-windows-binaries:
-        name: Build Windows binary for target ${{ matrix.target }}
+        name: Build Windows Binary for Target ${{ matrix.target }}
+        needs:
+            - ensure-project-version
         strategy:
             matrix:
                 target:
                     - x86_64-pc-windows-msvc
 
-        runs-on: windows-2019
+        runs-on: windows-2022
         steps:
             - uses: actions/checkout@v4
 
             - name: Install NodeJS
               uses: actions/setup-node@v4
               with:
-                  node-version: "latest"
+                  node-version: latest
 
             - name: Install Rustup
               run: |
                   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
                   rustup component add rust-src
 
-            - name: Build binary
+            - name: Build Frontend
               run: |
                   npm i
-                  cd src-tauri
-                  $env:REMOVE_UNUSED_COMMANDS = $PWD.Path
-                  $env:RUSTFLAGS = "-Zlocation-detail=none -Zfmt-debug=none -Clto"
-                  cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --target ${{ matrix.target }}
-                  mv target/${{ matrix.target }}/release/tess.exe target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+                  npm run build
 
-            - name: Publish binary
+            - name: Build Binary
+              run: |
+                  cargo +nightly build -Z build-std=std,panic_abort `
+                    -Z build-std-features=panic_immediate_abort `
+                    --manifest-path=src-tauri/Cargo.toml `
+                    --target ${{ matrix.target }} `
+                    --release
+                  mv src-tauri/target/${{ matrix.target }}/release/tess.exe `
+                    src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+              env:
+                  REMOVE_UNUSED_COMMANDS: ${{ github.workspace }}/src-tauri
+                  SKIP_FRONTEND: true
+                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto
+
+            - name: Publish Binary
               uses: softprops/action-gh-release@v2
               with:
-                  files: |
-                      src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+                  files: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe

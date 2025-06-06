@@ -1,4 +1,4 @@
-import tabIcon from "icons/default-tab.png";
+import tabIcon from "icons/32x32/tess-alt.png";
 
 export default class Tab {
     element: HTMLElement;

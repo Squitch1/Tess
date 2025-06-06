@@ -1,17 +1,28 @@
 [package]
 name = "tess"
-version = "0.7.0-alpha.12"
+version = "0.7.0-alpha.13"
 description = "Fast. Lightweight. Famous. Terminal for the new era."
 authors = ["Squitch"]
-repository = "https://github.com/SquitchYT/Tess"
+repository = "https://github.com/Squitch1/Tess"
 edition = "2021"
 rust-version = "1.87"
 homepage = "https://tessapp.net"
-license = "Mozilla Public License 2.0"
+license = "MIT"
 categories = ["development-tools"]
 
 [build-dependencies]
+chrono = "0.4.41"
 tauri-build = { version = "2", features = [] }
+uuid = { version = "1.15", features = ["v4", "serde"] }
+clap = { version = "4.5.35", default-features = false, features = [
+    "derive",
+    "std",
+    "help",
+    "usage",
+] }
+
+[target.'cfg(unix)'.build-dependencies]
+clap_mangen = "0.2.26"
 
 [dependencies]
 serde_json = "1.0"

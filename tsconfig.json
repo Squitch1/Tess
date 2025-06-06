@@ -21,8 +21,8 @@
             "components/*": ["./src/ts/components/*"],
             "schemas/*": ["src/ts/schemas/*"],
             "utils/*": ["./src/ts/utils/*"],
-            "icons/*": ["./src/assets/icons/*"]
+            "icons/*": ["./icons/*"]
         }
     },
-    "include": ["src"]
+    "include": ["src", ".eslintrc.cjs", "vite.config.ts", "postcss.config.cjs"]
 }
