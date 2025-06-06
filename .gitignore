@@ -22,3 +22,8 @@ src-tauri/gen
 *.njsproj
 *.sln
 *.sw?
+
+# Packaging
+packaging/out
+packaging/linux/resources/man
+packaging/linux/resources/binaries

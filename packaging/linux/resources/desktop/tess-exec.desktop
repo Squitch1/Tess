@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/bin/tess -e %f
+Icon=tess-alt
+Name=Tess
+Comment=Launch the program
+Comment[fr_FR]=Lance l'application
+GenericName=Terminal
+Categories=System;TerminalEmulator;GTK;
+MimeType=application/x-executable;application/x-pie-executable;
+Terminal=false
+NoDisplay=true

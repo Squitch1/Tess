@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 import { defineConfig } from "vite";
 import { resolve } from "path";
 
@@ -52,7 +53,7 @@ export default defineConfig({
             components: resolve(__dirname, "src/ts", "components"),
             schemas: resolve(__dirname, "src/ts", "schemas"),
             utils: resolve(__dirname, "src/ts", "utils"),
-            icons: resolve(__dirname, "src/assets", "icons"),
+            icons: resolve(__dirname, "icons"),
         },
     },
 });

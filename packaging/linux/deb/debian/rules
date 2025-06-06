@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --buildsystem=cargo
+
+override_dh_auto_configure:
+
+override_dh_auto_clean:
+	rm debian/tess.manpages
+	rm -rf resources/man
+	rm -rf node_modules 
+	cd src-tauri && cargo clean && rm -rf dist && rm -rf gen
+
+override_dh_auto_build:
+	npm i
+	cd src-tauri && cargo build --release
+	mkdir -p resources/man
+	cp src-tauri/gen/man/* resources/man
+	find resources/man -name '*.1' > debian/tess.manpages
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	mkdir -p $(DESTDIR)/usr/bin
+	cp src-tauri/target/release/tess $(DESTDIR)/usr/bin/

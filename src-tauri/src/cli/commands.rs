@@ -5,6 +5,10 @@ use uuid::Uuid;
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Run a new instance of Tess
+    #[clap(
+        long_about = "Run a new instance of Tess, reusing any already launched \
+        instances if available."
+    )]
     Run(RunCommand),
 }
 

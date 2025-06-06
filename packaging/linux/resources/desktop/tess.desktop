@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/bin/tess
+Icon=tess
+Name=Tess
+Comment=Execute CLI program
+Comment[fr_FR]=Exécute des programmes en ligne de commande
+GenericName=Terminal
+Categories=System;TerminalEmulator;GTK;
+Keywords=command;console;cli;xterm;prompt;
+Keywords[fr_FR]=commande;console;cli;xterm;invite;invite de commande;
+Terminal=false
+Actions=NewTab;
+
+[Desktop Action NewTab]
+Exec=/usr/bin/tess --tab
+Icon=tess-alt
+Name=New tab
+Name[fr_FR]=Nouvel onglet

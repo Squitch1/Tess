@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=inode/directory;
+Actions=openInTess;
+
+[Desktop Action openInTess]
+Exec=tess -w %f
+Icon=tess-alt
+Name=Open Tess here
+Name[fr_FR]=Ouvrir Tess ici
+X-KDE-Priority=TopLevel
