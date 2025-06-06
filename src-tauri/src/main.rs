@@ -4,7 +4,7 @@
 )]
 
 use tess::cli;
-use tess::common::consts::IPC_SOCKET_ADDR;
+use tess::common::consts::{IPC_SOCKET_ADDR, TESS_VERSION};
 use tess::common::Logger;
 use tess::ipc;
 use tess::schemas;
@@ -42,7 +42,7 @@ async fn main() {
         println!(
             "{} {}{}",
             env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
+            TESS_VERSION,
             option_env!("GIT_COMMIT_INFO")
                 .map(|commit_info| format!(" ({commit_info})"))
                 .unwrap_or_default()
