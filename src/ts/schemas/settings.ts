@@ -64,6 +64,7 @@ export type TerminalSettings = {
     showPicture: boolean;
     showUnreadDataMark: boolean;
     bracketedPaste: boolean;
+    hyperlinkModifier: string;
 };
 
 export type Profile = {
@@ -97,6 +98,7 @@ export type TerminalTheme = {
     brightWhite: string;
     cursor: string;
     cursorAccent: string;
+    highlight: string;
 };
 
 export type BackgroundMedia = {

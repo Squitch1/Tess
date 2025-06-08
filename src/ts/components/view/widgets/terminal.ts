@@ -1,8 +1,14 @@
 import { Profile } from "schemas/settings";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { Terminal as Xterm } from "@xterm/xterm";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import {
+    IBufferRange,
+    IDecoration,
+    IViewportRange,
+    Terminal as Xterm,
+} from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { CanvasAddon } from "@xterm/addon-canvas";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import Widget from "./base";
 
 export default class Terminal extends Widget {
@@ -21,8 +27,18 @@ export default class Terminal extends Widget {
     onTerminalKeyPress: (e: KeyboardEvent) => boolean;
     onTerminalExit: () => Promise<void>;
 
+    private tooltip?: IDecoration;
+    private tooltipPopTimeout?: ReturnType<typeof setTimeout>;
+    private hyperlinkModifiers: string[];
+
     constructor(profile: Profile) {
         super();
+
+        this.hyperlinkModifiers = profile.terminalSettings.hyperlinkModifier
+            .toLowerCase()
+            .replaceAll(" ", "")
+            .split("+")
+            .filter((m) => m !== "");
 
         this.onTerminalResize = () => {};
         this.onTerminalNeedClosability = async () => true;
@@ -53,6 +69,10 @@ export default class Terminal extends Widget {
             "--profile-background-transparency",
             `${profile.backgroundTransparency}%`
         );
+        this.xtermTarget.style.setProperty(
+            "--terminal-highlight-color",
+            profile.theme.highlight
+        );
 
         this.element.appendChild(this.xtermTarget);
 
@@ -62,6 +82,11 @@ export default class Terminal extends Widget {
         }
 
         this.xterm = new Xterm({
+            linkHandler: {
+                activate: (e, uri) => this.onLinkClicked(e, uri),
+                hover: (_, uri, range) => this.onLinkHovered(uri, range),
+                leave: () => this.onLinkLeaved(),
+            },
             allowProposedApi: true,
             fontFamily: "Fira Code, monospace",
             allowTransparency: profile.backgroundTransparency < 100,
@@ -83,6 +108,12 @@ export default class Terminal extends Widget {
 
         this.xterm.loadAddon(this.xtermFitAddon);
         this.xterm.loadAddon(new CanvasAddon());
+        this.xterm.loadAddon(
+            new WebLinksAddon((e, uri) => this.onLinkClicked(e, uri), {
+                hover: (_, uri, range) => this.onLinkHovered(uri, range),
+                leave: () => this.onLinkLeaved(),
+            })
+        );
 
         this.xterm.onData((data) => this.onTerminalOutgoingData(data));
 
@@ -147,6 +178,100 @@ export default class Terminal extends Widget {
                 proposedDimensions.cols,
                 proposedDimensions.rows
             );
+        }
+    }
+
+    private onLinkHovered(uri: string, range: IBufferRange | IViewportRange) {
+        if (this.tooltip) {
+            return;
+        }
+
+        this.tooltipPopTimeout = setTimeout(() => {
+            const marker = this.xterm.registerMarker(
+                range.start.y -
+                    (this.xterm.buffer.active.baseY +
+                        this.xterm.buffer.active.cursorY +
+                        1)
+            );
+            this.tooltip = this.xterm.registerDecoration({
+                marker,
+                x: range.start.x - 1,
+                width: range.end.x - (range.start.x - 1),
+            });
+            const tooltipRenderedEvent = this.tooltip?.onRender((element) => {
+                const tooltipAnchor = document.createElement("div");
+                tooltipAnchor.style.position = "relative";
+
+                const tooltipWrapper = document.createElement("div");
+
+                tooltipWrapper.style.position = "absolute";
+                tooltipWrapper.style.bottom = "0";
+                tooltipWrapper.style.paddingBottom = "4px";
+
+                const tooltip = document.createElement("div");
+                tooltip.classList.add("tooltip", "link");
+
+                const link = document.createElement("a");
+                link.innerText = uri;
+                link.href = uri;
+                link.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                    invoke("utils_open_uri", { uri });
+                });
+                tooltip.appendChild(link);
+
+                if (this.hyperlinkModifiers.length > 0) {
+                    const hyperlinkTipElement = document.createElement("span");
+                    const linkOpenTip = this.hyperlinkModifiers
+                        .map((m) => `<kbd>${m}</kbd>`)
+                        .concat("<kbd>click</kbd>");
+                    hyperlinkTipElement.innerHTML = linkOpenTip.join("+");
+                    tooltip.appendChild(hyperlinkTipElement);
+                }
+
+                tooltipWrapper.appendChild(tooltip);
+                tooltipAnchor.appendChild(tooltipWrapper);
+
+                element.appendChild(tooltipAnchor);
+                element.classList.add("highlight");
+                element.addEventListener("mouseleave", () => {
+                    marker.dispose();
+                    this.tooltip!.dispose();
+                    this.tooltip = undefined;
+                });
+
+                setTimeout(() => {
+                    if (tooltipWrapper.clientHeight > element.offsetTop) {
+                        tooltipWrapper.style.paddingBottom = "";
+                        tooltipWrapper.style.bottom = "";
+                        tooltipWrapper.style.top = `${element.style.height}`;
+                        tooltipWrapper.style.paddingTop = "4px";
+                    }
+                }, 0);
+
+                tooltipRenderedEvent!.dispose();
+            });
+        }, 1000);
+    }
+
+    private onLinkLeaved() {
+        clearTimeout(this.tooltipPopTimeout);
+    }
+
+    private onLinkClicked(e: MouseEvent, uri: string) {
+        const pressedModifiers = [];
+        if (e.ctrlKey) pressedModifiers.push("ctrl");
+        if (e.altKey) pressedModifiers.push("alt");
+        if (e.shiftKey) pressedModifiers.push("shift");
+        if (e.metaKey) pressedModifiers.push("meta");
+
+        if (
+            pressedModifiers.length === this.hyperlinkModifiers.length &&
+            pressedModifiers.every((m) => this.hyperlinkModifiers.includes(m))
+        ) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            invoke("utils_open_uri", { uri });
         }
     }
 }

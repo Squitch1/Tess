@@ -35,12 +35,13 @@ export default class ShortcutManager {
 
             if (e.ctrlKey) pressedShortcut.push("ctrl");
             if (e.altKey) pressedShortcut.push("alt");
-            if (e.shiftKey) pressedShortcut.push("maj");
+            if (e.shiftKey) pressedShortcut.push("shift");
+            if (e.metaKey) pressedShortcut.push("meta");
 
             const correspondingShortcut = this.shortcuts.find(
                 (shortcut) =>
-                    pressedShortcut.every((tmp) => shortcut[0].includes(tmp)) &&
-                    shortcut[0].every((tmp) => pressedShortcut.includes(tmp))
+                    shortcut[0].length === pressedShortcut.length &&
+                    pressedShortcut.every((k) => shortcut[0].includes(k))
             );
 
             if (correspondingShortcut) {

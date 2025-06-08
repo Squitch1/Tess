@@ -45,7 +45,7 @@ pub struct PartialProfile {
     pub name: String,
     pub uuid: Option<Uuid>,
     pub command: String,
-    pub buffer_size: Option<RangedInt<500, 5000, 3000>>,
+    pub buffer_size: Option<RangedInt<500, 20000, 3000>>,
     pub cursor: Option<CursorType>,
     pub font_size: Option<RangedInt<10, 30, 15>>,
     pub font_ligature: Option<bool>,
@@ -63,6 +63,7 @@ pub struct PartialProfile {
     pub title_format: Option<String>,
     pub progress_tracking: Option<bool>,
     pub bracketed_paste: Option<bool>,
+    pub hyperlink_modifier: Option<String>,
     #[serde(deserialize_with = "deserialize_profile_background")]
     #[serde(default)]
     pub background: Option<BackgroundMedia>,

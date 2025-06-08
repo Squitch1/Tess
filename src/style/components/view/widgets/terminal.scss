@@ -11,4 +11,37 @@
         background: var(--profile-background);
         opacity: var(--profile-background-transparency);
     }
+
+    .highlight {
+        border-radius: 3px;
+        padding: 1px;
+        translate: -1px -1px;
+        background-color: var(--terminal-highlight-color);
+        animation: opacity-fade 140ms;
+    }
+
+    .tooltip {
+        padding: 6px;
+        background: var(--terminal-tooltip-background);
+        border-radius: 3px;
+        animation: scale-fade 140ms;
+
+        &.link {
+            font-size: 13px;
+            line-height: 13px;
+            display: flex;
+            gap: 8px;
+
+            span {
+                color: var(--dimmed-text-color);
+                font-size: 12px;
+                display: flex;
+                gap: 4px;
+
+                kbd:not(:last-of-type) {
+                    text-transform: capitalize;
+                }
+            }
+        }
+    }
 }

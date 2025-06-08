@@ -154,7 +154,7 @@ export default class Toaster {
         }
 
         let closeButtonListener;
-        let closeTimeout: number | undefined;
+        let closeTimeout: ReturnType<typeof setTimeout>;
         dismissToastButton.addEventListener(
             "click",
             (closeButtonListener = () => {
