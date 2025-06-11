@@ -210,7 +210,8 @@ export default class TerminalManager {
     async openNew(
         profileUuid: string,
         command?: string,
-        workdir?: string
+        workdir?: string,
+        title?: string
     ): Promise<Terminal> {
         const profile = this.profiles.find(
             (profile) => profile.uuid === profileUuid
@@ -228,6 +229,7 @@ export default class TerminalManager {
                 profileUuid,
                 command,
                 workdir,
+                title,
             });
         } catch (e) {
             this.terminals.pop();
