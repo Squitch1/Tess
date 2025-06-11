@@ -31,7 +31,10 @@ export default class ShortcutManager {
     onKeyPress(e: KeyboardEvent, target?: Terminal): boolean {
         if (e.type === "keydown" && e.code !== "Space") {
             const key = e.key.toLowerCase() === "unidentified" ? e.code : e.key;
-            const pressedShortcut = [key.toLowerCase()];
+            const pressedShortcut: string[] = [];
+            if (!e.getModifierState(e.key)) {
+                pressedShortcut.push(key.toLowerCase());
+            }
 
             if (e.ctrlKey) pressedShortcut.push("ctrl");
             if (e.altKey) pressedShortcut.push("alt");

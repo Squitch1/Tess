@@ -740,7 +740,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::OpenDefaultProfile,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+T"),
+            shortcut: String::from("CTRL+SHIFT+T"),
             action: ShortcutAction::SplitTabAndOpenDefaultProfile,
         },
         Shortcut {
@@ -748,7 +748,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::CloseFocusedTab,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+W"),
+            shortcut: String::from("CTRL+SHIFT+W"),
             action: ShortcutAction::CloseWindow,
         },
         Shortcut {
@@ -756,7 +756,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::FocusNextTab,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+TAB"),
+            shortcut: String::from("CTRL+SHIFT+TAB"),
             action: ShortcutAction::FocusPrevTab,
         },
     ]

@@ -248,6 +248,17 @@ export default class Terminal extends Widget {
                         tooltipWrapper.style.top = `${element.style.height}`;
                         tooltipWrapper.style.paddingTop = "4px";
                     }
+                    if (
+                        tooltipWrapper.clientWidth >
+                        this.element.clientWidth - element.offsetLeft
+                    ) {
+                        tooltipWrapper.style.right = "0";
+                        tooltipAnchor.style.translate = `${
+                            this.element.clientWidth -
+                            element.offsetLeft -
+                            tooltipAnchor.clientWidth
+                        }px`;
+                    }
                 }, 0);
 
                 tooltipRenderedEvent!.dispose();

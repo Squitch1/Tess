@@ -2,6 +2,7 @@
     position: relative;
     height: 100%;
     overflow: hidden;
+    container-type: inline-size;
 
     &::before {
         position: absolute;
@@ -30,13 +31,20 @@
             font-size: 13px;
             line-height: 13px;
             display: flex;
+            word-break: break-all;
             gap: 8px;
+            max-width: 80cqw;
+
+            a {
+                width: max-content;
+            }
 
             span {
                 color: var(--dimmed-text-color);
                 font-size: 12px;
                 display: flex;
                 gap: 4px;
+                word-break: keep-all;
 
                 kbd:not(:last-of-type) {
                     text-transform: capitalize;
