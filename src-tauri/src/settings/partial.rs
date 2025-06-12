@@ -47,7 +47,7 @@ pub struct PartialProfile {
     pub command: String,
     pub title: Option<String>,
     pub title_format: Option<String>,
-    pub buffer_size: Option<RangedInt<500, 5000, 3000>>,
+    pub buffer_size: Option<RangedInt<500, 20000, 3000>>,
     pub cursor: Option<CursorType>,
     pub font_size: Option<RangedInt<10, 30, 15>>,
     pub font_ligature: Option<bool>,
