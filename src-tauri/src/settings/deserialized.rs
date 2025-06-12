@@ -146,21 +146,24 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     },
                 );
 
+                let title_format = TitleFormatter::new(
+                    &partial_profile
+                        .title_format
+                        .unwrap_or_else(|| partial_settings.title_format.clone()),
+                    &partial_profile.name,
+                );
                 profiles.push(Profile {
-                    title_format: TitleFormatter::new(
-                        &partial_profile
-                            .title_format
-                            .unwrap_or_else(|| partial_settings.title_format.clone()),
-                        &partial_profile.name,
-                    ),
+                    uuid: partial_profile.uuid.unwrap_or_else(Uuid::new_v4),
                     name: partial_profile.name,
+                    command: partial_profile.command,
+                    title: partial_profile.title,
+                    title_format,
                     terminal_settings: profile_settings,
                     theme: profile_theme,
                     background_transparency: partial_profile
                         .background_transparency
                         .unwrap_or(partial_settings.background_transparency),
-                    uuid: partial_profile.uuid.unwrap_or_else(Uuid::new_v4),
-                    command: partial_profile.command,
+
                     background: partial_profile.background,
                 });
             }
@@ -201,8 +204,6 @@ impl<'de> serde::Deserialize<'de> for Settings {
             });
 
         Ok(Self {
-            theme: partial_settings.theme,
-
             terminal_theme,
             app_theme,
             background: partial_settings.background,
@@ -218,6 +219,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
                 .clone(),
             close_confirmation: partial_settings.close_confirmation,
             desktop_integration: partial_settings.desktop_integration,
+            theme: partial_settings.theme,
 
             #[cfg(target_family = "unix")]
             webkit_compositing_mode: partial_settings.webkit_compositing_mode,
@@ -391,15 +393,17 @@ impl Serialize for ShortcutAction {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct Profile {
+    pub uuid: Uuid,
     pub name: String,
+    pub command: String,
+    #[serde(skip_serializing)]
+    pub title: Option<String>,
+    #[serde(skip_serializing)]
+    pub title_format: TitleFormatter,
     pub terminal_settings: TerminalSettings,
     theme: TerminalTheme,
     background_transparency: RangedInt<0, 100, 100>,
     background: Option<BackgroundMedia>,
-    pub uuid: Uuid,
-    pub command: String,
-    #[serde(skip_serializing)]
-    pub title_format: TitleFormatter,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -711,6 +715,7 @@ fn default_profile(
 ) -> Profile {
     Profile {
         name: String::from("Default profile"),
+        title: None,
         terminal_settings,
         theme,
         background_transparency,

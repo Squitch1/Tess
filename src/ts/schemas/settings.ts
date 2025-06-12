@@ -68,13 +68,13 @@ export type TerminalSettings = {
 };
 
 export type Profile = {
+    uuid: string;
     name: string;
+    command: string;
     terminalSettings: TerminalSettings;
     theme: TerminalTheme;
-    uuid: string;
     backgroundTransparency: number;
     background: BackgroundMedia | null;
-    command: string;
 };
 
 export type TerminalTheme = {

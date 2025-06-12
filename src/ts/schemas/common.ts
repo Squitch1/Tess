@@ -12,4 +12,5 @@ export type openTabProfilePayload = {
     uuid?: string;
     command?: string;
     workdir?: string;
+    title?: string;
 };

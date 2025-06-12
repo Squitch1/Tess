@@ -89,7 +89,8 @@ export default class App {
                     e.payload.profile.uuid ?? settings.defaultProfile.uuid,
                     true,
                     e.payload.profile.command,
-                    e.payload.profile.workdir
+                    e.payload.profile.workdir,
+                    e.payload.profile.title
                 );
             }
         });
@@ -361,13 +362,15 @@ export default class App {
         profileUuid: string,
         focus: boolean,
         command?: string,
-        workdir?: string
+        workdir?: string,
+        title?: string
     ) {
         try {
             const terminalWidget = await this.terminalManager.openNew(
                 profileUuid,
                 command,
-                workdir
+                workdir,
+                title
             );
 
             const view = this.generateView();

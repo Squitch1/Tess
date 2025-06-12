@@ -42,17 +42,17 @@ pub struct PartialSettings {
 
 #[derive(Deserialize, Debug, Default)]
 pub struct PartialProfile {
-    pub name: String,
     pub uuid: Option<Uuid>,
+    pub name: String,
     pub command: String,
-    pub buffer_size: Option<RangedInt<500, 20000, 3000>>,
+    pub title: Option<String>,
+    pub title_format: Option<String>,
+    pub buffer_size: Option<RangedInt<500, 5000, 3000>>,
     pub cursor: Option<CursorType>,
     pub font_size: Option<RangedInt<10, 30, 15>>,
     pub font_ligature: Option<bool>,
     pub show_picture: Option<bool>,
     pub bell: Option<bool>,
-    pub theme: Option<String>,
-    pub background_transparency: Option<RangedInt<0, 100, 100>>,
     pub cursor_blink: Option<bool>,
     pub draw_bold_in_bright: Option<bool>,
     pub notify_change: Option<bool>,
@@ -60,13 +60,14 @@ pub struct PartialProfile {
     pub letter_spacing: Option<RangedInt<0, 8, 0>>,
     pub font_weight: Option<RangedInt<1, 9, 4>>,
     pub font_weight_bold: Option<RangedInt<1, 9, 6>>,
-    pub title_format: Option<String>,
     pub progress_tracking: Option<bool>,
     pub bracketed_paste: Option<bool>,
     pub hyperlink_modifier: Option<String>,
+    pub theme: Option<String>,
     #[serde(deserialize_with = "deserialize_profile_background")]
     #[serde(default)]
     pub background: Option<BackgroundMedia>,
+    pub background_transparency: Option<RangedInt<0, 100, 100>>,
 }
 
 #[derive(Deserialize, Debug)]
