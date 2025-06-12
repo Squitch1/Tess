@@ -1,3 +1,13 @@
+tess (0.7.0~alpha.14-1) unstable; urgency=medium
+
+  * Add hyperlink support as well as detection of http and https URLs.
+  * Define $COLORTERM, $TERM_PROGRAM and $TERM_PROGRAM_VERSION for
+    compatibility.
+  * Add the ability to define an initial shell title.
+  * Rename 'MAJ' to 'SHIFT' in shortcuts for consistency.
+
+ -- Clément FOURÉ <clement.foure@proton.me>  Thu, 12 Jun 2025 17:47:27 +0000
+
 tess (0.7.0~alpha.13-1) unstable; urgency=low
 
   * Initial release.

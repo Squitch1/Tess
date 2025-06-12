@@ -1,0 +1,6 @@
+Name: x-terminal-emulator
+Link: /usr/bin/x-terminal-emulator
+Alternative: /usr/bin/tess
+Dependents:
+  /usr/share/man/man1/x-terminal-emulator.1.gz x-terminal-emulator.1.gz /usr/share/man/man1/tess.1.gz
+Priority: 20
