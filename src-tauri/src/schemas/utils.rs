@@ -25,6 +25,7 @@ pub enum OpenTab {
         uuid: Option<Uuid>,
         command: Option<String>,
         workdir: Option<PathBuf>,
+        title: Option<String>,
     },
 }
 
@@ -34,6 +35,7 @@ impl Default for OpenTab {
             uuid: None,
             command: None,
             workdir: None,
+            title: None,
         }
     }
 }
@@ -44,6 +46,7 @@ impl From<TransmissionPayload<'_>> for OpenTab {
             uuid: payload.profile.map(Uuid::from_u128),
             command: payload.command.map(str::to_owned),
             workdir: payload.workdir.map(PathBuf::from),
+            title: payload.title.map(str::to_owned),
         }
     }
 }
@@ -54,6 +57,7 @@ impl From<RunCommand> for OpenTab {
             uuid: cmd.profile,
             command: cmd.command,
             workdir: cmd.workdir,
+            title: cmd.title,
         }
     }
 }

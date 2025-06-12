@@ -20,6 +20,9 @@ pub struct RunCommand {
     /// Initial working directory (must be valid Unicode).
     #[arg(short, long, value_name="DIR", value_hint = ValueHint::DirPath)]
     pub workdir: Option<PathBuf>,
+    /// Initial shell title.
+    #[arg(short = 'T', long)]
+    pub title: Option<String>,
     /// The profile to use
     #[arg(short, long, value_name = "UUID")]
     pub profile: Option<Uuid>,

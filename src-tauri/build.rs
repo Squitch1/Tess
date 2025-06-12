@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         start.make_ascii_lowercase();
                         cmd = cmd.about(format!("{start}{end}"))
                     }
-                    generate(cmd, &out_dir, build_date)?;
+                    generate(cmd, out_dir, build_date)?;
                 }
 
                 let cmd_name = cmd.get_display_name().unwrap_or_else(|| cmd.get_name());

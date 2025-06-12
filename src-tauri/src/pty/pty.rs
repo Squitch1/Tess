@@ -36,6 +36,7 @@ impl Pty {
     pub fn build_and_run(
         command: &str,
         workdir: Option<impl AsRef<OsStr>>,
+        title: Option<String>,
         title_formatter: TitleFormatter,
         report_progress: bool,
         notify: bool,
@@ -125,7 +126,11 @@ impl Pty {
         let current_progress = Arc::new(AtomicU8::new(0));
 
         let shell_title = Arc::new(std::sync::Mutex::new(None));
-        let pre_parser = Arc::new(std::sync::Mutex::new(vt100::Parser::new(6, 144, 0)));
+        let mut pre_parser = vt100::Parser::new(6, 144, 0);
+        if let Some(title) = title {
+            write!(pre_parser, "\x1b]2;{title}\x07").ok();
+        }
+        let pre_parser = Arc::new(std::sync::Mutex::new(pre_parser));
 
         {
             let closed = closed.clone();
@@ -159,15 +164,15 @@ impl Pty {
                     let previous_cached_content = pre_parser.screen().contents();
                     let mut consummed = 0;
                     let mut processed_buf = std::io::Cursor::new([0; PTY_BUFFER_SIZE]);
-                    let mut chunks = buf[..remaining + read].utf8_chunks();
-                    while let Some(chunk) = chunks.next() {
+                    let chunks = buf[..remaining + read].utf8_chunks();
+                    for chunk in chunks {
                         pre_parser.process(chunk.valid().as_bytes());
-                        processed_buf.write(chunk.valid().as_bytes()).ok();
+                        processed_buf.write_all(chunk.valid().as_bytes()).ok();
                         consummed += chunk.valid().len();
 
                         if !chunk.invalid().is_empty() && (read + remaining) - consummed >= 4 {
                             consummed += chunk.invalid().len();
-                            processed_buf.write("\u{FFFD}".as_bytes()).ok();
+                            processed_buf.write_all("\u{FFFD}".as_bytes()).ok();
                         }
                     }
                     unsafe {
