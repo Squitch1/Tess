@@ -14,3 +14,8 @@ pub async fn utils_get_settings(
 ) -> Result<Settings, ()> {
     Ok(settings.read().await.clone())
 }
+
+#[tauri::command]
+pub fn utils_open_uri(uri: &str) {
+    open::that_in_background(uri);
+}

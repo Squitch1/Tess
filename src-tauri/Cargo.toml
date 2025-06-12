@@ -51,6 +51,7 @@ clap = { version = "4.5.35", default-features = false, features = [
     "help",
     "usage",
 ] }
+open = "5.3.2"
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3.17"

@@ -133,6 +133,9 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     bracketed_paste: partial_profile
                         .bracketed_paste
                         .unwrap_or(partial_settings.terminal.bracketed_paste),
+                    hyperlink_modifier: partial_profile
+                        .hyperlink_modifier
+                        .unwrap_or(partial_settings.terminal.hyperlink_modifier.clone()),
                 };
                 let profile_theme = partial_profile.theme.map_or_else(
                     || terminal_theme.clone(),
@@ -228,7 +231,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct TerminalSettings {
     #[serde(default)]
-    buffer_size: RangedInt<500, 5000, 3000>,
+    buffer_size: RangedInt<500, 20000, 3000>,
     #[serde(default)]
     cursor: CursorType,
     #[serde(default)]
@@ -257,6 +260,8 @@ pub struct TerminalSettings {
     pub progress_tracking: bool,
     #[serde(default = "default_to_true")]
     pub bracketed_paste: bool,
+    #[serde(default = "default_hyperlink_modifier")]
+    pub hyperlink_modifier: String,
 }
 
 impl Default for TerminalSettings {
@@ -270,13 +275,14 @@ impl Default for TerminalSettings {
             bell: false,
             cursor_blink: false,
             draw_bold_in_bright: false,
-            notify_content_change: true,
+            notify_content_change: default_to_true(),
             line_height: RangedInt::default(),
             letter_spacing: RangedInt::default(),
             font_weight: RangedInt::default(),
             font_weight_bold: RangedInt::default(),
             progress_tracking: false,
-            bracketed_paste: true,
+            bracketed_paste: default_to_true(),
+            hyperlink_modifier: default_hyperlink_modifier(),
         }
     }
 }
@@ -422,6 +428,7 @@ pub struct TerminalTheme {
     bright_white: String,
     cursor: String,
     cursor_accent: String,
+    highlight: String,
 }
 
 impl Default for TerminalTheme {
@@ -447,6 +454,7 @@ impl Default for TerminalTheme {
             bright_white: String::from("#ABB4D6"),
             cursor: String::from("#DEEAF8"),
             cursor_accent: String::from("#141A29"),
+            highlight: String::from("#156CE624"),
         }
     }
 }
@@ -495,6 +503,8 @@ impl<'de> Deserialize<'de> for TerminalTheme {
             pub cursor: Option<String>,
             #[serde(default)]
             pub cursor_accent: Option<String>,
+            #[serde(default)]
+            pub hightlight: Option<String>,
         }
 
         let partial_terminal_theme =
@@ -561,6 +571,9 @@ impl<'de> Deserialize<'de> for TerminalTheme {
             cursor_accent: partial_terminal_theme
                 .cursor_accent
                 .unwrap_or(default_terminal_theme.cursor_accent),
+            highlight: partial_terminal_theme
+                .hightlight
+                .unwrap_or(default_terminal_theme.highlight),
         })
     }
 }
@@ -688,6 +701,11 @@ const fn default_to_true() -> bool {
 }
 
 #[inline]
+fn default_hyperlink_modifier() -> String {
+    String::from("CTRL")
+}
+
+#[inline]
 fn default_profile(
     uuid: Uuid,
     title_format: &str,
@@ -727,7 +745,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::OpenDefaultProfile,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+T"),
+            shortcut: String::from("CTRL+SHIFT+T"),
             action: ShortcutAction::SplitTabAndOpenDefaultProfile,
         },
         Shortcut {
@@ -735,7 +753,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::CloseFocusedTab,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+W"),
+            shortcut: String::from("CTRL+SHIFT+W"),
             action: ShortcutAction::CloseWindow,
         },
         Shortcut {
@@ -743,7 +761,7 @@ fn default_shortcuts() -> Vec<Shortcut> {
             action: ShortcutAction::FocusNextTab,
         },
         Shortcut {
-            shortcut: String::from("CTRL+MAJ+TAB"),
+            shortcut: String::from("CTRL+SHIFT+TAB"),
             action: ShortcutAction::FocusPrevTab,
         },
     ]

@@ -62,6 +62,7 @@ pub struct PartialProfile {
     pub font_weight_bold: Option<RangedInt<1, 9, 6>>,
     pub progress_tracking: Option<bool>,
     pub bracketed_paste: Option<bool>,
+    pub hyperlink_modifier: Option<String>,
     pub theme: Option<String>,
     #[serde(deserialize_with = "deserialize_profile_background")]
     #[serde(default)]
