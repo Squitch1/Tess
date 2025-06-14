@@ -16,6 +16,7 @@ Priority: optional
 Package: tess
 Architecture: amd64 i386
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Provides: x-terminal-emulator
 Description: modern and web-based terminal emulator
  A hackable, simple, and rapid terminal for the new era of technology. 
  It includes emoji support, tabs, screen splitting, as well as theming and
