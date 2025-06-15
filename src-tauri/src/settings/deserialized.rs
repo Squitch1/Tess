@@ -1,5 +1,5 @@
 use super::partial::{default_title_format, PartialSettings};
-use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedInt};
+use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedFloat, RangedInt};
 
 use crate::pty::title_formatter::TitleFormatter;
 use crate::utils::theme;
@@ -127,6 +127,9 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     font_weight_bold: partial_profile
                         .font_weight_bold
                         .unwrap_or(partial_settings.terminal.font_weight_bold),
+                    minimum_contrast_ratio: partial_profile
+                        .minimum_contrast_ratio
+                        .unwrap_or(partial_settings.terminal.minimum_contrast_ratio),
                     progress_tracking: partial_profile
                         .progress_tracking
                         .unwrap_or(partial_settings.terminal.progress_tracking),
@@ -257,6 +260,8 @@ pub struct TerminalSettings {
     #[serde(default)]
     font_weight_bold: RangedInt<1, 9, 6>,
     #[serde(default)]
+    minimum_contrast_ratio: RangedFloat<1, 21, 1>,
+    #[serde(default)]
     pub progress_tracking: bool,
     #[serde(default = "default_to_true")]
     pub bracketed_paste: bool,
@@ -280,6 +285,7 @@ impl Default for TerminalSettings {
             letter_spacing: RangedInt::default(),
             font_weight: RangedInt::default(),
             font_weight_bold: RangedInt::default(),
+            minimum_contrast_ratio: RangedFloat::default(),
             progress_tracking: false,
             bracketed_paste: default_to_true(),
             hyperlink_modifier: default_hyperlink_modifier(),

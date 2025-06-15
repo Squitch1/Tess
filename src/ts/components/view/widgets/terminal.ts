@@ -101,6 +101,7 @@ export default class Terminal extends Widget {
             fontWeight: profile.terminalSettings.fontWeight * 100,
             fontWeightBold: profile.terminalSettings.fontWeightBold * 100,
             ignoreBracketedPasteMode: !profile.terminalSettings.bracketedPaste,
+            minimumContrastRatio: profile.terminalSettings.minimumContrastRatio,
             theme,
         });
 

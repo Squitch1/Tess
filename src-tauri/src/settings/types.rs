@@ -40,6 +40,45 @@ impl<const MIN: u32, const MAX: u32, const DEF: u32> serde::Serialize for Ranged
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RangedFloat<const MIN: u32, const MAX: u32, const DEF: u32>(pub f64);
+
+impl<const MIN: u32, const MAX: u32, const DEF: u32> Default for RangedFloat<MIN, MAX, DEF> {
+    fn default() -> Self {
+        Self(DEF.into())
+    }
+}
+
+impl<'de, const MIN: u32, const MAX: u32, const DEF: u32> serde::Deserialize<'de>
+    for RangedFloat<MIN, MAX, DEF>
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(f64::deserialize(deserializer).map_or_else(
+            |_| Self::default(),
+            |deserialized_value| {
+                if deserialized_value < MIN.into() {
+                    Self(MIN.into())
+                } else if deserialized_value > MAX.into() {
+                    Self(MAX.into())
+                } else {
+                    Self(deserialized_value)
+                }
+            },
+        ))
+    }
+}
+
+impl<const MIN: u32, const MAX: u32, const DEF: u32> serde::Serialize
+    for RangedFloat<MIN, MAX, DEF>
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_f64(self.0)
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub enum BackgroundType {

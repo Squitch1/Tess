@@ -1,5 +1,5 @@
 use super::deserialized::{CloseConfirmation, DesktopIntegration, Shortcut, TerminalSettings};
-use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedInt};
+use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedFloat, RangedInt};
 
 use crate::common::consts;
 
@@ -60,6 +60,7 @@ pub struct PartialProfile {
     pub letter_spacing: Option<RangedInt<0, 8, 0>>,
     pub font_weight: Option<RangedInt<1, 9, 4>>,
     pub font_weight_bold: Option<RangedInt<1, 9, 6>>,
+    pub minimum_contrast_ratio: Option<RangedFloat<1, 21, 1>>,
     pub progress_tracking: Option<bool>,
     pub bracketed_paste: Option<bool>,
     pub hyperlink_modifier: Option<String>,
