@@ -108,7 +108,6 @@ export type BackgroundMedia = {
 };
 
 export type CloseConfirmation = {
-    tab: boolean;
     group: boolean;
     window: boolean;
     app: boolean;
