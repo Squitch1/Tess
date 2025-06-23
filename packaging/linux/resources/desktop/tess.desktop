@@ -10,10 +10,16 @@ Categories=System;TerminalEmulator;GTK;
 Keywords=command;console;cli;xterm;prompt;
 Keywords[fr_FR]=commande;console;cli;xterm;invite;invite de commande;
 Terminal=false
-Actions=NewTab;
+Actions=new-window;new-tab;
 
-[Desktop Action NewTab]
+[Desktop Action new-window]
+Exec=/usr/bin/tess --window
+Icon=tess-alt
+Name=New Window
+Name[fr_FR]=Nouvelle fenêtre
+
+[Desktop Action new-tab]
 Exec=/usr/bin/tess --tab
 Icon=tess-alt
-Name=New tab
+Name=New Tab
 Name[fr_FR]=Nouvel onglet
