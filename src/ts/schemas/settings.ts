@@ -63,6 +63,7 @@ export type TerminalSettings = {
     lineHeight: number;
     showPicture: boolean;
     showUnreadDataMark: boolean;
+    minimumContrastRatio: number;
     bracketedPaste: boolean;
     hyperlinkModifier: string;
 };
@@ -107,7 +108,6 @@ export type BackgroundMedia = {
 };
 
 export type CloseConfirmation = {
-    tab: boolean;
     group: boolean;
     window: boolean;
     app: boolean;

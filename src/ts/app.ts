@@ -68,11 +68,11 @@ export default class App {
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen("js_window_request_closing", () =>
-            this.closeViews()
+            this.closeWindow()
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<number>("js_app_request_exit", (e) =>
-            this.closeAllWindows(e)
+            this.closeApp(e)
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<showToastPayload>("js_show_toast", (e) =>
@@ -96,16 +96,20 @@ export default class App {
         });
     }
 
-    private async closeAllWindows(e: Event<number>) {
+    private async closeApp(e: Event<number>) {
         const confirmButton = new PopupButton("confirm", "validate");
         const cancelButton = new PopupButton("cancel", "dismiss");
 
-        const popupResult = await this.popupManager.sendPopup(
-            new PopupBuilder(`Confirm close of ${e.payload} windows`)
-                .withMessage(`Are you sure to close the app?`)
-                .withButtons(confirmButton, cancelButton)
-        );
-        if (popupResult.action === "confirm") {
+        if (
+            !settings.closeConfirmation.app ||
+            (
+                await this.popupManager.sendPopup(
+                    new PopupBuilder(`Confirm close of ${e.payload} windows`)
+                        .withMessage(`Are you sure to close the app?`)
+                        .withButtons(confirmButton, cancelButton)
+                )
+            ).action === "confirm"
+        ) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("utils_close_app");
         }
@@ -287,7 +291,7 @@ export default class App {
                         this.tabsManager.selectLast();
                         break;
                     case "closeWindow":
-                        await this.closeViews();
+                        await this.closeWindow();
                         break;
                 }
             }
@@ -310,7 +314,7 @@ export default class App {
         }
     }
 
-    private async closeViews() {
+    private async closeWindow() {
         try {
             if (this.views.length === 1) {
                 this.tabsManager.requestTabClosing(this.views[0].uuid!);
@@ -318,17 +322,21 @@ export default class App {
                 const confirmButton = new PopupButton("confirm", "validate");
                 const cancelButton = new PopupButton("cancel", "dismiss");
 
-                const popupResult = await this.popupManager.sendPopup(
-                    new PopupBuilder(
-                        `Confirm close of ${this.views.length} tabs`
-                    )
-                        .withMessage(`Are you sure to close this window?`)
-                        .withButtons(confirmButton, cancelButton)
-                );
-                if (popupResult.action === "confirm") {
-                    for await (const view of this.views) {
-                        await view.close();
-                    }
+                if (
+                    !settings.closeConfirmation.window ||
+                    (
+                        await this.popupManager.sendPopup(
+                            new PopupBuilder(
+                                `Confirm close of ${this.views.length} tabs`
+                            )
+                                .withMessage(
+                                    `Are you sure to close this window?`
+                                )
+                                .withButtons(confirmButton, cancelButton)
+                        )
+                    ).action === "confirm"
+                ) {
+                    await Promise.all(this.views.map((view) => view.close()));
 
                     // eslint-disable-next-line @typescript-eslint/no-floating-promises
                     invoke("window_close");

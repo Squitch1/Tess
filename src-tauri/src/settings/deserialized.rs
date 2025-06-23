@@ -1,5 +1,5 @@
 use super::partial::{default_title_format, PartialSettings};
-use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedInt};
+use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedFloat, RangedInt};
 
 use crate::pty::title_formatter::TitleFormatter;
 use crate::utils::theme;
@@ -127,6 +127,9 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     font_weight_bold: partial_profile
                         .font_weight_bold
                         .unwrap_or(partial_settings.terminal.font_weight_bold),
+                    minimum_contrast_ratio: partial_profile
+                        .minimum_contrast_ratio
+                        .unwrap_or(partial_settings.terminal.minimum_contrast_ratio),
                     progress_tracking: partial_profile
                         .progress_tracking
                         .unwrap_or(partial_settings.terminal.progress_tracking),
@@ -257,6 +260,8 @@ pub struct TerminalSettings {
     #[serde(default)]
     font_weight_bold: RangedInt<1, 9, 6>,
     #[serde(default)]
+    minimum_contrast_ratio: RangedFloat<1, 21, 1>,
+    #[serde(default)]
     pub progress_tracking: bool,
     #[serde(default = "default_to_true")]
     pub bracketed_paste: bool,
@@ -280,6 +285,7 @@ impl Default for TerminalSettings {
             letter_spacing: RangedInt::default(),
             font_weight: RangedInt::default(),
             font_weight_bold: RangedInt::default(),
+            minimum_contrast_ratio: RangedFloat::default(),
             progress_tracking: false,
             bracketed_paste: default_to_true(),
             hyperlink_modifier: default_hyperlink_modifier(),
@@ -580,7 +586,7 @@ impl<'de> Deserialize<'de> for TerminalTheme {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CloseConfirmation {
-    pub tab: bool,
+    pub process: bool,
     pub group: bool,
     pub window: bool,
     pub app: bool,
@@ -607,14 +613,14 @@ impl<'de> Deserialize<'de> for CloseConfirmation {
 
         match Wrapper::deserialize(deserializer)? {
             Wrapper::Simple(enable) => Ok(Self {
-                tab: enable,
+                process: enable,
                 group: enable,
                 window: enable,
                 app: enable,
                 ..Default::default()
             }),
             Wrapper::Complex(partial_close_confirmation) => Ok(Self {
-                tab: partial_close_confirmation.tab.unwrap_or(true),
+                process: partial_close_confirmation.tab.unwrap_or(true),
                 group: partial_close_confirmation.group.unwrap_or(true),
                 window: partial_close_confirmation.window.unwrap_or(true),
                 app: partial_close_confirmation.app.unwrap_or(true),
@@ -629,7 +635,7 @@ impl<'de> Deserialize<'de> for CloseConfirmation {
 impl Default for CloseConfirmation {
     fn default() -> Self {
         Self {
-            tab: true,
+            process: true,
             group: true,
             window: true,
             app: true,
@@ -643,6 +649,8 @@ pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
     pub open_in_tab: bool,
+    #[cfg(target_family = "unix")]
+    pub intercept_signals: bool,
 }
 
 impl Default for DesktopIntegration {
@@ -654,6 +662,8 @@ impl Default for DesktopIntegration {
             custom_titlebar: true,
             dynamic_title: true,
             open_in_tab: true,
+            #[cfg(target_family = "unix")]
+            intercept_signals: true,
         }
     }
 }
@@ -668,6 +678,8 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
             custom_titlebar: Option<bool>,
             dynamic_title: Option<bool>,
             open_in_tab: Option<bool>,
+            #[cfg(target_family = "unix")]
+            intercept_signals: Option<bool>,
         }
 
         #[derive(Deserialize)]
@@ -682,6 +694,8 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
                 custom_titlebar: enable,
                 dynamic_title: enable,
                 open_in_tab: enable,
+                #[cfg(target_family = "unix")]
+                intercept_signals: enable,
             },
             Wrapper::Complex(partial_desktop_integration) => Self {
                 dynamic_title: partial_desktop_integration.dynamic_title.unwrap_or(true),
@@ -690,6 +704,10 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
                 #[cfg(target_os = "windows")]
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(true),
                 open_in_tab: partial_desktop_integration.open_in_tab.unwrap_or(true),
+                #[cfg(target_family = "unix")]
+                intercept_signals: partial_desktop_integration
+                    .intercept_signals
+                    .unwrap_or(true),
             },
         })
     }

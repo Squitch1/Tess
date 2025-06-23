@@ -107,6 +107,8 @@ async fn main() {
     }
 
     let window_close_confirmation = settings.close_confirmation.window;
+    #[cfg(target_family = "unix")]
+    let intercept_signals = settings.desktop_integration.intercept_signals;
     let settings = Arc::new(RwLock::new(settings));
     let cloned_settings = settings.clone();
     tauri::async_runtime::set(tokio::runtime::Handle::current());
@@ -227,31 +229,33 @@ async fn main() {
         tauri::RunEvent::Ready => {
             #[cfg(target_family = "unix")]
             {
-                let app = app.clone();
-                tokio::spawn(async move {
-                    if let Ok(mut signals_stream) =
-                        signal_hook_tokio::Signals::new([SIGQUIT, SIGTERM])
-                    {
-                        while signals_stream.next().await.is_some() {
-                            let window = utils::window::get_focused_or_random(&app);
-                            if app.webview_windows().len() > 1 {
-                                window
-                                    .emit_to(
-                                        window.label(),
-                                        "js_app_request_exit",
-                                        app.webview_windows().len(),
-                                    )
-                                    .ok();
-                            } else {
-                                window
-                                    .emit_to(window.label(), "js_window_request_closing", ())
-                                    .ok();
+                if intercept_signals {
+                    let app = app.clone();
+                    tokio::spawn(async move {
+                        if let Ok(mut signals_stream) =
+                            signal_hook_tokio::Signals::new([SIGQUIT, SIGTERM])
+                        {
+                            while signals_stream.next().await.is_some() {
+                                let window = utils::window::get_focused_or_random(&app);
+                                if app.webview_windows().len() > 1 {
+                                    window
+                                        .emit_to(
+                                            window.label(),
+                                            "js_app_request_exit",
+                                            app.webview_windows().len(),
+                                        )
+                                        .ok();
+                                } else {
+                                    window
+                                        .emit_to(window.label(), "js_window_request_closing", ())
+                                        .ok();
+                                }
                             }
+                        } else {
+                            logger.warn("Unable to register the signal handler.")
                         }
-                    } else {
-                        logger.warn("Unable to register the signal handler.")
-                    }
-                });
+                    });
+                }
             }
         }
         tauri::RunEvent::WindowEvent {

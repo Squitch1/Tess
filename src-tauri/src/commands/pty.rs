@@ -134,7 +134,7 @@ pub async fn pty_get_closable(
     uuid: Uuid,
 ) -> Result<bool, PtyError> {
     let settings = settings.read().await;
-    if settings.close_confirmation.tab {
+    if settings.close_confirmation.process {
         let locked_ptys = ptys.0.read().await;
         let pty = locked_ptys.get(&uuid).ok_or(PtyError::UnknownPty)?;
 
