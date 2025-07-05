@@ -17,7 +17,7 @@ jobs:
             - name: Install Tools
               run: |
                   sudo apt-get update 
-                  sudo apt-get -y install jq devscripts
+                  sudo apt-get -y install jq devscripts rpm
 
             - name: Install Rustup
               run: |
@@ -26,13 +26,21 @@ jobs:
             - name: Check Version
               run: |
                   CARGO_VERSION=$(cargo metadata --no-deps --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r .packages[0].version)
-                  EXPECTED_DEB_VERSION=$(echo $CARGO_VERSION | tr '-' '~')
+                  EXPECTED_ALT_VERSION=$(echo $CARGO_VERSION | tr '-' '~')
                   if [[ $CARGO_VERSION != ${{ github.event.release.tag_name }} ]]; then
                       echo "::error file=src-tauri/Cargo.toml::[Version Check] The Cargo manifest version seems out-of-date."
                       exit 1
                   fi
-                  if [[ $EXPECTED_DEB_VERSION != $(dpkg-parsechangelog -l packaging/linux/deb/debian/changelog -S Version | cut -d '-' --fields 1) ]]; then
+                  if [[ $EXPECTED_ALT_VERSION != $(dpkg-parsechangelog -l packaging/linux/deb/debian/changelog -S Version | cut -d '-' --fields 1) ]]; then
                     echo "::error file=packaging/linux/deb/debian/changelog::[Version Check] The Debian changelog seems out-of-date."
+                    exit 1;
+                  fi
+                  if [[ $EXPECTED_ALT_VERSION != $(rpmspec -q --qf "%{VERSION}\n" packaging/linux/rpm/tess-prebuilt.spec) ]]; then
+                    echo "::error file=packaging/linux/deb/debian/changelog::[Version Check] The Fedora prebuilt version seems out-of-date."
+                    exit 1;
+                  fi
+                  if [[ $EXPECTED_ALT_VERSION != $(rpmspec -q --qf "%{VERSION}\n" packaging/linux/rpm/tess.spec) ]]; then
+                    echo "::error file=packaging/linux/deb/debian/changelog::[Version Check] The Fedora version seems out-of-date."
                     exit 1;
                   fi
 
@@ -143,6 +151,10 @@ jobs:
                     - i686-unknown-linux-gnu
                 package:
                     - deb
+                    - rpm
+                exclude:
+                    - target: i686-unknown-linux-gnu
+                      package: rpm
                 include:
                     - arch: x86_64
                       target: x86_64-unknown-linux-gnu
@@ -156,6 +168,8 @@ jobs:
                       package: deb
                     - docker: debian:bookworm
                       package: deb
+                    - docker: fedora:41
+                      package: rpm
         runs-on: ubuntu-22.04
         container:
             image: ${{ matrix.docker }}
@@ -190,7 +204,7 @@ jobs:
             - name: Publish Package
               uses: softprops/action-gh-release@v2
               with:
-                  files: packaging/out/linux/*.deb
+                  files: packaging/out/linux/*
 
     generate-windows-binaries:
         name: Build Windows Binary for Target ${{ matrix.target }}
