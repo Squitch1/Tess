@@ -140,7 +140,7 @@ async fn main() {
                         Ok(payload) => tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
                                 if payload.open_in_tab.unwrap_or(
-                                    cloned_settings.read().await.desktop_integration.open_in_tab,
+                                    cloned_settings.read().await.app_behavior.open_in_tab,
                                 ) {
                                     app.emit_to(
                                         utils::window::get_focused_or_random(&app).label(),
@@ -221,7 +221,9 @@ async fn main() {
             commands::utils_get_settings,
             commands::utils_open_uri,
             commands::window_close,
-            commands::window_set_title
+            commands::window_focus,
+            commands::window_set_title,
+            commands::window_request_attention
         ])
         .build(tauri::generate_context!())
         .unwrap();

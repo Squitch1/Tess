@@ -1,5 +1,7 @@
 use super::partial::{default_title_format, PartialSettings};
-use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedFloat, RangedInt};
+use super::types::{
+    BackgroundMedia, BackgroundType, CursorType, FocusMode, RangedFloat, RangedInt,
+};
 
 use crate::pty::title_formatter::TitleFormatter;
 use crate::utils::theme;
@@ -21,6 +23,7 @@ pub struct Settings {
     pub default_profile: Profile,
     pub close_confirmation: CloseConfirmation,
     pub desktop_integration: DesktopIntegration,
+    pub app_behavior: AppBehavior,
 
     #[cfg(target_family = "unix")]
     pub webkit_compositing_mode: bool,
@@ -58,6 +61,7 @@ impl Default for Settings {
             ),
             close_confirmation: CloseConfirmation::default(),
             desktop_integration: DesktopIntegration::default(),
+            app_behavior: AppBehavior::default(),
 
             #[cfg(target_family = "unix")]
             webkit_compositing_mode: false,
@@ -222,6 +226,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
                 .clone(),
             close_confirmation: partial_settings.close_confirmation,
             desktop_integration: partial_settings.desktop_integration,
+            app_behavior: partial_settings.app_behavior,
             theme: partial_settings.theme,
 
             #[cfg(target_family = "unix")]
@@ -648,7 +653,6 @@ impl Default for CloseConfirmation {
 pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
-    pub open_in_tab: bool,
     #[cfg(target_family = "unix")]
     pub intercept_signals: bool,
 }
@@ -661,7 +665,6 @@ impl Default for DesktopIntegration {
             #[cfg(target_os = "windows")]
             custom_titlebar: true,
             dynamic_title: true,
-            open_in_tab: true,
             #[cfg(target_family = "unix")]
             intercept_signals: true,
         }
@@ -677,7 +680,6 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
         struct PartialDesktopIntegration {
             custom_titlebar: Option<bool>,
             dynamic_title: Option<bool>,
-            open_in_tab: Option<bool>,
             #[cfg(target_family = "unix")]
             intercept_signals: Option<bool>,
         }
@@ -693,7 +695,6 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
             Wrapper::Simple(enable) => Self {
                 custom_titlebar: enable,
                 dynamic_title: enable,
-                open_in_tab: enable,
                 #[cfg(target_family = "unix")]
                 intercept_signals: enable,
             },
@@ -703,13 +704,30 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(false),
                 #[cfg(target_os = "windows")]
                 custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(true),
-                open_in_tab: partial_desktop_integration.open_in_tab.unwrap_or(true),
                 #[cfg(target_family = "unix")]
                 intercept_signals: partial_desktop_integration
                     .intercept_signals
                     .unwrap_or(true),
             },
         })
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct AppBehavior {
+    #[serde(default)]
+    pub focus_mode: FocusMode,
+    #[serde(default = "default_to_true")]
+    pub open_in_tab: bool,
+}
+
+impl Default for AppBehavior {
+    fn default() -> Self {
+        Self {
+            focus_mode: FocusMode::default(),
+            open_in_tab: true,
+        }
     }
 }
 
