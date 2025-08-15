@@ -5,6 +5,7 @@ pub fn window_close(window: tauri::Window) {
 
 #[tauri::command]
 pub fn window_focus(window: tauri::Window) {
+    window.unminimize().ok();
     window.set_focus().ok();
 }
 
