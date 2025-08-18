@@ -23,12 +23,12 @@ use signal_hook::consts::signal::*;
 #[cfg(target_family = "unix")]
 use std::io::ErrorKind;
 
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", not(debug_assertions)))]
 use windows::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 #[tokio::main]
 async fn main() {
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", not(debug_assertions)))]
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS).ok();
     };
@@ -50,7 +50,7 @@ async fn main() {
         return;
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", not(debug_assertions)))]
     unsafe {
         FreeConsole().ok();
     }
@@ -273,6 +273,16 @@ async fn main() {
 
                 api.prevent_close()
             }
+        }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::Focused(true),
+            ..
+        } => {
+            app.get_webview_window(&label)
+                .unwrap()
+                .request_user_attention(None)
+                .ok();
         }
         _ => (),
     });

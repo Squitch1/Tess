@@ -27,7 +27,7 @@ clap_mangen = "0.2.26"
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.4", features = ["protocol-asset", "unstable"] }
+tauri = { version = "2.4", features = ["protocol-asset"] }
 portable-pty = "0.8.1"
 infer = "0.16.0"
 tokio = { version = "1", default-features = false, features = [
