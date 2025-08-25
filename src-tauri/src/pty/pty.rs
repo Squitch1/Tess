@@ -7,20 +7,26 @@ use crate::common::errors::PtyError;
 use futures::future::join_all;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use regex_lite::Regex;
-use std::ffi::{c_void, OsStr, OsString};
+use std::ffi::{OsStr, OsString};
 use std::io::{Read, Write};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::LocalFree;
-use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
-use windows::Win32::UI::Shell::CommandLineToArgvW;
 
 #[cfg(target_os = "windows")]
+use std::ffi::c_void;
+#[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStringExt;
+#[cfg(target_os = "windows")]
+use windows::core::PCWSTR;
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::LocalFree;
+#[cfg(target_os = "windows")]
+use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Shell::CommandLineToArgvW;
 
 pub struct Pty {
     writer: Mutex<Box<dyn Write + Send>>,
@@ -50,7 +56,8 @@ impl Pty {
         on_notify: impl Fn() + Send + 'static,
         once_exit: impl FnOnce() + Send + 'static,
     ) -> Result<Self, PtyError> {
-        let mut built_command = if cfg!(target_os = "windows") {
+        #[cfg(target_os = "windows")]
+        let mut built_command = {
             let encoded_command = command
                 .encode_utf16()
                 .chain(std::iter::once(0))
@@ -95,7 +102,9 @@ impl Pty {
             };
 
             built_command
-        } else {
+        };
+        #[cfg(not(target_os = "windows"))]
+        let mut built_command = {
             CommandBuilder::from_argv(
                 command
                     .split(' ')
