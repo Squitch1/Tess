@@ -7,16 +7,20 @@ use crate::common::errors::PtyError;
 use futures::future::join_all;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use regex_lite::Regex;
-use std::ffi::{OsStr, OsString};
+use std::ffi::{c_void, OsStr, OsString};
 use std::io::{Read, Write};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::LocalFree;
+use windows::Win32::System::Environment::ExpandEnvironmentStringsW;
+use windows::Win32::UI::Shell::CommandLineToArgvW;
 
 #[cfg(target_os = "windows")]
-use regex_lite::Captures;
+use std::os::windows::ffi::OsStringExt;
 
 pub struct Pty {
     writer: Mutex<Box<dyn Write + Send>>,
@@ -46,30 +50,59 @@ impl Pty {
         on_notify: impl Fn() + Send + 'static,
         once_exit: impl FnOnce() + Send + 'static,
     ) -> Result<Self, PtyError> {
-        #[cfg(target_os = "windows")]
-        lazy_static::lazy_static! {
-            static ref PROGRAMM_PARSING_REGEX: Regex = Regex::new("%([[:word:]]*)%").unwrap();
-        }
+        let mut built_command = if cfg!(target_os = "windows") {
+            let encoded_command = command
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect::<Vec<u16>>();
 
-        #[cfg(target_os = "windows")]
-        let mut built_command = CommandBuilder::from_argv(
-            PROGRAMM_PARSING_REGEX
-                .replace_all(command, |env_variable: &Captures| {
-                    std::env::var(&env_variable[1]).unwrap_or_default()
-                })
-                .split(' ')
-                .map(std::ffi::OsString::from)
-                .collect::<Vec<OsString>>(),
-        );
+            let expanded_len = unsafe {
+                ExpandEnvironmentStringsW(PCWSTR::from_raw(encoded_command.as_ptr()), None)
+            } as usize;
+            if expanded_len == 0 {
+                return Err(PtyError::Creation("Cannot expand environment".to_owned()));
+            }
 
-        #[cfg(target_family = "unix")]
-        #[allow(unused_mut)]
-        let mut built_command = CommandBuilder::from_argv(
-            command
-                .split(' ')
-                .map(std::ffi::OsString::from)
-                .collect::<Vec<OsString>>(),
-        );
+            let mut command_expanded = vec![0; expanded_len];
+            if unsafe {
+                ExpandEnvironmentStringsW(
+                    PCWSTR::from_raw(encoded_command.as_ptr()),
+                    Some(command_expanded.as_mut_slice()),
+                )
+            } == 0
+            {
+                return Err(PtyError::Creation("Cannot expand environment".to_owned()));
+            }
+
+            let mut argc = 0;
+            let argv = unsafe {
+                CommandLineToArgvW(PCWSTR::from_raw(command_expanded.as_ptr()), &mut argc)
+            };
+            if argv == std::ptr::null_mut() {
+                return Err(PtyError::Creation("Cannot parse command".to_owned()));
+            }
+
+            let built_command = CommandBuilder::from_argv(
+                unsafe { core::slice::from_raw_parts(argv, argc as usize) }
+                    .iter()
+                    .map(|s| OsString::from_wide(unsafe { s.as_wide() }))
+                    .collect(),
+            );
+            unsafe {
+                LocalFree(Some(windows::Win32::Foundation::HLOCAL(
+                    argv as *mut c_void,
+                )))
+            };
+
+            built_command
+        } else {
+            CommandBuilder::from_argv(
+                command
+                    .split(' ')
+                    .map(std::ffi::OsString::from)
+                    .collect::<Vec<OsString>>(),
+            )
+        };
 
         built_command.env("COLORTERM", "truecolor");
         built_command.env("TERM_PROGRAM", "Tess");
