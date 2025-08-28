@@ -104,14 +104,11 @@ impl Pty {
             built_command
         };
         #[cfg(not(target_os = "windows"))]
-        let mut built_command = {
-            CommandBuilder::from_argv(
-                command
-                    .split(' ')
-                    .map(std::ffi::OsString::from)
-                    .collect::<Vec<OsString>>(),
-            )
-        };
+        let mut built_command = CommandBuilder::from_argv(vec![
+            OsString::from("sh"),
+            OsString::from("-c"),
+            OsString::from(command),
+        ]);
 
         built_command.env("COLORTERM", "truecolor");
         built_command.env("TERM_PROGRAM", "Tess");
