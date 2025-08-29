@@ -46,14 +46,16 @@ pub async fn create(
     .build()?;
 
     #[cfg(target_family = "unix")]
-    webview.with_webview(|gtk_webview| unsafe {
-        if let Some(handler) = gtk_webview
-            .inner()
-            .data::<gtk::GestureZoom>("wk-view-zoom-gesture")
-        {
-            g_signal_handlers_destroy(handler.as_ptr().cast());
-        }
-    }).ok();
+    webview
+        .with_webview(|gtk_webview| unsafe {
+            if let Some(handler) = gtk_webview
+                .inner()
+                .data::<gtk::GestureZoom>("wk-view-zoom-gesture")
+            {
+                g_signal_handlers_destroy(handler.as_ptr().cast());
+            }
+        })
+        .ok();
 
     match settings.read().await.background {
         #[cfg(target_family = "unix")]

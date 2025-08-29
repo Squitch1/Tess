@@ -739,7 +739,7 @@ fn default_profile(
         background_transparency,
         uuid,
         #[cfg(target_family = "unix")]
-        command: String::from("sh -c $SHELL"),
+        command: String::from("$SHELL"),
         #[cfg(target_os = "windows")]
         command: String::from("%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
         background: None,
