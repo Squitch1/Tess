@@ -204,7 +204,7 @@ export default class Terminal extends Widget {
         }
 
         this.tooltipPopTimeout = setTimeout(() => {
-            this.generateTooltip(range);
+            [this.tooltip, this.tooltipMarkers] = this.highlightRange(range);
 
             this.tooltip!.forEach((tooltip, i) => {
                 const tooltipRenderedEvent = tooltip.onRender((element) => {
@@ -305,9 +305,9 @@ export default class Terminal extends Widget {
         }
     }
 
-    private generateTooltip(range: IBufferRange | IViewportRange) {
-        this.tooltip = [];
-        this.tooltipMarkers = [];
+    private highlightRange(range: IBufferRange | IViewportRange) : [IDecoration[], IMarker[]] {
+        const highlight = [];
+        const highlightMarkers = [];
 
         if (range.end.x === 0) {
             range.end.x = this.xterm.cols;
@@ -316,7 +316,7 @@ export default class Terminal extends Widget {
 
         const lineCount = range.end.y - range.start.y + 1;
         for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
-            this.tooltipMarkers.push(
+            highlightMarkers.push(
                 this.xterm.registerMarker(
                     range.start.y -
                         (this.xterm.buffer.active.baseY +
@@ -328,14 +328,14 @@ export default class Terminal extends Widget {
             const startPos = lineIndex === 0 ? range.start.x - 1 : 0;
             const endPos =
                 lineIndex === lineCount - 1 ? range.end.x : this.xterm.cols;
-            this.tooltip.push(
+            highlight.push(
                 this.xterm.registerDecoration({
-                    marker: this.tooltipMarkers[lineIndex],
+                    marker: highlightMarkers[lineIndex],
                     x: startPos,
                     width: endPos - startPos,
                 })!
             );
-            const tooltipRenderedEvent = this.tooltip[lineIndex]!.onRender(
+            const tooltipRenderedEvent = highlight[lineIndex]!.onRender(
                 (element) => {
                     tooltipRenderedEvent.dispose();
                     element.classList.add("highlight");
@@ -396,6 +396,8 @@ export default class Terminal extends Widget {
                 }
             );
         }
+
+        return [highlight, highlightMarkers]
     }
 
     private disposeTooltip() {
