@@ -1,28 +1,32 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Tess</title>
-    <link rel="stylesheet" href="./style/style.scss">
-    <script src="ts/main.ts" type="module" defer></script>
-  </head>
-  <body>
-    <div class="topbar">
-      <div class="tabs">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tess</title>
+  <link rel="stylesheet" href="./style/style.scss" />
+  <script src="ts/main.ts" type="module" defer></script>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="tabs"></div>
+    <div class="actions">
+      <div class="open">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd"
+            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+            clip-rule="evenodd" />
+        </svg>
       </div>
-      <div class="actions">
-        <div class="open">
-          <svg viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="more"></div>
-      </div>
+      <div class="more"></div>
     </div>
+  </div>
 
-    <div class="views"></div>
+  <div class="views"></div>
 
-    <div class="toasts"></div>
-  </body>
+  <div class="toasts"></div>
+</body>
+
 </html>

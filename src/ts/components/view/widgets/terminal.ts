@@ -3,6 +3,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import {
     IBufferRange,
     IDecoration,
+    IMarker,
     IViewportRange,
     Terminal as Xterm,
 } from "@xterm/xterm";
@@ -27,7 +28,8 @@ export default class Terminal extends Widget {
     onTerminalKeyPress: (e: KeyboardEvent) => boolean;
     onTerminalExit: () => Promise<void>;
 
-    private tooltip?: IDecoration;
+    private tooltip?: IDecoration[];
+    private tooltipMarkers?: IMarker[];
     private tooltipPopTimeout?: ReturnType<typeof setTimeout>;
     private hyperlinkModifiers: string[];
 
@@ -117,10 +119,23 @@ export default class Terminal extends Widget {
         );
 
         this.xterm.onData((data) => this.onTerminalOutgoingData(data));
+        this.xterm.onScroll(() => this.disposeTooltip());
 
         this.xterm.attachCustomKeyEventHandler((e) =>
             this.onTerminalKeyPress(e)
         );
+        this.xterm.attachCustomWheelEventHandler((e) => {
+            if (
+                ((this.xterm.buffer.active.viewportY <
+                    this.xterm.buffer.active.baseY &&
+                    e.deltaY > 0) ||
+                    (this.xterm.buffer.active.viewportY > 0 && e.deltaY < 0)) &&
+                this.tooltip
+            ) {
+                this.disposeTooltip();
+            }
+            return true;
+        });
 
         const onRender = this.xterm.onRender(() => {
             setTimeout(() => {
@@ -172,6 +187,7 @@ export default class Terminal extends Widget {
     }
 
     private resizeXterm() {
+        this.disposeTooltip();
         const proposedDimensions = this.xtermFitAddon.proposeDimensions();
         if (proposedDimensions?.cols && proposedDimensions?.rows) {
             this.xterm.resize(proposedDimensions.cols, proposedDimensions.rows);
@@ -188,81 +204,83 @@ export default class Terminal extends Widget {
         }
 
         this.tooltipPopTimeout = setTimeout(() => {
-            const marker = this.xterm.registerMarker(
-                range.start.y -
-                    (this.xterm.buffer.active.baseY +
-                        this.xterm.buffer.active.cursorY +
-                        1)
-            );
-            this.tooltip = this.xterm.registerDecoration({
-                marker,
-                x: range.start.x - 1,
-                width: range.end.x - (range.start.x - 1),
-            });
-            const tooltipRenderedEvent = this.tooltip?.onRender((element) => {
-                const tooltipAnchor = document.createElement("div");
-                tooltipAnchor.style.position = "relative";
+            [this.tooltip, this.tooltipMarkers] = this.highlightRange(range);
 
-                const tooltipWrapper = document.createElement("div");
+            this.tooltip!.forEach((tooltip, i) => {
+                const tooltipRenderedEvent = tooltip.onRender((element) => {
+                    tooltipRenderedEvent.dispose();
+                    element.addEventListener("mouseleave", (e) => {
+                        if (
+                            !(
+                                e.relatedTarget as HTMLElement
+                            )?.classList.contains("highlight")
+                        ) {
+                            this.disposeTooltip();
+                        }
+                    });
 
-                tooltipWrapper.style.position = "absolute";
-                tooltipWrapper.style.bottom = "0";
-                tooltipWrapper.style.paddingBottom = "4px";
-
-                const tooltip = document.createElement("div");
-                tooltip.classList.add("tooltip", "link");
-
-                const link = document.createElement("a");
-                link.innerText = uri;
-                link.href = uri;
-                link.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                    invoke("utils_open_uri", { uri });
-                });
-                tooltip.appendChild(link);
-
-                if (this.hyperlinkModifiers.length > 0) {
-                    const hyperlinkTipElement = document.createElement("span");
-                    const linkOpenTip = this.hyperlinkModifiers
-                        .map((m) => `<kbd>${m}</kbd>`)
-                        .concat("<kbd>click</kbd>");
-                    hyperlinkTipElement.innerHTML = linkOpenTip.join("+");
-                    tooltip.appendChild(hyperlinkTipElement);
-                }
-
-                tooltipWrapper.appendChild(tooltip);
-                tooltipAnchor.appendChild(tooltipWrapper);
-
-                element.appendChild(tooltipAnchor);
-                element.classList.add("highlight");
-                element.addEventListener("mouseleave", () => {
-                    marker.dispose();
-                    this.tooltip!.dispose();
-                    this.tooltip = undefined;
-                });
-
-                setTimeout(() => {
-                    if (tooltipWrapper.clientHeight > element.offsetTop) {
-                        tooltipWrapper.style.paddingBottom = "";
-                        tooltipWrapper.style.bottom = "";
-                        tooltipWrapper.style.top = `${element.style.height}`;
-                        tooltipWrapper.style.paddingTop = "4px";
+                    if (i !== 0) {
+                        return;
                     }
-                    if (
-                        tooltipWrapper.clientWidth >
-                        this.element.clientWidth - element.offsetLeft
-                    ) {
-                        tooltipWrapper.style.right = "0";
-                        tooltipAnchor.style.translate = `${
-                            this.element.clientWidth -
-                            element.offsetLeft -
-                            tooltipAnchor.clientWidth
-                        }px`;
-                    }
-                }, 0);
+                    const tooltipAnchor = document.createElement("div");
+                    tooltipAnchor.style.position = "relative";
 
-                tooltipRenderedEvent!.dispose();
+                    const tooltipWrapper = document.createElement("div");
+                    tooltipWrapper.style.position = "absolute";
+                    tooltipWrapper.style.bottom = "0";
+                    tooltipWrapper.style.paddingBottom = "4px";
+
+                    const tooltip = document.createElement("div");
+                    tooltip.classList.add("tooltip", "link");
+
+                    const link = document.createElement("a");
+                    link.innerText = uri;
+                    link.href = uri;
+                    link.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                        invoke("utils_open_uri", { uri });
+                    });
+                    tooltip.appendChild(link);
+
+                    if (this.hyperlinkModifiers.length > 0) {
+                        const hyperlinkTipElement =
+                            document.createElement("span");
+                        const linkOpenTip = this.hyperlinkModifiers
+                            .map((m) => `<kbd>${m}</kbd>`)
+                            .concat("<kbd>click</kbd>");
+                        hyperlinkTipElement.innerHTML = linkOpenTip.join("+");
+                        tooltip.appendChild(hyperlinkTipElement);
+                    }
+
+                    tooltipWrapper.appendChild(tooltip);
+                    tooltipAnchor.appendChild(tooltipWrapper);
+
+                    element.appendChild(tooltipAnchor);
+
+                    setTimeout(() => {
+                        if (tooltipWrapper.clientHeight > element.offsetTop) {
+                            tooltipWrapper.style.paddingBottom = "";
+                            tooltipWrapper.style.bottom = "";
+                            tooltipWrapper.style.top = `${
+                                element.clientHeight *
+                                (range.end.y - range.start.y + 1)
+                            }px`;
+                            tooltipWrapper.style.paddingTop = "4px";
+                        }
+                        if (
+                            tooltipWrapper.clientWidth >
+                            this.element.clientWidth - element.offsetLeft
+                        ) {
+                            tooltipWrapper.style.right = "0";
+                            tooltipAnchor.style.translate = `${
+                                this.element.clientWidth -
+                                element.offsetLeft -
+                                tooltipAnchor.clientWidth
+                            }px`;
+                        }
+                    }, 0);
+                });
             });
         }, 1000);
     }
@@ -285,5 +303,114 @@ export default class Terminal extends Widget {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("utils_open_uri", { uri });
         }
+    }
+
+    private highlightRange(range: IBufferRange | IViewportRange) : [IDecoration[], IMarker[]] {
+        const highlight = [];
+        const highlightMarkers = [];
+
+        if (range.end.x === 0) {
+            range.end.x = this.xterm.cols;
+            range.end.y--;
+        }
+
+        const lineCount = range.end.y - range.start.y + 1;
+        for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+            highlightMarkers.push(
+                this.xterm.registerMarker(
+                    range.start.y -
+                        (this.xterm.buffer.active.baseY +
+                            this.xterm.buffer.active.cursorY +
+                            1 -
+                            lineIndex)
+                )
+            );
+            const startPos = lineIndex === 0 ? range.start.x - 1 : 0;
+            const endPos =
+                lineIndex === lineCount - 1 ? range.end.x : this.xterm.cols;
+            highlight.push(
+                this.xterm.registerDecoration({
+                    marker: highlightMarkers[lineIndex],
+                    x: startPos,
+                    width: endPos - startPos,
+                })!
+            );
+            const tooltipRenderedEvent = highlight[lineIndex]!.onRender(
+                (element) => {
+                    tooltipRenderedEvent.dispose();
+                    element.classList.add("highlight");
+
+                    if (
+                        lineIndex === 0 &&
+                        range.start.x > 1 &&
+                        (lineCount > 2 ||
+                            (lineCount === 2 && range.end.x >= range.start.x))
+                    ) {
+                        element.classList.add("bl-corner-inv");
+                    }
+                    if (
+                        lineIndex === lineCount - 1 &&
+                        range.end.x < this.xterm.cols &&
+                        (lineCount > 2 ||
+                            (lineCount === 2 && range.end.x >= range.start.x))
+                    ) {
+                        element.classList.add("tr-corner-inv");
+                    }
+
+                    if (lineCount === 2) {
+                        if (range.start.x <= range.end.x) {
+                            if (lineIndex === 0) {
+                                element.style.borderBottomLeftRadius = "0";
+                                if (range.end.x === this.xterm.cols) {
+                                    element.style.borderBottomRightRadius = "0";
+                                }
+                            } else {
+                                element.style.borderTopRightRadius = "0";
+                                if (range.start.x === 1) {
+                                    element.style.borderTopLeftRadius = "0";
+                                }
+                            }
+                        }
+                    } else if (lineCount >= 3) {
+                        element.style.borderTopLeftRadius = "0";
+                        element.style.borderTopRightRadius = "0";
+                        element.style.borderBottomLeftRadius = "0";
+                        element.style.borderBottomRightRadius = "0";
+
+                        if (lineIndex === 0) {
+                            element.style.borderTopLeftRadius = "";
+                            element.style.borderTopRightRadius = "";
+                            element.classList.add("aa");
+                        } else if (lineIndex === 1 && range.start.x > 1) {
+                            element.style.borderTopLeftRadius = "";
+                        } else if (
+                            lineIndex === lineCount - 2 &&
+                            range.end.x < this.xterm.cols
+                        ) {
+                            element.style.borderBottomRightRadius = "";
+                        } else if (lineIndex === lineCount - 1) {
+                            element.style.borderBottomLeftRadius = "";
+                            element.style.borderBottomRightRadius = "";
+                        }
+                    }
+                }
+            );
+        }
+
+        return [highlight, highlightMarkers]
+    }
+
+    private disposeTooltip() {
+        if (!this.tooltip) {
+            return;
+        }
+        this.tooltip.forEach((t) => {
+            t.dispose();
+        });
+        this.tooltipMarkers!.forEach((m) => {
+            m.dispose();
+        });
+        this.tooltip = undefined;
+        this.tooltipMarkers = undefined;
     }
 }

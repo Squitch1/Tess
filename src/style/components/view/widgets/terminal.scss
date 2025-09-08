@@ -14,11 +14,44 @@
     }
 
     .highlight {
-        border-radius: 3px;
-        padding: 1px;
-        translate: -1px -1px;
-        background-color: var(--terminal-highlight-color);
+        --border-radius: 3px;
+        --background: var(--terminal-highlight-color);
+        --padding: 1px;
+
+        border-radius: var(--border-radius);
+        padding-inline: var(--padding);
+        translate: calc(var(--padding) * -1) 0;
+        background-color: var(--background);
         animation: opacity-fade 140ms;
+
+        &:first-child {
+            padding-top: var(--padding);
+            translate: calc(var(--padding) * -1) calc(var(--padding) * -1);
+        }
+        &:last-child {
+            padding-bottom: var(--padding);
+        }
+
+        &::after {
+            position: absolute;
+            height: calc(var(--border-radius) * 2);
+            width: calc(var(--border-radius) * 2);
+            background: var(--background);
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E<path d='M48 24a24 24 0 0 1-24 24h24z'/>%3C/svg%3E");
+            mask-type: alpha;
+            mask-position: center;
+            mask-size: cover;
+        }
+        &.bl-corner-inv::after {
+            content: "";
+            left: calc(var(--border-radius) * -2);
+            bottom: 0;
+        }
+        &.tr-corner-inv::after {
+            content: "";
+            right: calc(var(--border-radius) * -2);
+            transform: rotateZ(180deg);
+        }
     }
 
     .tooltip {
