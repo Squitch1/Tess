@@ -1,14 +1,15 @@
-use std::{process::Command, time::Duration};
+use std::{path::PathBuf, process::Command, time::Duration};
 
 #[cfg(target_family = "unix")]
 use clap::CommandFactory;
-#[cfg(target_family = "unix")]
-use std::path::PathBuf;
 
 #[cfg(windows)]
-pub const NPM: &str = "npm.cmd";
+use std::io::Write;
+
+#[cfg(windows)]
+const NPM: &str = "npm.cmd";
 #[cfg(not(windows))]
-pub const NPM: &str = "npm";
+const NPM: &str = "npm";
 
 include!("src/cli/mod.rs");
 
@@ -102,5 +103,81 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     tauri_build::build();
+
+    #[cfg(windows)]
+    {
+        println!("cargo::rerun-if-changed=../packaging/windows/resources/rc");
+
+        let out_dir = std::env::var_os("OUT_DIR").unwrap();
+        let mut includes = vec![];
+
+        for include in std::fs::read_dir(
+            std::fs::read_dir(
+                PathBuf::from("/")
+                    .join("Program Files (x86)")
+                    .join("Windows Kits")
+                    .join("10")
+                    .join("Include")
+                    .canonicalize()?,
+            )?
+            .take(1)
+            .next()
+            .unwrap()
+            .unwrap()
+            .path(),
+        )? {
+            includes.extend(["/I".into(), include?.path().into_os_string()]);
+        }
+
+        for resource in std::fs::read_dir(
+            PathBuf::from("..")
+                .join("packaging")
+                .join("windows")
+                .join("resources")
+                .join("rc")
+                .canonicalize()?,
+        )? {
+            let resource = resource?;
+
+            if resource.file_type()?.is_file() {
+                let mut out_file = PathBuf::from(&out_dir).join(resource.file_name());
+                out_file.set_extension("res");
+
+                let mut args = includes.clone();
+                args.extend(["/fo".into(), out_file.clone().into_os_string()]);
+                args.push(resource.path().into_os_string());
+                Command::new("rc")
+                    .args(args)
+                    .current_dir(PathBuf::from("..").canonicalize()?)
+                    .output()?;
+
+                println!("cargo::rustc-link-arg={}", out_file.display());
+            }
+        }
+
+        std::fs::File::options()
+            .append(true)
+            .open(PathBuf::from(&out_dir).join("resource.rc"))?
+            .write_all(
+                format!(
+                    "32513 ICON {:?}\n",
+                    PathBuf::from("..")
+                        .join("icons")
+                        .join("system")
+                        .join("tess-alt.ico")
+                        .canonicalize()?
+                )
+                .as_bytes(),
+            )?;
+        includes.extend([
+            "/fo".into(),
+            PathBuf::from(&out_dir)
+                .join("resource.lib")
+                .into_os_string(),
+        ]);
+        includes.push(PathBuf::from(&out_dir).join("resource.rc").into_os_string());
+        Command::new("rc").args(includes).output()?;
+    }
+
     Ok(())
 }
