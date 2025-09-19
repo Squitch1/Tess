@@ -33,7 +33,7 @@ impl ShellLinkIcon {
 }
 
 fn new_shell_link(
-    args: &[u16],
+    args: PCWSTR,
     title: &[u16],
     icon: ShellLinkIcon,
 ) -> Result<IShellLinkW, windows::core::Error> {
@@ -41,7 +41,7 @@ fn new_shell_link(
         let shell_link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
 
         shell_link.SetPath(PCWSTR::from_raw(ENCODED_EXECUTABLE_PATH.as_ptr()))?;
-        shell_link.SetArguments(PCWSTR::from_raw(args.as_ptr()))?;
+        shell_link.SetArguments(args)?;
         shell_link.SetIconLocation(PCWSTR::from_raw(icon.path), icon.index)?;
 
         let mut property_store_ptr = std::ptr::null_mut();
@@ -77,18 +77,12 @@ fn jumplist_tasks() -> Result<IObjectCollection, windows::core::Error> {
             CoCreateInstance(&EnumerableObjectCollection, None, CLSCTX_INPROC_SERVER)?;
 
         collection.AddObject(&new_shell_link(
-            &"--window"
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect::<Vec<u16>>(),
+            windows::core::w!("--window"),
             &new_encoded_indirect_string(current_exe.display(), STRINGTABLE_JUMPLIST_NEW_WINDOW),
             icon,
         )?)?;
         collection.AddObject(&new_shell_link(
-            &"--tab"
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect::<Vec<u16>>(),
+            windows::core::w!("--tab"),
             &new_encoded_indirect_string(current_exe.display(), STRINGTABLE_JUMPLIST_NEW_TAB),
             icon,
         )?)?;
@@ -101,17 +95,6 @@ pub fn update() -> Result<(), windows::core::Error> {
     unsafe {
         CoInitialize(None).and_then(|| {
             CoCreateInstance(&DestinationList, None, CLSCTX_INPROC_SERVER)
-                .and_then(|jumplist: ICustomDestinationList| {
-                    jumplist
-                        .DeleteList(PCWSTR::from_raw(
-                            "dev.tessapp"
-                                .encode_utf16()
-                                .chain(std::iter::once(0))
-                                .collect::<Vec<u16>>()
-                                .as_ptr(),
-                        ))
-                        .and(Ok(jumplist))
-                })
                 .and_then(|jumplist: ICustomDestinationList| {
                     jumplist.BeginList::<IObjectArray>(&mut 0).and(Ok(jumplist))
                 })

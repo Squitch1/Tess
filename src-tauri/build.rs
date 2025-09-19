@@ -108,56 +108,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         println!("cargo::rerun-if-changed=../packaging/windows/resources/rc");
 
-        let out_dir = std::env::var_os("OUT_DIR").unwrap();
+        let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
         let mut includes = vec![];
 
-        for include in std::fs::read_dir(
-            std::fs::read_dir(
-                PathBuf::from("/")
-                    .join("Program Files (x86)")
-                    .join("Windows Kits")
-                    .join("10")
-                    .join("Include")
-                    .canonicalize()?,
-            )?
-            .take(1)
+        for include in PathBuf::from("/")
+            .join("Program Files (x86)")
+            .join("Windows Kits")
+            .join("10")
+            .join("Include")
+            .canonicalize()?
+            .read_dir()?
             .next()
             .unwrap()
             .unwrap()
-            .path(),
-        )? {
+            .path()
+            .read_dir()?
+        {
             includes.extend(["/I".into(), include?.path().into_os_string()]);
         }
 
-        for resource in std::fs::read_dir(
-            PathBuf::from("..")
-                .join("packaging")
-                .join("windows")
-                .join("resources")
-                .join("rc")
-                .canonicalize()?,
-        )? {
+        for resource in PathBuf::from("..")
+            .join("packaging")
+            .join("windows")
+            .join("resources")
+            .join("rc")
+            .canonicalize()?
+            .read_dir()?
+        {
             let resource = resource?;
-
-            if resource.file_type()?.is_file() {
-                let mut out_file = PathBuf::from(&out_dir).join(resource.file_name());
-                out_file.set_extension("res");
-
-                let mut args = includes.clone();
-                args.extend(["/fo".into(), out_file.clone().into_os_string()]);
-                args.push(resource.path().into_os_string());
-                Command::new("rc")
-                    .args(args)
-                    .current_dir(PathBuf::from("..").canonicalize()?)
-                    .output()?;
-
-                println!("cargo::rustc-link-arg={}", out_file.display());
+            if !resource.file_type()?.is_file() {
+                continue;
             }
+
+            let mut out_file = out_dir.join(resource.file_name());
+            out_file.set_extension("res");
+
+            let mut args = includes.clone();
+            args.extend(["/fo".into(), out_file.clone().into_os_string()]);
+            args.push(resource.path().into_os_string());
+            Command::new("rc")
+                .args(args)
+                .current_dir(PathBuf::from("..").canonicalize()?)
+                .output()?;
+
+            println!("cargo::rustc-link-arg={}", out_file.display());
         }
 
         std::fs::File::options()
             .append(true)
-            .open(PathBuf::from(&out_dir).join("resource.rc"))?
+            .open(out_dir.join("resource.rc"))?
             .write_all(
                 format!(
                     "32513 ICON {:?}\n",
@@ -169,13 +168,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .as_bytes(),
             )?;
-        includes.extend([
-            "/fo".into(),
-            PathBuf::from(&out_dir)
-                .join("resource.lib")
-                .into_os_string(),
-        ]);
-        includes.push(PathBuf::from(&out_dir).join("resource.rc").into_os_string());
+        includes.extend(["/fo".into(), out_dir.join("resource.lib").into_os_string()]);
+        includes.push(out_dir.join("resource.rc").into_os_string());
         Command::new("rc").args(includes).output()?;
     }
 
