@@ -193,3 +193,12 @@ impl<'de> serde::Deserialize<'de> for BackgroundMedia {
             .map_err(D::Error::custom)
     }
 }
+
+#[derive(Debug, Deserialize, Clone, Copy, Serialize, Default)]
+#[serde(rename_all(deserialize = "snake_case", serialize = "camelCase"))]
+pub enum FocusMode {
+    Silent,
+    #[default]
+    RequestAttention,
+    Focus,
+}

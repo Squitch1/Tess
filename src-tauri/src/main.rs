@@ -23,12 +23,12 @@ use signal_hook::consts::signal::*;
 #[cfg(target_family = "unix")]
 use std::io::ErrorKind;
 
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", not(debug_assertions)))]
 use windows::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
 
 #[tokio::main]
 async fn main() {
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", not(debug_assertions)))]
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS).ok();
     };
@@ -50,7 +50,7 @@ async fn main() {
         return;
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(all(target_os = "windows", not(debug_assertions)))]
     unsafe {
         FreeConsole().ok();
     }
@@ -140,7 +140,7 @@ async fn main() {
                         Ok(payload) => tokio::task::block_in_place(|| {
                             tokio::runtime::Handle::current().block_on(async {
                                 if payload.open_in_tab.unwrap_or(
-                                    cloned_settings.read().await.desktop_integration.open_in_tab,
+                                    cloned_settings.read().await.app_behavior.open_in_tab,
                                 ) {
                                     app.emit_to(
                                         utils::window::get_focused_or_random(&app).label(),
@@ -221,7 +221,9 @@ async fn main() {
             commands::utils_get_settings,
             commands::utils_open_uri,
             commands::window_close,
-            commands::window_set_title
+            commands::window_focus,
+            commands::window_set_title,
+            commands::window_request_attention
         ])
         .build(tauri::generate_context!())
         .unwrap();
@@ -271,6 +273,16 @@ async fn main() {
 
                 api.prevent_close()
             }
+        }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::Focused(true),
+            ..
+        } => {
+            app.get_webview_window(&label)
+                .unwrap()
+                .request_user_attention(None)
+                .ok();
         }
         _ => (),
     });

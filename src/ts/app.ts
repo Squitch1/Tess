@@ -84,6 +84,15 @@ export default class App {
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<openTabPayload>("js_open_tab", async (e) => {
+            if (settings.appBehavior.focusMode === "requestAttention") {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                invoke("window_request_attention");
+            }
+            if (settings.appBehavior.focusMode === "focus") {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                invoke("window_focus");
+            }
+
             if (e.payload.profile) {
                 await this.openProfile(
                     e.payload.profile.uuid ?? settings.defaultProfile.uuid,

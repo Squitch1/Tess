@@ -7,7 +7,7 @@ use crate::{
 use crate::common::Logger;
 
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Listener, Manager, WebviewWindow, Window};
+use tauri::{AppHandle, Emitter, Listener, Manager, WebviewWindow};
 use tokio::sync::RwLock;
 
 #[cfg(target_family = "unix")]
@@ -20,9 +20,12 @@ use tauri::window::{self, EffectsBuilder};
 
 #[inline]
 #[must_use]
-pub fn get_focused_or_random(app: &AppHandle) -> Window {
-    app.get_focused_window()
-        .unwrap_or_else(|| app.windows().values().next().unwrap().clone())
+pub fn get_focused_or_random(app: &AppHandle) -> WebviewWindow {
+    app.webview_windows()
+        .values()
+        .find(|w| w.is_focused().unwrap_or(false))
+        .cloned()
+        .unwrap_or_else(|| app.webview_windows().values().next().unwrap().clone())
 }
 
 pub async fn create(
@@ -105,6 +108,8 @@ pub async fn create(
     let cloned_webview = webview.clone();
     webview.once("loaded", move |_| {
         cloned_webview.show().unwrap();
+        cloned_webview.unminimize().ok();
+        cloned_webview.set_focus().ok();
 
         #[cfg(debug_assertions)]
         cloned_webview.open_devtools();

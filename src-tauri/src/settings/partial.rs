@@ -2,6 +2,7 @@ use super::deserialized::{CloseConfirmation, DesktopIntegration, Shortcut, Termi
 use super::types::{BackgroundMedia, BackgroundType, CursorType, RangedFloat, RangedInt};
 
 use crate::common::consts;
+use crate::settings::deserialized::AppBehavior;
 
 use serde::{Deserialize, Deserializer};
 use std::str::FromStr;
@@ -31,6 +32,8 @@ pub struct PartialSettings {
     pub close_confirmation: CloseConfirmation,
     #[serde(default)]
     pub desktop_integration: DesktopIntegration,
+    #[serde(default)]
+    pub app_behavior: AppBehavior,
 
     #[serde(default)]
     pub default_profile: Uuid,

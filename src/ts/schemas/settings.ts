@@ -2,7 +2,7 @@ export type Settings = {
     appTheme: string;
     closeConfirmation: CloseConfirmation;
     desktopIntegration: DesktopInetgration;
-    customTitlebar: boolean;
+    appBehavior: AppBehavior;
     profiles: Profile[];
     macros: Macro[];
     shortcuts: Shortcut[];
@@ -116,4 +116,8 @@ export type CloseConfirmation = {
 
 export type DesktopInetgration = {
     dynamic_title: boolean;
+};
+
+export type AppBehavior = {
+    focusMode: "silent" | "requestAttention" | "focus";
 };
