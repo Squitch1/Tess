@@ -114,6 +114,10 @@ async fn main() {
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let app = tauri::Builder::default()
         .setup(move |app| {
+            if let Err(e) = utils::jumplist::update() {
+                logger.warn(&format!("Unable to actualize jumplist content: {e}."));
+            }
+
             match ipc::Server::new(&*IPC_SOCKET_ADDR) {
                 Err(_) => {
                     logger.warn(

@@ -68,7 +68,11 @@ windows = { version = "^0.60.0", features = [
     "Win32_System_Diagnostics_Debug",
     "Win32_System_Kernel",
     "Win32_System_Environment",
+    "Win32_System_Com",
     "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_Storage_EnhancedStorage",
     "Wdk_System_Threading",
 ] }
 windows-native = "1.0.40"
