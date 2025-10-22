@@ -35,6 +35,10 @@ jobs:
                     echo "::error file=packaging/linux/deb/debian/changelog::[Version Check] The Debian changelog seems out-of-date."
                     exit 1;
                   fi
+                  if [[ $CARGO_VERSION != $(grep -Po '^#define\s+APP_VERSION\s+"\K[^"]+' packaging/windows/setup/setup.iss) ]]; then
+                    echo "::error file=packaging/windows/setup/setup.iss::[Version Check] The setup version seems out-of-date."
+                    exit 1;
+                  fi
 
     check-linux-build:
         name: Check Linux Build
@@ -74,7 +78,6 @@ jobs:
               with:
                   name: man-pages
                   path: src-tauri/gen/man/
-
     generate-linux-binaries:
         name: Build Linux Binary for Target ${{ matrix.target }}
         needs:
@@ -110,7 +113,6 @@ jobs:
             - name: Build Binary
               run: |
                   cross +nightly build -Z build-std=std,panic_abort \
-                    -Z build-std-features=panic_immediate_abort \
                     --target ${{ matrix.target }} \
                     --manifest-path=src-tauri/Cargo.toml \
                     --release
@@ -119,7 +121,7 @@ jobs:
               env:
                   REMOVE_UNUSED_COMMANDS: ${{ github.workspace }}/src-tauri
                   SKIP_FRONTEND: true
-                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto
+                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto -Zunstable-options -Cpanic=immediate-abort
 
             - name: Upload Binary Artifact
               uses: actions/upload-artifact@v4
@@ -131,7 +133,6 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   files: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}
-
     generate-linux-packages:
         name: Build ${{ matrix.package }} Package for Target ${{ matrix.target }}
         needs:
@@ -192,16 +193,44 @@ jobs:
               with:
                   files: packaging/out/linux/*.deb
 
+    check-windows-build:
+        name: Check Windows Build
+        needs:
+            - ensure-project-version
+        runs-on: windows-2025
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install NodeJS
+              uses: actions/setup-node@v4
+              with:
+                  node-version: latest
+
+            - name: Install Rustup
+              run: |
+                  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+
+            - name: Build Frontend
+              run: |
+                  npm i  
+                  npm run build
+
+            - name: Check Build
+              run: |
+                  cargo +nightly check --manifest-path=src-tauri/Cargo.toml
+              env:
+                  GEN_RESOURCES: true
+                  SKIP_FRONTEND: true
     generate-windows-binaries:
         name: Build Windows Binary for Target ${{ matrix.target }}
         needs:
-            - ensure-project-version
+            - check-windows-build
         strategy:
             matrix:
                 target:
                     - x86_64-pc-windows-msvc
 
-        runs-on: windows-2022
+        runs-on: windows-2025
         steps:
             - uses: actions/checkout@v4
 
@@ -223,7 +252,6 @@ jobs:
             - name: Build Binary
               run: |
                   cargo +nightly build -Z build-std=std,panic_abort `
-                    -Z build-std-features=panic_immediate_abort `
                     --manifest-path=src-tauri/Cargo.toml `
                     --target ${{ matrix.target }} `
                     --release
@@ -232,9 +260,53 @@ jobs:
               env:
                   REMOVE_UNUSED_COMMANDS: ${{ github.workspace }}/src-tauri
                   SKIP_FRONTEND: true
-                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto
+                  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto -Zunstable-options -Cpanic=immediate-abort
+            
+            - name: Upload Binary Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: tess-${{ matrix.target }}.exe
+                  path: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
 
             - name: Publish Binary
               uses: softprops/action-gh-release@v2
               with:
                   files: src-tauri/target/${{ matrix.target }}/release/tess-${{ matrix.target }}.exe
+    generate-windows-packages:
+        name: Build ${{ matrix.package }} Package for Target ${{ matrix.target }}
+        needs:
+            - generate-windows-binaries
+        strategy:
+            matrix:
+                target:
+                    - x86_64-pc-windows-msvc
+                package:
+                    - setup
+                include:
+                    - arch: x64
+                      target: x86_64-pc-windows-msvc
+        runs-on: windows-2025
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Fetch Binary Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: tess-${{ matrix.target }}.exe
+                  path: packaging/windows/resources/binaries/
+            - name: Bootstrap
+              run: packaging/windows/${{ matrix.package }}/bootstrap.ps1
+              env:
+                  Arch: ${{ matrix.arch }}
+                  UsePrebuilt: ${{ github.workspace }}/packaging/windows/resources/binaries/tess-${{ matrix.target }}.exe
+
+            - name: Build Package
+              run: packaging/windows/${{ matrix.package }}/build.ps1
+              env:
+                  UsePrebuilt: ${{ github.workspace }}/packaging/windows/resources/binaries/tess-${{ matrix.target }}.exe
+                  Arch: ${{ matrix.arch }}
+
+            - name: Publish Package
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: packaging/out/windows/*
