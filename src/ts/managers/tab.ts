@@ -1,23 +1,27 @@
-import Tab from "components/interface/tab";
+import { Tab } from "components/interface/tab";
+import DetailsCard from "components/interface/detailsCard";
 
 export default class TabManager {
     private target: Element;
     private tabs: Tab[] = [];
-    private selectedTab: Tab | undefined;
+    private selectedTab?: Tab;
 
     private movingTab?: Tab;
     private nextTab?: Tab;
     private prevTab?: Tab;
-
     private initialMousePosition: number = 0;
     private initialOffsetLeft: number = 0;
-    private movingTabDeltaIndex = 0;
-
+    private movingTabDeltaIndex: number = 0;
     private tabsMovedLeft: Tab[] = [];
     private tabsMovedRight: Tab[] = [];
 
+    private detailsCard: DetailsCard;
+    private showDetailsCardTimeout?: ReturnType<typeof setTimeout>;
+
     onTabFocused: (uuid: string) => void;
     onFocusedTabTitleUpdated: (title: string) => void;
+    onPaneFocused: (tabid: string, paneId: string) => void;
+    onPaneClosed: (tabid: string, paneId: string) => void;
     private onTabRequestClose: (uuid: string) => void;
 
     constructor(
@@ -26,12 +30,34 @@ export default class TabManager {
     ) {
         this.target = target;
         this.onTabRequestClose = closeRequestedListener;
+        this.detailsCard = new DetailsCard();
+
+        this.detailsCard.addEventListener(
+            "paneFocusRequest",
+            (e: CustomEventInit) => {
+                this.select(e.detail.tabId);
+                this.onPaneFocused(e.detail.tabId, e.detail.paneId);
+            }
+        );
+        this.detailsCard.addEventListener(
+            "paneCloseRequest",
+            (e: CustomEventInit) => {
+                this.onPaneClosed(e.detail.tabId, e.detail.paneId);
+            }
+        );
 
         this.onTabFocused = () => {};
+        this.onPaneFocused = () => {};
+        this.onPaneClosed = () => {};
         this.onFocusedTabTitleUpdated = () => {};
 
-        let draggingAnimationFrame: number | undefined;
+        let draggingAnimationFrame: number;
         let animationLocked: boolean = false;
+        document.addEventListener("mouseout", (e) => {
+            if (e.relatedTarget === null) {
+                this.hideDetailsCard();
+            }
+        });
         document.addEventListener("mousemove", (e) => {
             const deltaX = e.clientX - this.initialMousePosition;
             if (
@@ -61,9 +87,19 @@ export default class TabManager {
 
             this.stopDragging(this.movingTab);
         });
+
+        this.detailsCard.element.addEventListener("mouseleave", (e) => {
+            if (
+                !this.tabs.find((tab) =>
+                    tab.element.contains(e.relatedTarget as Node)
+                )
+            ) {
+                this.hideDetailsCard();
+            }
+        });
     }
 
-    openNew(uuid: string): string {
+    openTab(uuid: string): string {
         const tab = new Tab(this.tabs.length + 1, uuid, (id) => {
             if (this.selectedTab !== tab) {
                 this.onTabFocused(this.selectedTab!.uuid);
@@ -80,10 +116,27 @@ export default class TabManager {
 
         tab.element.addEventListener(
             "mousedown",
-            (tab.onClick = (e) => this.focusAndStartDragging(e, tab))
+            (tab.onClick = (e) => {
+                clearTimeout(this.showDetailsCardTimeout);
+                this.focusAndStartDragging(e, tab);
+            })
         );
-        tab.element.classList.add("tab");
-        tab.element.style.animation = "tab-created 140ms forwards";
+        tab.element.addEventListener("mouseenter", () =>
+            this.showDetailsCard(tab)
+        );
+        tab.element.addEventListener("mouseleave", (e) => {
+            const destinationElement = e.relatedTarget as HTMLElement | null;
+            if (
+                destinationElement &&
+                !this.tabs.find((tab) =>
+                    tab.element.contains(destinationElement)
+                ) &&
+                destinationElement.id !== "details-card" &&
+                !this.detailsCard.element.contains(destinationElement)
+            ) {
+                this.hideDetailsCard();
+            }
+        });
 
         tab.element.style.order = `${this.tabs.length + 1}`;
         this.tabs.push(tab);
@@ -106,7 +159,20 @@ export default class TabManager {
     setPaneProgress(tabId: string, paneId: string, progress: number) {
         this.tabs
             .find((tab) => tab.uuid === tabId)
-            ?.setPaneProgress(paneId, progress);
+            ?.setPaneProgress(
+                paneId,
+                progress > 0 && progress < 100 ? progress : 0
+            );
+    }
+
+    setPaneAttention(tabId: string, paneId: string, needsAttention: boolean) {
+        if (tabId === this.selectedTab!.uuid) {
+            return;
+        }
+
+        this.tabs
+            .find((tab) => tab.uuid === tabId)
+            ?.setPaneAttention(paneId, needsAttention);
     }
 
     setPaneGroupLeader(tabId: string, paneId: string) {
@@ -129,13 +195,6 @@ export default class TabManager {
         }
     }
 
-    setHightlight(tabId: string, visible: boolean) {
-        const tab = this.tabs.find((tab) => tab.uuid === tabId);
-        if (tab) {
-            tab.setHighlight(visible && this.selectedTab !== tab);
-        }
-    }
-
     requestTabClosing(tabId: string) {
         const tab = this.tabs.find((tab) => tab.uuid === tabId);
         if (tab) {
@@ -146,6 +205,7 @@ export default class TabManager {
     closeTab(tabId: string) {
         const tab = this.tabs.find((tab) => tab.uuid === tabId);
         if (tab) {
+            this.hideDetailsCard();
             this.tabs.splice(this.tabs.indexOf(tab), 1);
             tab.element.style.animation = "tab-removed 140ms forwards";
 
@@ -154,7 +214,7 @@ export default class TabManager {
                 ?.removeEventListener("click", tab.onCloseButtonClick!);
             tab.resizeObserver.disconnect();
             tab.element.removeEventListener("mousedown", tab.onClick!);
-            const closingTabIndex = tab!.index;
+            const closingTabIndex = tab.index;
             this.tabs.forEach((tab) => {
                 if (tab.index > closingTabIndex) {
                     tab.index -= 1;
@@ -205,7 +265,7 @@ export default class TabManager {
         if (tab && tab !== this.selectedTab) {
             this.selectedTab?.element.classList.remove("selected");
             this.selectedTab = tab;
-            this.selectedTab.setHighlight(false);
+            this.selectedTab.clearPanesAttention();
             tab.element.classList.add("selected");
 
             this.onTabFocused(tab.uuid);
@@ -266,7 +326,7 @@ export default class TabManager {
 
         const deltaIndex = Math.round(deltaX / movingTab.element.clientWidth);
         while (deltaIndex !== this.movingTabDeltaIndex) {
-            let slidingTab: Tab | undefined;
+            let slidingTab;
             let slidingTabTranslation;
             if (deltaIndex > this.movingTabDeltaIndex) {
                 if (this.tabsMovedRight.length > 0) {
@@ -296,7 +356,7 @@ export default class TabManager {
                     slidingTab = this.prevTab;
                     slidingTabTranslation = "100%";
 
-                    this.tabsMovedRight.push(this.prevTab!);
+                    this.tabsMovedRight.push(this.prevTab);
                 } else {
                     break;
                 }
@@ -367,5 +427,18 @@ export default class TabManager {
         this.tabsMovedLeft = [];
         this.tabsMovedRight = [];
         this.movingTabDeltaIndex = 0;
+    }
+
+    private showDetailsCard(tab: Tab) {
+        clearTimeout(this.showDetailsCardTimeout);
+        this.showDetailsCardTimeout = setTimeout(
+            () => this.detailsCard.showForTab(tab),
+            this.detailsCard.visible ? 0 : 2500
+        );
+    }
+
+    private hideDetailsCard() {
+        clearTimeout(this.showDetailsCardTimeout);
+        this.detailsCard.hide();
     }
 }

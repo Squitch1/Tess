@@ -4,7 +4,7 @@ export default abstract class Widget {
     readonly uuid: string;
     readonly element: HTMLElement;
 
-    initialTitle: string | undefined = undefined;
+    initialTitle?: string;
     anchoringPane?: Pane;
 
     onTitleUpdate: (title: string) => void;

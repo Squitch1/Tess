@@ -42,6 +42,8 @@ module.exports = {
         ],
         "@typescript-eslint/switch-exhaustiveness-check": "error",
         "@typescript-eslint/no-floating-promises": "error",
+        "@typescript-eslint/no-unnecessary-type-assertion": "error",
+        "@typescript-eslint/no-unnecessary-condition": "error",
         "import/no-unresolved": [2, { ignore: [".png$"] }],
     },
     settings: {

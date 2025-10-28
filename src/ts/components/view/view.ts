@@ -113,7 +113,9 @@ export default class View {
         });
 
         if (widget.initialTitle) {
-            this.onWidgetTitleUpdated(widget.uuid, widget.initialTitle);
+            setTimeout(() => {
+                this.onWidgetTitleUpdated(widget.uuid, widget.initialTitle!);
+            }, 0);
         }
     }
 
@@ -292,11 +294,11 @@ export default class View {
         if (path.length === 0) {
             return this.requestClosing();
         }
-        return (this.panes[path[0]] as Pane).closeSpecific(path.slice(1));
+        return this.panes[path[0]].closeSpecific(path.slice(1));
     }
 
     focus() {
-        this.element!.classList.add("visible");
+        this.element.classList.add("visible");
 
         if (this.inSpecificSelection) {
             document.addEventListener("keydown", this.keydownListener!, {
@@ -311,8 +313,12 @@ export default class View {
         }
     }
 
+    focusWidget(uuid: string) {
+        this.widgets.find((widget) => widget.uuid === uuid)?.focus();
+    }
+
     blur() {
-        this.element!.classList.remove("visible");
+        this.element.classList.remove("visible");
 
         this.focusedWidget?.blur();
 
@@ -370,11 +376,11 @@ export default class View {
             let selectedIndex = 0;
             this.element.classList.add("indexed");
             this.panes.forEach((pane, i) => {
-                pane.element!.classList.toggle(
+                pane.element.classList.toggle(
                     "unselected",
                     i !== selectedIndex
                 );
-                pane.element!.classList.remove(
+                pane.element.classList.remove(
                     "fade-out-background",
                     "fade-out-index"
                 );
@@ -397,12 +403,12 @@ export default class View {
 
                         if (e.key === "Escape" || e.ctrlKey) {
                             this.panes.forEach((pane, i) => {
-                                pane.element!.classList.remove("unselected");
-                                pane.element!.classList.add(
+                                pane.element.classList.remove("unselected");
+                                pane.element.classList.add(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );
-                                pane.element!.setAttribute(
+                                pane.element.setAttribute(
                                     "data-index",
                                     i.toString(36)
                                 );
@@ -421,17 +427,17 @@ export default class View {
                         } else {
                             try {
                                 this.panes.forEach((pane, i) => {
-                                    pane.element!.setAttribute(
+                                    pane.element.setAttribute(
                                         "data-index",
                                         i.toString(36)
                                     );
-                                    pane.element!.classList.add(
+                                    pane.element.classList.add(
                                         "fade-out-index"
                                     );
                                 });
                                 setTimeout(() => {
                                     this.panes.forEach((pane) => {
-                                        pane.element!.classList.remove(
+                                        pane.element.classList.remove(
                                             "fade-out-index"
                                         );
                                     });
@@ -448,10 +454,8 @@ export default class View {
                                         )
                                     );
                                 this.panes.forEach((pane) => {
-                                    pane.element!.classList.remove(
-                                        "unselected"
-                                    );
-                                    pane.element!.classList.add(
+                                    pane.element.classList.remove("unselected");
+                                    pane.element.classList.add(
                                         "fade-out-background"
                                     );
                                 });
@@ -472,17 +476,17 @@ export default class View {
                                     );
                                     this.inSpecificSelection = true;
                                     this.panes.forEach((pane, i) => {
-                                        pane.element!.classList.toggle(
+                                        pane.element.classList.toggle(
                                             "unselected",
                                             i !== selectedIndex
                                         );
                                     });
                                 } else {
                                     this.panes.forEach((pane) => {
-                                        pane.element!.classList.remove(
+                                        pane.element.classList.remove(
                                             "unselected"
                                         );
-                                        pane.element!.classList.add(
+                                        pane.element.classList.add(
                                             "fade-out-background"
                                         );
                                     });
@@ -494,7 +498,7 @@ export default class View {
 
                         setTimeout(() => {
                             this.panes.forEach((pane) => {
-                                pane.element!.classList.remove(
+                                pane.element.classList.remove(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );
@@ -589,7 +593,7 @@ export default class View {
                         ) {
                             selectedIndex = newSelectedIndex;
                             this.panes.forEach((pane, i) => {
-                                pane.element!.classList.toggle(
+                                pane.element.classList.toggle(
                                     "unselected",
                                     i !== selectedIndex
                                 );

@@ -1,0 +1,30 @@
+.circular-progress-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+
+    > * {
+        grid-row-start: 1;
+        grid-column-start: 1;
+    }
+
+    svg {
+        opacity: 0;
+        rotate: -90deg;
+        fill: none;
+        stroke-linecap: round;
+
+        &:nth-child(1) {
+            stroke: var(--tab-progressbar-background);
+        }
+
+        &:nth-child(2) {
+            --circumference: calc(2 * pi * 8);
+            --dasharray-filled: calc(
+                var(--circumference) * var(--progress) / 100
+            );
+            stroke: var(--tab-progressbar-color);
+            stroke-dasharray: var(--dasharray-filled)
+                calc(var(--circumference) - var(--dasharray-filled));
+        }
+    }
+}

@@ -13,7 +13,7 @@
     font-size: 12px;
     position: relative;
     overflow: hidden;
-    background: var(--tabs-background);
+    background: var(--tab-background);
     container-type: inline-size;
 
     &.moved {
@@ -64,7 +64,7 @@
         position: absolute;
         left: 32px;
 
-        &.extanded,
+        &.extended,
         &.clipped {
             max-width: calc(100% - 32px - 12px);
             text-align: left;
@@ -93,7 +93,7 @@
         opacity: 0;
         display: flex;
         color: var(--icon-color);
-        box-shadow: -9px 0 7px var(--shadow-color);
+        z-index: 1;
 
         &:hover {
             background: var(--action-button-hovered-background) !important;
@@ -109,50 +109,11 @@
         }
     }
 
-    .progress {
-        position: absolute;
-        width: min(calc(100% - 58px), 164px);
-        height: 3px;
-        background: var(--tab-progressbar-background);
-        border-radius: 4px;
-        bottom: 4px;
-        opacity: 0;
-        display: flex;
-        overflow: hidden;
-
-        .value {
-            background: var(--tab-progressbar-color);
-            transition: width 140ms;
-        }
-    }
-
-    .icon {
-        height: 16px;
-        width: 16px;
-        border-radius: 3px;
+    .tab-icon {
+        --height: 16px;
+        --width: 16px;
         left: 6px;
         position: absolute;
-
-        img {
-            max-height: 100%;
-            max-width: 100%;
-        }
-    }
-
-    .ping {
-        position: absolute;
-        color: var(--tab-highlight-color);
-        background: currentColor;
-        border-radius: 100%;
-        top: 4px;
-        left: 21px;
-        height: 7px;
-        width: 7px;
-        animation: pulse 4s infinite;
-
-        &.hidden {
-            display: none;
-        }
     }
 
     @container (width <= 55px) {
@@ -166,14 +127,63 @@
             margin-right: auto;
         }
 
-        .icon {
+        .tab-icon {
             left: unset;
             margin-left: auto;
             margin-right: auto;
         }
+    }
+}
 
-        .progress {
-            display: none;
+.tab-icon {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-content: center;
+    justify-content: center;
+    align-items: center;
+    justify-items: center;
+    height: var(--height);
+    width: var(--width);
+
+    > * {
+        grid-row-start: 1;
+        grid-column-start: 1;
+    }
+
+    .circular-progress-bar {
+        height: 18px;
+        width: 18px;
+
+        svg {
+            transition:
+                stroke-dasharray 140ms ease-in-out,
+                opacity 140ms ease-in-out;
+        }
+    }
+
+    img {
+        height: var(--height);
+        width: var(--width);
+        border-radius: 3px;
+        transition: all 140ms ease-in-out 25ms;
+    }
+
+    &.needs-attention img {
+        animation: icon-bounce 5000ms ease-in-out infinite;
+    }
+
+    &.show-progress {
+        svg {
+            transition:
+                stroke-dasharray 140ms ease-in-out,
+                opacity 140ms ease-in-out 25ms;
+            opacity: 1;
+        }
+
+        img {
+            transition: all 140ms ease-in-out;
+            height: 10px !important;
+            width: 10px !important;
         }
     }
 }

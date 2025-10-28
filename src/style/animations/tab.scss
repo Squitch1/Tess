@@ -22,11 +22,19 @@
     }
 }
 
-@keyframes tab-progress-bar-progress-added {
-    from {
-        width: 0;
+@keyframes icon-bounce {
+    5% {
+        translate: 0 -4px;
+        scale: 1.05;
     }
-    to {
-        opacity: 1;
+
+    10% {
+        translate: 0 2px;
+        scale: 0.95;
+    }
+
+    15% {
+        translate: 0;
+        scale: 1;
     }
 }
