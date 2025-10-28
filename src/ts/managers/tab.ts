@@ -433,7 +433,7 @@ export default class TabManager {
         clearTimeout(this.showDetailsCardTimeout);
         this.showDetailsCardTimeout = setTimeout(
             () => this.detailsCard.showForTab(tab),
-            this.detailsCard.visible ? 0 : 2500
+            this.detailsCard.visible ? 0 : settings.appBehavior.detailsCardDelay
         );
     }
 

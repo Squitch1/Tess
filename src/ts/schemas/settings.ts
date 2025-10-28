@@ -120,4 +120,5 @@ export type DesktopInetgration = {
 
 export type AppBehavior = {
     focusMode: "silent" | "requestAttention" | "focus";
+    detailsCardDelay: number;
 };
