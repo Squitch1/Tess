@@ -17,6 +17,10 @@
         display: flex;
         flex-direction: column;
 
+        &:has(.slider > div + div) .slider {
+            padding-bottom: 8px;
+        }
+
         .pages {
             transition: height 140ms ease-in-out;
 
@@ -124,10 +128,6 @@
                     }
                 }
             }
-        }
-
-        &:has(.slider > div + div) .slider {
-            padding-top: 8px;
         }
     }
 }

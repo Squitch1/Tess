@@ -328,12 +328,12 @@ export default class DetailsCard extends EventTarget {
 
         const card = document.createElement("div");
 
+        const slider = new Slider();
+
         const pagesContainer = document.createElement("div");
         pagesContainer.classList.add("pages");
 
-        const slider = new Slider();
-
-        card.append(pagesContainer, slider.element);
+        card.append(slider.element, pagesContainer);
         cardWrapper.appendChild(card);
 
         return [cardWrapper, pagesContainer, slider];
