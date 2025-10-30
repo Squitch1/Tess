@@ -55,7 +55,7 @@
                         }
                     }
 
-                    &:hover {
+                    &:not(.closed):hover {
                         background: var(--tab-hovered-background);
 
                         .close {
