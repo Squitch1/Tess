@@ -1,6 +1,6 @@
 export class PopupBuilder {
     title: string;
-    message: string | undefined;
+    message?: string;
     doNotShowAgain: boolean = false;
     buttons: PopupButton[] = [];
 
@@ -37,7 +37,7 @@ export class PopupBuilder {
     }
 
     build(
-        callback: (action: string, doNotShowAgain: boolean | undefined) => void
+        callback: (action: string, doNotShowAgain?: boolean) => void
     ): HTMLElement {
         const popup = document.createElement("div");
         popup.id = "popup";
@@ -179,5 +179,5 @@ export class PopupButton {
 
 export type PopupResult = {
     action: string;
-    doNotShowAgain: boolean | undefined;
+    doNotShowAgain?: boolean;
 };

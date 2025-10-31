@@ -1,0 +1,33 @@
+.slider {
+    display: flex;
+    gap: 7px;
+    margin: auto;
+    transition: all 140ms ease-in-out;
+    overflow: hidden;
+
+    > div {
+        height: 7px;
+        width: 7px;
+        border-radius: 3.5px;
+        background: var(--tab-focused-background);
+        cursor: pointer;
+        opacity: 0;
+        transition:
+            opacity 140ms ease-in-out (10 * 25ms),
+            background 140ms ease-in-out 0ms;
+
+        @for $i from 1 through 10 {
+            &:nth-child(#{$i}) {
+                transition-delay: calc(($i - 1) * 25ms), 0ms;
+            }
+        }
+
+        &.visible {
+            opacity: 1;
+        }
+
+        &.active {
+            background: var(--text-color);
+        }
+    }
+}

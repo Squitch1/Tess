@@ -1,0 +1,133 @@
+#details-card {
+    padding-top: 8px;
+    position: absolute;
+    top: 30px;
+    z-index: 5;
+    transition: translate 140ms ease-in-out;
+    animation: zoom-fade 140ms ease-in-out forwards;
+
+    > div {
+        width: 240px;
+        background: var(--tab-details-card-background);
+        box-shadow: rgba(0, 0, 0, 0.28) 0px 5px 10px;
+        border-radius: 4px;
+        padding: 8px;
+        box-sizing: border-box;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+
+        &:has(.slider > div + div) .slider {
+            padding-bottom: 8px;
+        }
+
+        .pages {
+            transition: height 140ms ease-in-out;
+
+            > div {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+
+                &.visible > div {
+                    opacity: unset;
+                    translate: unset;
+                }
+
+                > div {
+                    user-select: none;
+                    -webkit-user-select: none;
+                    height: 28px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding-inline: 6px;
+                    border-radius: 3px;
+                    opacity: 0;
+                    translate: calc(40px * var(--direction, 1));
+                    transition:
+                        translate 140ms ease-in-out,
+                        opacity 140ms ease-in-out;
+
+                    @for $i from 2 through 5 {
+                        &:nth-child(#{$i}) {
+                            transition-delay: calc(25ms * #{$i - 1});
+                        }
+                    }
+
+                    &:not(.closed):hover {
+                        background: var(--tab-hovered-background);
+
+                        .close {
+                            display: flex;
+                        }
+                    }
+
+                    .tab-icon {
+                        --height: 14px;
+                        --width: 14px;
+                    }
+
+                    .title {
+                        font-weight: 600;
+                        line-height: 14px;
+                        font-size: 12px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        width: 100%;
+                        mask: linear-gradient(
+                            to right,
+                            rgba(0, 0, 0, 1) 0,
+                            rgba(0, 0, 0, 1) 70%,
+                            rgba(0, 0, 0, 0.8) 80%,
+                            rgba(0, 0, 0, 0) 100%
+                        );
+                    }
+
+                    .close {
+                        height: 18px;
+                        width: 18px;
+                        border-radius: 3px;
+                        flex-shrink: 0;
+                        justify-content: center;
+                        align-items: center;
+                        transition: background 140ms;
+                        display: none;
+                        color: var(--icon-color);
+                        cursor: pointer;
+
+                        &:hover {
+                            background: var(
+                                --action-button-hovered-background
+                            ) !important;
+                        }
+
+                        svg {
+                            height: 12px;
+                            width: 12px;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            pointer-events: none;
+                        }
+                    }
+
+                    &.closed {
+                        filter: opacity(0.8);
+                        color: var(--dimmed-text-color);
+                        pointer-events: none;
+
+                        .title {
+                            text-decoration: line-through;
+                            font-weight: 500;
+                        }
+
+                        .tab-icon {
+                            filter: grayscale(1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

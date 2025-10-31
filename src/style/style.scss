@@ -7,9 +7,12 @@
 
 @use "ui/titlebar";
 
+@use "components/interface/detailsCard" as *;
+@use "components/interface/slider" as *;
 @use "components/interface/toast" as *;
 @use "components/interface/popup" as *;
 @use "components/interface/tab" as *;
+@use "components/ux/progressBar" as *;
 @use "components/view/common" as *;
 
 @use "../../node_modules/@xterm/xterm/css/xterm.css";

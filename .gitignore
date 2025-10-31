@@ -11,6 +11,7 @@ node_modules
 src-tauri/dist
 src-tauri/gen
 *.local
+target
 
 # Editor directories and files
 .vscode/*

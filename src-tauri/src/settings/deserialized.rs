@@ -720,6 +720,8 @@ pub struct AppBehavior {
     pub focus_mode: FocusMode,
     #[serde(default = "default_to_true")]
     pub open_in_tab: bool,
+    #[serde(default = "default_details_card_delay")]
+    pub details_card_delay: u32,
 }
 
 impl Default for AppBehavior {
@@ -727,8 +729,14 @@ impl Default for AppBehavior {
         Self {
             focus_mode: FocusMode::default(),
             open_in_tab: true,
+            details_card_delay: default_details_card_delay(),
         }
     }
+}
+
+#[inline]
+const fn default_details_card_delay() -> u32 {
+    1500
 }
 
 #[inline]

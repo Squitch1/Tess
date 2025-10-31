@@ -1,6 +1,22 @@
-import tabIcon from "icons/32x32/tess-alt.png";
+import CircularProgressBar from "components/ux/progressBar";
+import defaultIcon from "icons/32x32/tess-alt.png";
 
-export default class Tab {
+export type PaneData = {
+    id: string;
+    title: string;
+    progress: number;
+    needsAttention: boolean;
+};
+function defaultPaneData(id: string): PaneData {
+    return {
+        id,
+        title: "",
+        progress: 0,
+        needsAttention: false,
+    };
+}
+
+export class Tab extends EventTarget {
     element: HTMLElement;
 
     uuid: string;
@@ -10,13 +26,7 @@ export default class Tab {
 
     title: string = "";
 
-    panes: Map<
-        string,
-        {
-            title: string;
-            progress: number;
-        }
-    > = new Map();
+    panes: Map<string, PaneData> = new Map();
 
     paneGroupLeader: string = "";
 
@@ -28,17 +38,18 @@ export default class Tab {
     resizeObserver: ResizeObserver;
 
     private titleElement: HTMLSpanElement;
-    private progressBarElement: HTMLElement;
-    private progressBarValueElement: HTMLElement;
+    private icon: TabIcon;
 
     constructor(index: number, uuid: string, onClose: (uuid: string) => void) {
+        super();
+
         this.uuid = uuid;
         this.index = index;
         this.element = this.generateComponent();
 
         this.titleElement = this.element.querySelector(".title")!;
-        this.progressBarElement = this.element.querySelector(".progress")!;
-        this.progressBarValueElement = this.element.querySelector(".value")!;
+        this.icon = new TabIcon();
+        this.element.appendChild(this.icon.element);
 
         this.onTitleUpdated = () => {};
 
@@ -60,11 +71,11 @@ export default class Tab {
     }
 
     computeTitleClipping() {
-        this.titleElement.classList.remove("extanded", "clipped");
+        this.titleElement.classList.remove("extended", "clipped");
 
         if (this.titleElement.scrollWidth > this.titleElement.clientWidth) {
             this.titleElement.classList.toggle(
-                "extanded",
+                "extended",
                 this.titleElement.scrollWidth - this.titleElement.clientWidth <
                     20
             );
@@ -76,32 +87,47 @@ export default class Tab {
     }
 
     addPane(paneId: string) {
-        this.panes.set(paneId, {
-            title: "",
-            progress: 0,
+        const pane = defaultPaneData(paneId);
+        this.panes.set(paneId, pane);
+        this.dispatchEvent(new CustomEvent("paneAdded", { detail: pane }));
+    }
+
+    clearPanesAttention() {
+        this.panes.forEach((pane) => {
+            pane.needsAttention = false;
+            this.dispatchEvent(
+                new CustomEvent("paneUpdated", { detail: pane })
+            );
         });
+
+        this.updateAttentionStatus();
     }
 
     setPaneTitle(paneId: string, title: string) {
-        const pane = this.panes.get(paneId) || {
-            title: "",
-            progress: 0,
-        };
+        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
         pane.title = title;
         this.panes.set(paneId, pane);
 
         this.updateTitle();
+        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
     }
 
     setPaneProgress(paneId: string, progress: number) {
-        const pane = this.panes.get(paneId) || {
-            title: "",
-            progress: 0,
-        };
+        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
         pane.progress = progress;
         this.panes.set(paneId, pane);
 
         this.updateProgress();
+        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+    }
+
+    setPaneAttention(paneId: string, needsAttention: boolean) {
+        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
+        pane.needsAttention = needsAttention;
+        this.panes.set(paneId, pane);
+
+        this.updateAttentionStatus();
+        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
     }
 
     setPaneGroupLeader(paneId: string) {
@@ -113,7 +139,13 @@ export default class Tab {
     }
 
     removePane(paneId: string) {
-        this.panes.delete(paneId);
+        const pane = this.panes.get(paneId);
+        if (pane) {
+            this.panes.delete(paneId);
+            this.dispatchEvent(
+                new CustomEvent("paneRemoved", { detail: pane })
+            );
+        }
     }
 
     updateTitle() {
@@ -133,60 +165,30 @@ export default class Tab {
     }
 
     updateProgress() {
-        let progressSum = 0;
-        let progressCount = 0;
+        let count = 0;
+        let sum = 0;
         this.panes.forEach((pane) => {
             if (pane.progress > 0) {
-                progressCount++;
-                progressSum += pane.progress;
+                count++;
+                sum += pane.progress;
             }
         });
-        const value = progressSum / progressCount;
 
-        if (value > 0 && value < 100) {
-            if (!this.progressBarElement.hasAttribute("progress")) {
-                this.progressBarElement.setAttribute("progress", "");
-                this.progressBarElement.style.animation = "";
-                // eslint-disable-next-line no-unused-expressions
-                this.progressBarElement.offsetTop;
-                this.progressBarElement.style.animation =
-                    "tab-progress-bar-progress-added 140ms forwards";
-
-                this.progressBarElement.style.animationDelay = "35ms";
-                this.titleElement.style.animation = "";
-                // eslint-disable-next-line no-unused-expressions
-                this.titleElement.offsetTop;
-                this.titleElement.style.animation =
-                    "tab-title-progress-added 140ms forwards";
-            }
-
-            this.progressBarValueElement.style.width = `${value}%`;
-        } else if (this.progressBarElement.hasAttribute("progress")) {
-            this.progressBarElement.removeAttribute("progress");
-            setTimeout(() => {
-                this.titleElement.style.animation = "";
-                // eslint-disable-next-line no-unused-expressions
-                this.titleElement.offsetTop;
-                this.titleElement.style.animation =
-                    "tab-title-progress-added 140ms forwards reverse";
-            }, 35);
-            this.progressBarElement.style.animation = "";
-            // eslint-disable-next-line no-unused-expressions
-            this.progressBarElement.offsetTop;
-            this.progressBarElement.style.animationDelay = "0ms";
-            this.progressBarElement.style.animation =
-                "tab-progress-bar-progress-added 140ms forwards reverse";
-        }
+        this.icon.setProgress(count > 0 ? sum / count : 0);
     }
 
-    setHighlight(visible: boolean) {
-        this.element
-            .querySelector(".ping")!
-            .classList.toggle("hidden", !visible);
+    private updateAttentionStatus() {
+        this.icon.setAttention(
+            Array.from(this.panes.values()).some(
+                (pane: PaneData) => pane.needsAttention
+            )
+        );
     }
 
     private generateComponent(): HTMLElement {
         const tab = document.createElement("div");
+        tab.classList.add("tab");
+        tab.style.animation = "tab-created 140ms forwards";
 
         const title = document.createElement("span");
         title.classList.add("title");
@@ -205,23 +207,45 @@ export default class Tab {
             })
         );
 
-        const icon = document.createElement("div");
-        const iconImage = document.createElement("img");
-        iconImage.src = tabIcon;
-        icon.classList.add("icon");
-        icon.appendChild(iconImage);
-
-        const progress = document.createElement("div");
-        const progressValue = document.createElement("div");
-        progressValue.classList.add("value");
-        progress.classList.add("progress");
-        progress.appendChild(progressValue);
-
-        const pingMark = document.createElement("div");
-        pingMark.classList.add("ping", "hidden");
-
-        tab.append(icon, title, closeButton, progress, pingMark);
+        tab.append(title, closeButton);
 
         return tab;
+    }
+}
+
+export class TabIcon {
+    readonly element: HTMLDivElement;
+    private progressBar: CircularProgressBar;
+
+    constructor() {
+        [this.element, this.progressBar] = TabIcon.generateComponent();
+    }
+
+    setProgress(progress: number) {
+        if (progress > 0 && progress < 100) {
+            this.progressBar.setProgress(progress);
+        }
+        this.element.classList.toggle(
+            "show-progress",
+            progress > 0 && progress < 100
+        );
+    }
+
+    setAttention(enable: boolean) {
+        this.element.classList.toggle("needs-attention", enable);
+    }
+
+    private static generateComponent(): [HTMLDivElement, CircularProgressBar] {
+        const element = document.createElement("div");
+        element.classList.add("tab-icon");
+
+        const icon = document.createElement("img");
+        icon.src = defaultIcon;
+
+        const progressBar = new CircularProgressBar();
+
+        element.append(progressBar.element, icon);
+
+        return [element, progressBar];
     }
 }

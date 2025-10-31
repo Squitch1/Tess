@@ -1,17 +1,3 @@
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent);
-    }
-
-    14% {
-        box-shadow: 0 0 0 4px transparent;
-    }
-
-    25% {
-        box-shadow: 0 0 0 0 transparent;
-    }
-}
-
 @keyframes opacity-fade {
     from {
         opacity: 0;
@@ -21,5 +7,12 @@
 @keyframes scale-fade {
     from {
         scale: 0.86;
+    }
+}
+
+@keyframes zoom-fade {
+    from {
+        opacity: 0;
+        transform: scale(0.86);
     }
 }

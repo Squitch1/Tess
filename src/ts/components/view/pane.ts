@@ -171,7 +171,7 @@ export default class Pane {
     splitSpecific(widget: Widget, path: number[]) {
         if (path.length === 0 || !this.isSubview) {
             this.split(widget);
-        } else if (this.isSubview) {
+        } else {
             const nextPane = (this.content as Pane[]).at(path[0]);
             if (nextPane) {
                 nextPane.splitSpecific(widget, path.slice(1));
@@ -194,7 +194,7 @@ export default class Pane {
                     "unselected",
                     i !== selectedIndex
                 );
-                pane.element!.classList.remove(
+                pane.element.classList.remove(
                     "fade-out-background",
                     "fade-out-index"
                 );
@@ -240,12 +240,12 @@ export default class Pane {
                             }
 
                             (this.content as Pane[]).forEach((pane, i) => {
-                                pane.element!.classList.remove("unselected");
-                                pane.element!.classList.add(
+                                pane.element.classList.remove("unselected");
+                                pane.element.classList.add(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );
-                                pane.element!.setAttribute(
+                                pane.element.setAttribute(
                                     "data-index",
                                     i.toString(36)
                                 );
@@ -254,17 +254,17 @@ export default class Pane {
                             try {
                                 const currentPanes = this.content as Pane[];
                                 currentPanes.forEach((pane, i) => {
-                                    pane.element!.setAttribute(
+                                    pane.element.setAttribute(
                                         "data-index",
                                         i.toString(36)
                                     );
-                                    pane.element!.classList.add(
+                                    pane.element.classList.add(
                                         "fade-out-index"
                                     );
                                 });
                                 setTimeout(() => {
                                     currentPanes.forEach((pane) => {
-                                        pane.element!.classList.remove(
+                                        pane.element.classList.remove(
                                             "fade-out-index"
                                         );
                                     });
@@ -281,10 +281,8 @@ export default class Pane {
                                         )
                                     );
                                 (this.content as Pane[]).forEach((pane) => {
-                                    pane.element!.classList.remove(
-                                        "unselected"
-                                    );
-                                    pane.element!.classList.add(
+                                    pane.element.classList.remove("unselected");
+                                    pane.element.classList.add(
                                         "fade-out-background"
                                     );
                                 });
@@ -316,7 +314,7 @@ export default class Pane {
                                         pane.element.classList.remove(
                                             "unselected"
                                         );
-                                        pane.element!.classList.add(
+                                        pane.element.classList.add(
                                             "fade-out-background"
                                         );
                                     });
@@ -327,7 +325,7 @@ export default class Pane {
                         const currentPanes = this.content as Pane[];
                         setTimeout(() => {
                             currentPanes.forEach((pane) => {
-                                pane.element!.classList.remove(
+                                pane.element.classList.remove(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );

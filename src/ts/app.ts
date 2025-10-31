@@ -54,6 +54,14 @@ export default class App {
         this.tabsManager.onTabFocused = (uuid) => this.onTabFocused(uuid);
         this.tabsManager.onFocusedTabTitleUpdated = (title) =>
             this.onFocusedTabTitleUpdated(title);
+        this.tabsManager.onPaneFocused = (tabId, paneId) => {
+            this.views.find((view) => view.uuid === tabId)?.focusWidget(paneId);
+        };
+        this.tabsManager.onPaneClosed = async (tabId, paneId) => {
+            await this.views
+                .find((view) => view.uuid === tabId)
+                ?.closeWidget(paneId);
+        };
 
         this.shortcutsManager = new ShortcutManager(
             settings.shortcuts,
@@ -125,7 +133,7 @@ export default class App {
     }
 
     private onTabFocused(uuid: string) {
-        const view = this.views.find((view) => view.uuid! === uuid);
+        const view = this.views.find((view) => view.uuid === uuid);
         if (view) {
             this.focusedView?.blur();
             view.focus();
@@ -155,7 +163,7 @@ export default class App {
     private onViewClosed(uuid: string) {
         const view = this.views.find((view) => view.uuid === uuid);
         if (view) {
-            view.element!.remove();
+            view.element.remove();
             this.views.splice(this.views.indexOf(view), 1);
             if (this.views.length === 0) {
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -326,7 +334,7 @@ export default class App {
     private async closeWindow() {
         try {
             if (this.views.length === 1) {
-                this.tabsManager.requestTabClosing(this.views[0].uuid!);
+                this.tabsManager.requestTabClosing(this.views[0].uuid);
             } else {
                 const confirmButton = new PopupButton("confirm", "validate");
                 const cancelButton = new PopupButton("cancel", "dismiss");
@@ -366,8 +374,8 @@ export default class App {
         view.onWidgetFocused = (id) => this.onWidgetFocused(viewId, id);
         view.onWidgetTitleUpdated = (id, title) =>
             this.onWidgetTitleUpdated(viewId, id, title);
-        view.onWidgetRequestHighlight = () =>
-            this.onWidgetRequestHighlight(viewId);
+        view.onWidgetRequestHighlight = (id) =>
+            this.onWidgetRequestHighlight(viewId, id);
         view.onWidgetProgressUpdated = (id, progress) =>
             this.onWidgetProgressUpdated(viewId, id, progress);
         view.onWidgetClosed = (id) => this.onWidgetClosed(viewId, id);
@@ -391,7 +399,7 @@ export default class App {
             );
 
             const view = this.generateView();
-            this.tabsManager.openNew(view.uuid);
+            this.tabsManager.openTab(view.uuid);
             this.target.appendChild(view.element);
             await view.addWidget(terminalWidget);
             this.views.push(view);
@@ -404,8 +412,8 @@ export default class App {
         }
     }
 
-    private onWidgetRequestHighlight(viewId: string) {
-        this.tabsManager.setHightlight(viewId, true);
+    private onWidgetRequestHighlight(viewId: string, paneId: string) {
+        this.tabsManager.setPaneAttention(viewId, paneId, true);
     }
 
     private onWidgetTitleUpdated(
