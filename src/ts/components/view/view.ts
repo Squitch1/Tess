@@ -50,8 +50,7 @@ export default class View {
     constructor(viewId: string, popupManager: PopupManager, toaster: Toaster) {
         this.uuid = viewId;
 
-        this.element = document.createElement("div");
-        this.element.classList.add("view");
+        this.element = View.generateComponent();
 
         this.onceClosed = () => {};
 
@@ -604,5 +603,12 @@ export default class View {
                 { capture: true }
             );
         });
+    }
+
+    private static generateComponent(): HTMLDivElement {
+        const element = document.createElement("div");
+        element.classList.add("view");
+
+        return element;
     }
 }

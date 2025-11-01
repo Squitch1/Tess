@@ -48,8 +48,7 @@ export default class Pane {
 
         this.uuid = uuid;
 
-        this.element = document.createElement("div");
-        this.element.classList.add("pane");
+        this.element = Pane.generateComponent();
 
         if (widget) {
             widget.anchoringPane = this;
@@ -571,5 +570,12 @@ export default class Pane {
             );
         }
         return 1;
+    }
+
+    private static generateComponent(): HTMLDivElement {
+        const element = document.createElement("div");
+        element.classList.add("pane");
+
+        return element;
     }
 }

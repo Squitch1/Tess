@@ -15,7 +15,7 @@ import Widget from "./base";
 export default class Terminal extends Widget {
     xterm: Xterm;
 
-    xtermTarget: HTMLElement;
+    xtermTarget: HTMLDivElement;
 
     xtermFitAddon: FitAddon;
 
@@ -36,6 +36,13 @@ export default class Terminal extends Widget {
     constructor(profile: Profile) {
         super();
 
+        let background;
+        [this.xtermTarget, background] = Terminal.generateComponent(profile);
+        if (background) {
+            this.element.appendChild(background);
+        }
+        this.element.appendChild(this.xtermTarget);
+
         this.hyperlinkModifiers = profile.terminalSettings.hyperlinkModifier
             .toLowerCase()
             .replaceAll(" ", "")
@@ -48,35 +55,6 @@ export default class Terminal extends Widget {
         this.onTerminalOutgoingData = () => {};
         this.onTerminalKeyPress = () => true;
         this.onTerminalExit = async () => {};
-
-        this.xtermTarget = document.createElement("div");
-        this.xtermTarget.classList.add("widget--term");
-
-        if (profile.background) {
-            const background = document.createElement("img");
-            background.src = convertFileSrc(profile.background.location);
-            background.classList.add("background-image");
-            this.element.appendChild(background);
-            this.xtermTarget.style.setProperty(
-                "-webkit-backdrop-filter",
-                `blur(${profile.background.blur}px)`
-            );
-        }
-
-        this.xtermTarget.style.setProperty(
-            "--profile-background",
-            profile.theme.background
-        );
-        this.xtermTarget.style.setProperty(
-            "--profile-background-transparency",
-            `${profile.backgroundTransparency}%`
-        );
-        this.xtermTarget.style.setProperty(
-            "--terminal-highlight-color",
-            profile.theme.highlight
-        );
-
-        this.element.appendChild(this.xtermTarget);
 
         const theme = structuredClone(profile.theme);
         if (profile.backgroundTransparency < 100) {
@@ -414,5 +392,38 @@ export default class Terminal extends Widget {
         });
         this.tooltip = undefined;
         this.tooltipMarkers = undefined;
+    }
+
+    private static generateComponent(
+        profile: Profile
+    ): [HTMLDivElement, HTMLImageElement?] {
+        const element = document.createElement("div");
+        element.classList.add("widget--term");
+
+        let background;
+        if (profile.background) {
+            background = document.createElement("img");
+            background.src = convertFileSrc(profile.background.location);
+            background.classList.add("background-image");
+            element.style.setProperty(
+                "-webkit-backdrop-filter",
+                `blur(${profile.background.blur}px)`
+            );
+        }
+
+        element.style.setProperty(
+            "--profile-background",
+            profile.theme.background
+        );
+        element.style.setProperty(
+            "--profile-background-transparency",
+            `${profile.backgroundTransparency}%`
+        );
+        element.style.setProperty(
+            "--terminal-highlight-color",
+            profile.theme.highlight
+        );
+
+        return [element, background];
     }
 }

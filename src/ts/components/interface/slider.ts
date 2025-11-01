@@ -9,7 +9,7 @@ export default class Slider extends EventTarget {
     constructor() {
         super();
 
-        this.element = Slider.generateComponents();
+        this.element = Slider.generateComponent();
 
         this.element.addEventListener("click", (e) => {
             for (let k = 0; k < this.element.children.length; k++) {
@@ -84,7 +84,7 @@ export default class Slider extends EventTarget {
         }
     }
 
-    private static generateComponents(): HTMLDivElement {
+    private static generateComponent(): HTMLDivElement {
         const element = document.createElement("div");
         element.classList.add("slider");
         return element;

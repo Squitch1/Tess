@@ -2,7 +2,7 @@ import { Shortcut, ShortcutAction } from "schemas/settings";
 import Terminal from "components/view/widgets/terminal";
 
 export default class ShortcutManager {
-    shortcuts: [string[], ShortcutAction][] = [];
+    shortcuts: [string[], ShortcutAction][];
 
     onShortcutExecutedCallback: (
         shortcut: ShortcutAction,
@@ -16,12 +16,10 @@ export default class ShortcutManager {
             targetId?: string
         ) => void
     ) {
-        shortcuts.forEach((shortcut) =>
-            this.shortcuts.push([
-                shortcut.shortcut.toLowerCase().replaceAll(" ", "").split("+"),
-                shortcut.action,
-            ])
-        );
+        this.shortcuts = shortcuts.map((shortcut) => [
+            shortcut.shortcut.toLowerCase().replaceAll(" ", "").split("+"),
+            shortcut.action,
+        ]);
 
         this.onShortcutExecutedCallback = onShortcutExecuted;
 

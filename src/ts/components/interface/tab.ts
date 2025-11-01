@@ -22,7 +22,7 @@ export class Tab extends EventTarget {
     uuid: string;
     index: number;
 
-    onClose: ((uuid: string) => void) | null = null;
+    onClose: (uuid: string) => void;
 
     title: string = "";
 
@@ -30,7 +30,7 @@ export class Tab extends EventTarget {
 
     paneGroupLeader: string = "";
 
-    onCloseButtonClick?: () => void;
+    onCloseButtonClick: () => void;
     onClick?: (e: MouseEvent) => void;
 
     onTitleUpdated: (title: string) => void;
@@ -45,9 +45,17 @@ export class Tab extends EventTarget {
 
         this.uuid = uuid;
         this.index = index;
-        this.element = this.generateComponent();
 
-        this.titleElement = this.element.querySelector(".title")!;
+        let closeButton;
+        [this.element, this.titleElement, closeButton] =
+            Tab.generateComponent();
+        closeButton.addEventListener(
+            "click",
+            (this.onCloseButtonClick = () => {
+                this.onClose(this.uuid);
+            })
+        );
+
         this.icon = new TabIcon();
         this.element.appendChild(this.icon.element);
 
@@ -185,7 +193,11 @@ export class Tab extends EventTarget {
         );
     }
 
-    private generateComponent(): HTMLElement {
+    private static generateComponent(): [
+        HTMLDivElement,
+        HTMLSpanElement,
+        HTMLDivElement,
+    ] {
         const tab = document.createElement("div");
         tab.classList.add("tab");
         tab.style.animation = "tab-created 140ms forwards";
@@ -200,16 +212,10 @@ export class Tab extends EventTarget {
             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
         </svg>
         `;
-        closeButton.addEventListener(
-            "click",
-            (this.onCloseButtonClick = () => {
-                this.onClose!(this.uuid);
-            })
-        );
 
         tab.append(title, closeButton);
 
-        return tab;
+        return [tab, title, closeButton];
     }
 }
 

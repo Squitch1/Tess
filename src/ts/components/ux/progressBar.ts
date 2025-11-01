@@ -2,7 +2,7 @@ export default class CircularProgressBar {
     readonly element: HTMLElement;
 
     constructor() {
-        this.element = CircularProgressBar.generateComponents();
+        this.element = CircularProgressBar.generateComponent();
     }
 
     setProgress(progress: number) {
@@ -11,7 +11,7 @@ export default class CircularProgressBar {
         }
     }
 
-    private static generateComponents(): HTMLElement {
+    private static generateComponent(): HTMLElement {
         const SVGNamespace = "http://www.w3.org/2000/svg";
 
         const element = document.createElement("div");
