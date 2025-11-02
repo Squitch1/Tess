@@ -36,7 +36,7 @@ export default class PopupManager {
                     "popup-added-background-fade 140ms forwards reverse";
 
                 popupBuilt.querySelector<HTMLElement>(
-                    ".inner"
+                    ".popup"
                 )!.style.animation = "zoom-fade 140ms forwards reverse";
 
                 this.onPopupClosed();
@@ -95,13 +95,13 @@ export default class PopupManager {
 
             popupBuilt.style.animation =
                 "popup-added-background-fade 140ms forwards";
-            popupBuilt.querySelector<HTMLElement>(".inner")!.style.animation =
+            popupBuilt.querySelector<HTMLElement>(".popup")!.style.animation =
                 "zoom-fade 140ms forwards";
 
             setTimeout(() => {
                 popupBuilt.style.animation = "";
                 popupBuilt.querySelector<HTMLElement>(
-                    ".inner"
+                    ".popup"
                 )!.style.animation = "";
             }, 140);
 

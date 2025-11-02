@@ -1,5 +1,6 @@
 import { Tab } from "components/interface/tab";
 import DetailsCard from "components/interface/detailsCard";
+import clamp from "utils/clamp";
 
 export default class TabManager {
     private target: Element;
@@ -211,7 +212,7 @@ export default class TabManager {
 
             tab.element
                 .querySelector(".close")
-                ?.removeEventListener("click", tab.onCloseButtonClick!);
+                ?.removeEventListener("click", tab.onCloseButtonClick);
             tab.resizeObserver.disconnect();
             tab.element.removeEventListener("mousedown", tab.onClick!);
             const closingTabIndex = tab.index;
@@ -226,11 +227,9 @@ export default class TabManager {
             }, 140);
 
             if (this.selectedTab!.uuid === tabId) {
-                if (this.selectedTab!.index - 1 === this.tabs.length) {
-                    this.select(this.tabs.length);
-                } else {
-                    this.select(this.selectedTab!.index);
-                }
+                this.select(
+                    clamp(0, this.selectedTab!.index, this.tabs.length)
+                );
             }
         }
     }

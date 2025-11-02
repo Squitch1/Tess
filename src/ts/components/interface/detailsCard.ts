@@ -1,5 +1,6 @@
 import Slider from "components/interface/slider";
 import { Tab, PaneData, TabIcon } from "components/interface/tab";
+import clamp from "utils/clamp";
 
 type DetailsCardEntriesPage = {
     element: HTMLDivElement;
@@ -73,7 +74,7 @@ export default class DetailsCard extends EventTarget {
     }
 
     showForTab(tab: Tab) {
-        if (this.tab === tab) {
+        if (this.tab?.uuid === tab.uuid) {
             return;
         }
 
@@ -84,13 +85,11 @@ export default class DetailsCard extends EventTarget {
         }
 
         const clientRect = tab.element.getBoundingClientRect();
-        const tabPosition = clientRect.right / 2 + clientRect.left / 2;
-        const cardPosition = Math.max(
+        const tabPosition = (clientRect.right + clientRect.left) / 2;
+        const cardPosition = clamp(
             12,
-            Math.min(
-                tabPosition - 240 / 2,
-                document.body.clientWidth - 240 - 12
-            )
+            tabPosition - 240 / 2,
+            document.body.clientWidth - 240 - 12
         );
         this.element.style.translate = `${cardPosition}px`;
 

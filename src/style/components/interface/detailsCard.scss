@@ -97,17 +97,12 @@
                         cursor: pointer;
 
                         &:hover {
-                            background: var(
-                                --action-button-hovered-background
-                            ) !important;
+                            background: var(--action-button-hovered-background);
                         }
 
                         svg {
                             height: 12px;
                             width: 12px;
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
                             pointer-events: none;
                         }
                     }

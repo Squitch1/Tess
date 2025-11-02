@@ -12,8 +12,6 @@ export default class CircularProgressBar {
     }
 
     private static generateComponent(): HTMLElement {
-        const SVGNamespace = "http://www.w3.org/2000/svg";
-
         const element = document.createElement("div");
         element.classList.add("circular-progress-bar");
 

@@ -44,24 +44,23 @@ export default class Toaster {
         toastTitle.classList.add("title");
         toastTitle.innerText = title;
 
-        const toastIcon = document.createElement("div");
+        const toastIcon = document.createElementNS(SVGNamespace, "svg");
+        toastIcon.setAttribute("fill", "currentColor");
+        toastIcon.setAttribute("viewBox", "0 0 20 20");
         toastIcon.classList.add("icon");
-
         switch (type) {
             case "error":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-              </svg>
-              `;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />';
                 break;
             case "warn":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>`;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />';
                 break;
             case "info":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-              </svg>
-              `;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />';
+                break;
         }
 
         toastContent.appendChild(toastTitle);
@@ -82,8 +81,6 @@ export default class Toaster {
 
         let toastMessage;
         if (message) {
-            toast.classList.add("with-text");
-
             const toastMessageWrapper = document.createElement("div");
 
             toastMessage = document.createElement("span");
@@ -216,6 +213,6 @@ export default class Toaster {
                 this.toasts.splice(this.toasts.indexOf(toast), 1);
                 toast.remove();
             }, 140);
-        }, 20000);
+        }, 50_000_000 /* 20_000 */);
     }
 }

@@ -5,9 +5,9 @@
     border-top-left-radius: 2px;
     border-top-right-radius: 2px;
     font-weight: 500;
+    display: flex;
     justify-content: center;
     align-items: center;
-    display: flex;
     -webkit-user-select: none;
     transition: background 140ms;
     font-size: 12px;
@@ -32,7 +32,7 @@
 
         .close {
             opacity: unset;
-            background: var(--tab-action-button-background) !important;
+            background: var(--tab-action-button-background);
         }
 
         .title {
@@ -45,7 +45,6 @@
 
         .close {
             opacity: unset;
-            background: var(--tab-hovered-background);
         }
 
         .title {
@@ -87,24 +86,21 @@
         border-radius: 3px;
         right: 6px;
         position: absolute;
+        display: flex;
         justify-content: center;
         align-items: center;
         transition: background 140ms;
         opacity: 0;
-        display: flex;
         color: var(--icon-color);
         z-index: 1;
 
         &:hover {
-            background: var(--action-button-hovered-background) !important;
+            background: var(--action-button-hovered-background);
         }
 
         svg {
             height: 12px;
             width: 12px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             pointer-events: none;
         }
     }
@@ -182,8 +178,8 @@
 
         img {
             transition: all 140ms ease-in-out;
-            height: 10px !important;
-            width: 10px !important;
+            height: 10px;
+            width: 10px;
         }
     }
 }

@@ -1,4 +1,4 @@
-#popup {
+.popup-backdrop {
     position: absolute;
     height: 100%;
     width: 100%;
@@ -8,30 +8,20 @@
     z-index: 6;
     background: rgba(0, 0, 0, 0.25);
 
-    .inner {
+    .popup {
         background: var(--popup-background);
         border-radius: 6px;
         box-shadow: rgba(0, 0, 0, 0.28) 0px 5px 10px;
-        padding-bottom: 20px;
-        padding-top: 20px;
-        padding-right: 18px;
-        padding-left: 18px;
+        padding-block: 20px;
+        padding-inline: 18px;
         display: flex;
         align-items: center;
         flex-direction: column;
 
-        .top {
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-
-            .title {
-                font-weight: 600;
-                font-size: 14px;
-                line-height: 20px;
-            }
+        .title {
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 20px;
         }
 
         .message {
@@ -50,10 +40,10 @@
             margin-top: auto;
             display: flex;
             flex-direction: row;
+            justify-content: flex-end;
             gap: 10px;
             -webkit-user-select: none;
             user-select: none;
-            justify-content: flex-end;
 
             .do-not-show-again {
                 &:hover input {
@@ -101,16 +91,15 @@
             }
 
             .button {
-                padding-right: 11px;
-                padding-left: 11px;
+                padding-inline: 11px;
                 height: 30px;
                 border-radius: 4px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
                 font-weight: 600;
                 font-size: 12px;
                 line-height: 12px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
                 cursor: pointer;
                 transition: background 140ms;
                 text-transform: capitalize;

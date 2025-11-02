@@ -39,35 +39,30 @@ export class PopupBuilder {
     build(
         callback: (action: string, doNotShowAgain?: boolean) => void
     ): HTMLElement {
+        const popupBackdrop = document.createElement("div");
+        popupBackdrop.classList.add("popup-backdrop");
+
         const popup = document.createElement("div");
-        popup.id = "popup";
-
-        const innerPopup = document.createElement("div");
-        innerPopup.classList.add("inner");
-
-        const popupTop = document.createElement("div");
-        popupTop.classList.add("top");
+        popup.classList.add("popup");
 
         const popupTitle = document.createElement("span");
-        popupTitle.innerText = this.title;
         popupTitle.classList.add("title");
+        popupTitle.innerText = this.title;
 
-        popupTop.appendChild(popupTitle);
-        innerPopup.appendChild(popupTop);
+        popup.appendChild(popupTitle);
 
         if (this.message) {
             const popupMessage = document.createElement("div");
             popupMessage.innerText = this.message;
             popupMessage.classList.add("message");
 
-            innerPopup.appendChild(popupMessage);
+            popup.appendChild(popupMessage);
         }
 
         const popupButtons = document.createElement("div");
         popupButtons.classList.add("buttons");
 
         let doNotShowAgainCheckbox: HTMLInputElement | undefined;
-
         if (this.doNotShowAgain) {
             const doNotShowAgainElement = document.createElement("div");
             doNotShowAgainElement.classList.add("do-not-show-again");
@@ -151,13 +146,12 @@ export class PopupBuilder {
                 callback("dismiss", doNotShowAgainCheckbox?.checked)
             );
             buttonElement.setAttribute("tabindex", "0");
-
             popupButtons.prepend(buttonElement);
         }
 
-        innerPopup.appendChild(popupButtons);
-        popup.appendChild(innerPopup);
-        return popup;
+        popup.appendChild(popupButtons);
+        popupBackdrop.appendChild(popup);
+        return popupBackdrop;
     }
 }
 

@@ -6,7 +6,7 @@
     display: flex;
     align-items: end;
     flex-direction: column;
-    row-gap: 12px;
+    gap: 12px;
     pointer-events: none;
 
     .toast {
@@ -22,18 +22,9 @@
 
         .icon {
             position: absolute;
-            left: 0;
-            fill: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding-left: 13px;
             color: var(--icon-color);
-
-            svg {
-                height: 20px;
-                width: 20px;
-            }
+            height: 20px;
+            width: 20px;
         }
 
         .content {
@@ -71,20 +62,15 @@
         }
 
         .actions {
-            right: 8px;
-            margin-top: auto;
-            margin-bottom: auto;
             position: absolute;
-            height: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            flex-direction: row-reverse;
-            gap: 5px;
+            right: 8px;
+            top: 11px;
             background: var(--toast-background);
             color: var(--icon-color);
-            top: 11px;
+            opacity: 0;
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 5px;
 
             & > * {
                 border-radius: 3px;
@@ -92,33 +78,25 @@
                 justify-content: center;
                 align-items: center;
                 cursor: pointer;
-
-                &:hover {
-                    background: var(
-                        --toast-button-hovered-background
-                    ) !important;
-                }
-            }
-
-            .close {
+                transition: background 140ms;
                 height: 20px;
                 width: 20px;
-                transition: background 140ms;
 
-                & > svg {
+                svg {
                     height: 12px;
                     width: 12px;
                 }
+
+                &:hover {
+                    background: var(--toast-button-hovered-background);
+                }
             }
 
-            .expand {
-                height: 20px;
-                width: 20px;
-
-                & > svg {
-                    height: 15px;
-                    width: 15px;
-                }
+            .expand svg {
+                height: 15px;
+                width: 15px;
+                transform: rotate(-90deg);
+                transition: transform 140ms;
             }
         }
 
@@ -132,18 +110,9 @@
             }
         }
 
-        &.with-text {
+        &:has(.message) {
             .icon {
                 top: 21px;
-            }
-
-            .actions {
-                .expand {
-                    svg {
-                        transform: rotate(-90deg);
-                        transition: transform 140ms;
-                    }
-                }
             }
 
             &.expandable {
@@ -155,14 +124,14 @@
             }
 
             &.expanded {
-                .actions .expand svg {
-                    transform: rotate(0deg);
-                }
-
                 .content {
                     .message {
                         grid-template-rows: 1fr;
                     }
+                }
+
+                .actions .expand svg {
+                    transform: rotate(0deg);
                 }
             }
         }
