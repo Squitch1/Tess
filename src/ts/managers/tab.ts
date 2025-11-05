@@ -1,6 +1,7 @@
-import { Tab } from "components/interface/tab";
-import DetailsCard from "components/interface/detailsCard";
-import clamp from "utils/clamp";
+import DetailsCard from "@/components/interface/detailsCard";
+import { Tab } from "@/components/interface/tab";
+
+import clamp from "@/utils/clamp";
 
 export default class TabManager {
     private target: Element;

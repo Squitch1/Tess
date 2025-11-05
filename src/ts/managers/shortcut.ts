@@ -1,5 +1,6 @@
-import { Shortcut, ShortcutAction } from "schemas/settings";
-import Terminal from "components/view/widgets/terminal";
+import Terminal from "@/components/view/widgets/terminal";
+
+import { Shortcut, ShortcutAction } from "@/schemas/settings";
 
 export default class ShortcutManager {
     shortcuts: [string[], ShortcutAction][];

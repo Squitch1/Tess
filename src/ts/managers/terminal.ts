@@ -1,12 +1,7 @@
-import {
-    terminalDataPayload,
-    terminalProgressUpdatedPayload,
-    terminalTitleChangedPayload,
-} from "schemas/term";
-import { Profile } from "schemas/settings";
-import { listen, Event } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import Terminal from "components/view/widgets/terminal";
+import { Event, listen } from "@tauri-apps/api/event";
+
+import Terminal from "@/components/view/widgets/terminal";
 
 import {
     PtyCreateError,
@@ -16,7 +11,14 @@ import {
     PtyWriteError,
     UnknownProfileError,
     UnknownTerminalError,
-} from "schemas/error";
+} from "@/schemas/error";
+import { Profile } from "@/schemas/settings";
+import {
+    terminalDataPayload,
+    terminalProgressUpdatedPayload,
+    terminalTitleChangedPayload,
+} from "@/schemas/term";
+
 import Toaster from "./toast";
 
 export default class TerminalManager {

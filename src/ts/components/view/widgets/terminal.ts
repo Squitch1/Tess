@@ -1,5 +1,7 @@
-import { Profile } from "schemas/settings";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { CanvasAddon } from "@xterm/addon-canvas";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import {
     IBufferRange,
     IDecoration,
@@ -7,9 +9,9 @@ import {
     IViewportRange,
     Terminal as Xterm,
 } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { CanvasAddon } from "@xterm/addon-canvas";
-import { WebLinksAddon } from "@xterm/addon-web-links";
+
+import { Profile } from "@/schemas/settings";
+
 import Widget from "./base";
 
 export default class Terminal extends Widget {
@@ -151,15 +153,15 @@ export default class Terminal extends Widget {
         }
     }
 
-    focus(): void {
+    override focus(): void {
         this.xterm.focus();
     }
 
-    blur(): void {
+    override blur(): void {
         this.xterm.blur();
     }
 
-    dispose(): void {
+    override dispose(): void {
         this.xterm.dispose();
         this.resizeObserver.disconnect();
     }

@@ -1,4 +1,4 @@
-import Widget from "components/view/widgets/base";
+import Widget from "@/components/view/widgets/base";
 
 export class FancyError extends Error {
     title: string;
@@ -6,7 +6,7 @@ export class FancyError extends Error {
     constructor(message: string, title?: string) {
         super(message);
 
-        this.title = title || "Unknown error";
+        this.title = title ?? "Unknown error";
     }
 }
 
@@ -29,7 +29,7 @@ export class UnknownMacroError extends FancyError {
 export class UnknownTerminalError extends FancyError {
     constructor(message?: string) {
         super(
-            message || "There is no focused terminal available.",
+            message ?? "There is no focused terminal available.",
             "Unknown terminal"
         );
     }
@@ -52,7 +52,7 @@ export class ViewSelectSpecificPaneError extends FancyError {
         message?: string,
         title?: string
     ) {
-        super(message || "", title || "Unable to split the pane");
+        super(message ?? "", title ?? "Unable to split the pane");
         this.type = type;
     }
 }

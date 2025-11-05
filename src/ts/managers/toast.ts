@@ -1,6 +1,7 @@
 /* eslint-disable lines-between-class-members */
-import { FancyError } from "schemas/error";
-import hasCSSAnimation from "utils/dom";
+import { FancyError } from "@/schemas/error";
+
+import hasCSSAnimation from "@/utils/dom";
 
 export default class Toaster {
     private target: Element;

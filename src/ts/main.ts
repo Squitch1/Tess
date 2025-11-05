@@ -1,7 +1,9 @@
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { Settings } from "schemas/settings";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+
+import { Settings } from "@/schemas/settings";
+
 import App from "./app";
 
 window.addEventListener("contextmenu", (e) => {

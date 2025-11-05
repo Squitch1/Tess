@@ -1,5 +1,6 @@
-import CircularProgressBar from "components/ux/progressBar";
-import defaultIcon from "icons/32x32/tess-alt.png";
+import CircularProgressBar from "@/components/ux/progressBar";
+
+import defaultIcon from "@/icons/32x32/tess-alt.png";
 
 export type PaneData = {
     id: string;
@@ -112,7 +113,7 @@ export class Tab extends EventTarget {
     }
 
     setPaneTitle(paneId: string, title: string) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
+        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.title = title;
         this.panes.set(paneId, pane);
 
@@ -121,7 +122,7 @@ export class Tab extends EventTarget {
     }
 
     setPaneProgress(paneId: string, progress: number) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
+        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.progress = progress;
         this.panes.set(paneId, pane);
 
@@ -130,7 +131,7 @@ export class Tab extends EventTarget {
     }
 
     setPaneAttention(paneId: string, needsAttention: boolean) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
+        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.needsAttention = needsAttention;
         this.panes.set(paneId, pane);
 

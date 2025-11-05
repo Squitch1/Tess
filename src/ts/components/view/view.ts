@@ -1,15 +1,18 @@
-import PopupManager from "managers/popup";
+import { PopupBuilder, PopupButton } from "@/components/interface/popup";
+import Widget from "@/components/view/widgets/base";
 
-import Toaster from "managers/toast";
-import Widget from "components/view/widgets/base";
-import { PopupBuilder, PopupButton } from "components/interface/popup";
+import PopupManager from "@/managers/popup";
+import Toaster from "@/managers/toast";
+
 import {
     PaneOutOfCapacityError,
     SelectSpecificPathRejectionReason,
     UnkownSplitPathError,
     ViewSelectSpecificPaneError,
-} from "schemas/error";
-import computeLayout from "utils/tilling";
+} from "@/schemas/error";
+
+import computeLayout from "@/utils/tilling";
+
 import Pane from "./pane";
 
 export default class View {

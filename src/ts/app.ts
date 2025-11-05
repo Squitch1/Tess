@@ -1,14 +1,17 @@
-import { Event } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { Event } from "@tauri-apps/api/event";
+import * as clipboard from "@tauri-apps/plugin-clipboard-manager";
 
-import { ShortcutAction } from "schemas/settings";
-import Toaster from "managers/toast";
-import TabManager from "managers/tab";
-import PopupManager from "managers/popup";
-import ShortcutManager from "managers/shortcut";
-import TerminalManager from "managers/terminal";
-import View from "components/view/view";
-import { PopupBuilder, PopupButton } from "components/interface/popup";
+import { PopupBuilder, PopupButton } from "@/components/interface/popup";
+import View from "@/components/view/view";
+
+import PopupManager from "@/managers/popup";
+import ShortcutManager from "@/managers/shortcut";
+import TabManager from "@/managers/tab";
+import TerminalManager from "@/managers/terminal";
+import Toaster from "@/managers/toast";
+
+import { openTabPayload, showToastPayload } from "@/schemas/common";
 import {
     PaneOutOfCapacityError,
     SelectSpecificPathRejectionReason,
@@ -16,9 +19,8 @@ import {
     UnknownTerminalError,
     UnkownSplitPathError,
     ViewSelectSpecificPaneError,
-} from "schemas/error";
-import { openTabPayload, showToastPayload } from "schemas/common";
-import * as clipboard from "@tauri-apps/plugin-clipboard-manager";
+} from "@/schemas/error";
+import { ShortcutAction } from "@/schemas/settings";
 
 export default class App {
     private target: Element;

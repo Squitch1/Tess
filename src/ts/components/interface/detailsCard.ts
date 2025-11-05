@@ -1,6 +1,7 @@
-import Slider from "components/interface/slider";
-import { Tab, PaneData, TabIcon } from "components/interface/tab";
-import clamp from "utils/clamp";
+import Slider from "@/components/interface/slider";
+import { PaneData, Tab, TabIcon } from "@/components/interface/tab";
+
+import clamp from "@/utils/clamp";
 
 type DetailsCardEntriesPage = {
     element: HTMLDivElement;

@@ -1,4 +1,4 @@
-import { PopupBuilder, PopupResult } from "components/interface/popup";
+import { PopupBuilder, PopupResult } from "@/components/interface/popup";
 
 export default class PopupManager {
     waitingQueue: [PopupBuilder, HTMLElement, (value: unknown) => void][] = [];

@@ -1,14 +1,16 @@
-import PopupManager from "managers/popup";
+import { PopupBuilder, PopupButton } from "@/components/interface/popup";
+import Widget from "@/components/view/widgets/base";
 
-import Widget from "components/view/widgets/base";
-import { PopupBuilder, PopupButton } from "components/interface/popup";
+import PopupManager from "@/managers/popup";
+
 import {
     PaneOutOfCapacityError,
     SelectSpecificPathRejectionReason,
     UnkownSplitPathError,
     ViewSelectSpecificPaneError,
-} from "schemas/error";
-import computeLayout from "utils/tilling";
+} from "@/schemas/error";
+
+import computeLayout from "@/utils/tilling";
 
 export default class Pane {
     private popupManager: PopupManager;
