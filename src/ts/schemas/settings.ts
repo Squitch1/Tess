@@ -3,7 +3,7 @@ import { UUID } from "crypto";
 export type Settings = {
     appTheme: string;
     closeConfirmation: CloseConfirmation;
-    desktopIntegration: DesktopInetgration;
+    desktopIntegration: DesktopIntegration;
     appBehavior: AppBehavior;
     profiles: Profile[];
     macros: Macro[];
@@ -116,8 +116,8 @@ export type CloseConfirmation = {
     excludedProcess: string[];
 };
 
-export type DesktopInetgration = {
-    dynamic_title: boolean;
+export type DesktopIntegration = {
+    dynamicTitle: boolean;
 };
 
 export type AppBehavior = {

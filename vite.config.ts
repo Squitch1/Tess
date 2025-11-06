@@ -10,8 +10,8 @@ export default defineConfig({
     },
     build: {
         target: ["esnext"],
-        minify: !process.env.TAURI_DEBUG ? "terser" : false,
-        sourcemap: !!process.env.TAURI_DEBUG,
+        minify: !process.env["TAURI_DEBUG"] ? "terser" : false,
+        sourcemap: !!process.env["TAURI_DEBUG"],
         outDir: "../src-tauri/dist",
         terserOptions: {
             compress: {

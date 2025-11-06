@@ -6,6 +6,7 @@ module.exports = {
         "plugin:import/recommended",
         "prettier",
     ],
+    ignorePatterns: [".eslintrc.cjs", "vite.config.ts"],
     plugins: ["prettier"],
     parserOptions: {
         project: ["tsconfig.json"],
@@ -29,6 +30,7 @@ module.exports = {
         "no-shadow": "off",
         "no-use-before-define": "off",
 
+        "@typescript-eslint/naming-convention": "error",
         "@typescript-eslint/no-floating-promises": "error",
         "@typescript-eslint/no-unnecessary-condition": "error",
         "@typescript-eslint/no-unnecessary-type-assertion": "error",

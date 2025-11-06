@@ -11,15 +11,15 @@ type DetailsCardEntriesPage = {
 };
 
 enum Direction {
-    Left = "-1",
-    Right = "1",
+    left = "-1",
+    right = "1",
 }
 function reverseDirection(dir?: Direction) {
     switch (dir) {
-        case Direction.Left:
-            return Direction.Right;
-        case Direction.Right:
-            return Direction.Left;
+        case Direction.left:
+            return Direction.right;
+        case Direction.right:
+            return Direction.left;
         default:
             return dir;
     }
@@ -127,7 +127,7 @@ export default class DetailsCard extends EventTarget {
         if (this.tab) {
             this.setCurrentPage(
                 0,
-                this.tab.index < tab.index ? Direction.Left : Direction.Right,
+                this.tab.index < tab.index ? Direction.left : Direction.right,
                 (page) => {
                     this.pagesContainer.removeChild(page.element);
                 }

@@ -425,7 +425,7 @@ export default class View {
                             if (e.key === "Escape") {
                                 reject(
                                     new ViewSelectSpecificPaneError(
-                                        SelectSpecificPathRejectionReason.UserAborted
+                                        SelectSpecificPathRejectionReason.userAborted
                                     )
                                 );
                             } else {
@@ -456,7 +456,7 @@ export default class View {
                                     ]?.selectSpecific()) ??
                                     reject(
                                         new ViewSelectSpecificPaneError(
-                                            SelectSpecificPathRejectionReason.AppAborted,
+                                            SelectSpecificPathRejectionReason.appAborted,
                                             "The selected pane is unreachable."
                                         )
                                     );
@@ -473,7 +473,7 @@ export default class View {
                                 if (
                                     e instanceof ViewSelectSpecificPaneError &&
                                     e.type ===
-                                        SelectSpecificPathRejectionReason.Backward
+                                        SelectSpecificPathRejectionReason.backward
                                 ) {
                                     this.element.classList.add("indexed");
                                     document.addEventListener(

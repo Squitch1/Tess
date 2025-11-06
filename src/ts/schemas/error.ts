@@ -59,9 +59,9 @@ export class ViewSelectSpecificPaneError extends FancyError {
     }
 }
 export enum SelectSpecificPathRejectionReason {
-    UserAborted,
-    Backward,
-    AppAborted,
+    userAborted,
+    backward,
+    appAborted,
 }
 
 export class UnkownSplitPathError extends FancyError {

@@ -12,7 +12,7 @@ import TabManager from "@/managers/tab";
 import TerminalManager from "@/managers/terminal";
 import Toaster from "@/managers/toast";
 
-import { openTabPayload, showToastPayload } from "@/schemas/common";
+import { OpenTabPayload, ShowToastPayload } from "@/schemas/common";
 import {
     PaneOutOfCapacityError,
     SelectSpecificPathRejectionReason,
@@ -86,7 +86,7 @@ export default class App {
             this.closeApp(e)
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        webviewWindow.listen<showToastPayload>("js_show_toast", (e) =>
+        webviewWindow.listen<ShowToastPayload>("js_show_toast", (e) =>
             this.toaster.toast(
                 e.payload.title,
                 e.payload.message,
@@ -94,7 +94,7 @@ export default class App {
             )
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        webviewWindow.listen<openTabPayload>("js_open_tab", async (e) => {
+        webviewWindow.listen<OpenTabPayload>("js_open_tab", async (e) => {
             if (settings.appBehavior.focusMode === "requestAttention") {
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 invoke("window_request_attention");
@@ -146,7 +146,7 @@ export default class App {
 
     // eslint-disable-next-line class-methods-use-this
     private onFocusedTabTitleUpdated(title: string) {
-        if (settings.desktopIntegration.dynamic_title) {
+        if (settings.desktopIntegration.dynamicTitle) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("window_set_title", { title });
         }
@@ -315,7 +315,7 @@ export default class App {
         } catch (e) {
             if (
                 e instanceof ViewSelectSpecificPaneError &&
-                e.type !== SelectSpecificPathRejectionReason.AppAborted
+                e.type !== SelectSpecificPathRejectionReason.appAborted
             ) {
                 return;
             }

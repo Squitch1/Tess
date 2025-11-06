@@ -650,6 +650,7 @@ impl Default for CloseConfirmation {
 }
 
 #[derive(Debug, Clone, Serialize, Copy)]
+#[serde(rename_all(serialize = "camelCase"))]
 pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
