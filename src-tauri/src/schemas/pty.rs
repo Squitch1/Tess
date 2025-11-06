@@ -1,19 +1,22 @@
 use uuid::Uuid;
 
 #[derive(serde::Serialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub struct SendData<'a> {
-    pub uuid: Uuid,
+    pub pty_id: Uuid,
     pub data: &'a str,
 }
 
 #[derive(serde::Serialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub struct TitleChanged<'a> {
-    pub uuid: Uuid,
+    pub pty_id: Uuid,
     pub title: &'a str,
 }
 
 #[derive(serde::Serialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub struct ProgressUpdated {
-    pub uuid: Uuid,
+    pub pty_id: Uuid,
     pub progress: u8,
 }

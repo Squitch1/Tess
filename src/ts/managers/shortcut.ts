@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 import Terminal from "@/components/view/widgets/terminal";
 
 import { Shortcut, ShortcutAction } from "@/schemas/settings";
@@ -7,15 +9,12 @@ export default class ShortcutManager {
 
     onShortcutExecutedCallback: (
         shortcut: ShortcutAction,
-        targetId?: string
+        targetId?: UUID
     ) => void;
 
     constructor(
         shortcuts: Shortcut[],
-        onShortcutExecuted: (
-            shortcut: ShortcutAction,
-            targetId?: string
-        ) => void
+        onShortcutExecuted: (shortcut: ShortcutAction, targetId?: UUID) => void
     ) {
         this.shortcuts = shortcuts.map((shortcut) => [
             shortcut.shortcut.toLowerCase().replaceAll(" ", "").split("+"),
@@ -55,7 +54,7 @@ export default class ShortcutManager {
                     ) {
                         this.onShortcutExecutedCallback(
                             correspondingShortcut[1],
-                            target.uuid
+                            target.id
                         );
 
                         e.preventDefault();

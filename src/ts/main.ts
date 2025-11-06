@@ -47,7 +47,7 @@ window.addEventListener("load", () =>
         );
 
         document.querySelector(".open")!.addEventListener("click", async () => {
-            await app.openProfile(settings.defaultProfile.uuid, true);
+            await app.openProfile(settings.defaultProfile.id, true);
         });
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises

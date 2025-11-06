@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 import DetailsCard from "@/components/interface/detailsCard";
 import { Tab } from "@/components/interface/tab";
 
@@ -20,15 +22,15 @@ export default class TabManager {
     private detailsCard: DetailsCard;
     private showDetailsCardTimeout?: ReturnType<typeof setTimeout>;
 
-    onTabFocused: (uuid: string) => void;
+    onTabFocused: (tabId: UUID) => void;
     onFocusedTabTitleUpdated: (title: string) => void;
-    onPaneFocused: (tabid: string, paneId: string) => void;
-    onPaneClosed: (tabid: string, paneId: string) => void;
-    private onTabRequestClose: (uuid: string) => void;
+    onPaneFocused: (tabId: UUID, paneId: UUID) => void;
+    onPaneClosed: (tabId: UUID, paneId: UUID) => void;
+    private onTabRequestClose: (tabId: UUID) => void;
 
     constructor(
         target: HTMLElement,
-        closeRequestedListener: (uuid: string) => void
+        closeRequestedListener: (tabId: UUID) => void
     ) {
         this.target = target;
         this.onTabRequestClose = closeRequestedListener;
@@ -101,17 +103,17 @@ export default class TabManager {
         });
     }
 
-    openTab(uuid: string): string {
-        const tab = new Tab(this.tabs.length + 1, uuid, (id) => {
+    openTab(tabId: UUID): string {
+        const tab = new Tab(this.tabs.length + 1, tabId, (tabId) => {
             if (this.selectedTab !== tab) {
-                this.onTabFocused(this.selectedTab!.uuid);
+                this.onTabFocused(this.selectedTab!.id);
                 this.onFocusedTabTitleUpdated(this.selectedTab!.title);
             }
-            this.requestTabClosing(id);
+            this.requestTabClosing(tabId);
         });
 
         tab.onTitleUpdated = (title) => {
-            if (this.selectedTab?.uuid === tab.uuid) {
+            if (this.selectedTab?.id === tab.id) {
                 this.onFocusedTabTitleUpdated(title);
             }
         };
@@ -146,66 +148,64 @@ export default class TabManager {
 
         if (this.tabs.length === 0) {
             tab.element.classList.add("selected");
-            this.select(tab.uuid);
+            this.select(tab.id);
         }
 
-        return tab.uuid;
+        return tab.id;
     }
 
-    setPaneTitle(tabId: string, paneId: string, title: string) {
-        this.tabs
-            .find((tab) => tab.uuid === tabId)
-            ?.setPaneTitle(paneId, title);
+    setPaneTitle(tabId: UUID, paneId: UUID, title: string) {
+        this.tabs.find((tab) => tab.id === tabId)?.setPaneTitle(paneId, title);
     }
 
-    setPaneProgress(tabId: string, paneId: string, progress: number) {
+    setPaneProgress(tabId: UUID, paneId: UUID, progress: number) {
         this.tabs
-            .find((tab) => tab.uuid === tabId)
+            .find((tab) => tab.id === tabId)
             ?.setPaneProgress(
                 paneId,
                 progress > 0 && progress < 100 ? progress : 0
             );
     }
 
-    setPaneAttention(tabId: string, paneId: string, needsAttention: boolean) {
-        if (tabId === this.selectedTab!.uuid) {
+    setPaneAttention(tabId: UUID, paneId: UUID, needsAttention: boolean) {
+        if (tabId === this.selectedTab!.id) {
             return;
         }
 
         this.tabs
-            .find((tab) => tab.uuid === tabId)
+            .find((tab) => tab.id === tabId)
             ?.setPaneAttention(paneId, needsAttention);
     }
 
-    setPaneGroupLeader(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.setPaneGroupLeader(paneId);
+    setPaneGroupLeader(tabId: UUID, paneId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.setPaneGroupLeader(paneId);
     }
 
-    addPane(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.addPane(paneId);
+    addPane(tabId: UUID, paneId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.addPane(paneId);
 
-        if (this.selectedTab?.uuid === tabId) {
+        if (this.selectedTab?.id === tabId) {
             setTimeout(() => this.onTabFocused(tabId), 0);
         }
     }
 
-    removePane(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.removePane(paneId);
+    removePane(tabId: UUID, paneId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.removePane(paneId);
 
-        if (this.selectedTab?.uuid === tabId) {
+        if (this.selectedTab?.id === tabId) {
             setTimeout(() => this.onTabFocused(tabId), 0);
         }
     }
 
-    requestTabClosing(tabId: string) {
-        const tab = this.tabs.find((tab) => tab.uuid === tabId);
+    requestTabClosing(tabId: UUID) {
+        const tab = this.tabs.find((tab) => tab.id === tabId);
         if (tab) {
-            this.onTabRequestClose(tab.uuid);
+            this.onTabRequestClose(tab.id);
         }
     }
 
-    closeTab(tabId: string) {
-        const tab = this.tabs.find((tab) => tab.uuid === tabId);
+    closeTab(tabId: UUID) {
+        const tab = this.tabs.find((tab) => tab.id === tabId);
         if (tab) {
             this.hideDetailsCard();
             this.tabs.splice(this.tabs.indexOf(tab), 1);
@@ -227,7 +227,7 @@ export default class TabManager {
                 tab.element.remove();
             }, 140);
 
-            if (this.selectedTab!.uuid === tabId) {
+            if (this.selectedTab!.id === tabId) {
                 this.select(
                     clamp(0, this.selectedTab!.index, this.tabs.length)
                 );
@@ -255,11 +255,11 @@ export default class TabManager {
         this.select(this.tabs.length);
     }
 
-    select(tabId: string): void;
+    select(tabId: UUID): void;
     select(index: number): void;
-    select(selector: string | number) {
+    select(selector: UUID | number) {
         const tab = this.tabs.find(
-            (tab) => tab.uuid === selector || tab.index === selector
+            (tab) => tab.id === selector || tab.index === selector
         );
 
         if (tab && tab !== this.selectedTab) {
@@ -268,7 +268,7 @@ export default class TabManager {
             this.selectedTab.clearPanesAttention();
             tab.element.classList.add("selected");
 
-            this.onTabFocused(tab.uuid);
+            this.onTabFocused(tab.id);
             this.onFocusedTabTitleUpdated(tab.title);
         }
     }
@@ -285,7 +285,7 @@ export default class TabManager {
             return;
         }
         e.preventDefault();
-        this.select(target.uuid);
+        this.select(target.id);
 
         this.movingTab = target;
         this.initialMousePosition = e.clientX;

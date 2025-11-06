@@ -1,16 +1,18 @@
+import { UUID } from "crypto";
+
 import CircularProgressBar from "@/components/ux/progressBar";
 
 import defaultIcon from "@/icons/32x32/tess-alt.png";
 
 export type PaneData = {
-    id: string;
+    id: UUID;
     title: string;
     progress: number;
     needsAttention: boolean;
 };
-function defaultPaneData(id: string): PaneData {
+function defaultPaneData(paneId: UUID): PaneData {
     return {
-        id,
+        id: paneId,
         title: "",
         progress: 0,
         needsAttention: false,
@@ -20,16 +22,16 @@ function defaultPaneData(id: string): PaneData {
 export class Tab extends EventTarget {
     element: HTMLElement;
 
-    uuid: string;
+    id: UUID;
     index: number;
 
-    onClose: (uuid: string) => void;
+    onClose: (tabId: UUID) => void;
 
     title: string = "";
 
-    panes: Map<string, PaneData> = new Map();
+    panes: Map<UUID, PaneData> = new Map();
 
-    paneGroupLeader: string = "";
+    paneGroupLeader?: UUID;
 
     onCloseButtonClick: () => void;
     onClick?: (e: MouseEvent) => void;
@@ -41,10 +43,10 @@ export class Tab extends EventTarget {
     private titleElement: HTMLSpanElement;
     private icon: TabIcon;
 
-    constructor(index: number, uuid: string, onClose: (uuid: string) => void) {
+    constructor(index: number, tabId: UUID, onClose: (tabId: UUID) => void) {
         super();
 
-        this.uuid = uuid;
+        this.id = tabId;
         this.index = index;
 
         let closeButton;
@@ -53,7 +55,7 @@ export class Tab extends EventTarget {
         closeButton.addEventListener(
             "click",
             (this.onCloseButtonClick = () => {
-                this.onClose(this.uuid);
+                this.onClose(this.id);
             })
         );
 
@@ -95,7 +97,7 @@ export class Tab extends EventTarget {
         }
     }
 
-    addPane(paneId: string) {
+    addPane(paneId: UUID) {
         const pane = defaultPaneData(paneId);
         this.panes.set(paneId, pane);
         this.dispatchEvent(new CustomEvent("paneAdded", { detail: pane }));
@@ -112,7 +114,7 @@ export class Tab extends EventTarget {
         this.updateAttentionStatus();
     }
 
-    setPaneTitle(paneId: string, title: string) {
+    setPaneTitle(paneId: UUID, title: string) {
         const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.title = title;
         this.panes.set(paneId, pane);
@@ -121,7 +123,7 @@ export class Tab extends EventTarget {
         this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
     }
 
-    setPaneProgress(paneId: string, progress: number) {
+    setPaneProgress(paneId: UUID, progress: number) {
         const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.progress = progress;
         this.panes.set(paneId, pane);
@@ -130,7 +132,7 @@ export class Tab extends EventTarget {
         this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
     }
 
-    setPaneAttention(paneId: string, needsAttention: boolean) {
+    setPaneAttention(paneId: UUID, needsAttention: boolean) {
         const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
         pane.needsAttention = needsAttention;
         this.panes.set(paneId, pane);
@@ -139,7 +141,7 @@ export class Tab extends EventTarget {
         this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
     }
 
-    setPaneGroupLeader(paneId: string) {
+    setPaneGroupLeader(paneId: UUID) {
         if (this.panes.has(paneId)) {
             this.paneGroupLeader = paneId;
         }
@@ -147,7 +149,7 @@ export class Tab extends EventTarget {
         this.updateTitle();
     }
 
-    removePane(paneId: string) {
+    removePane(paneId: UUID) {
         const pane = this.panes.get(paneId);
         if (pane) {
             this.panes.delete(paneId);
@@ -159,7 +161,7 @@ export class Tab extends EventTarget {
 
     updateTitle() {
         const title =
-            this.panes.get(this.paneGroupLeader)?.title || "Untitled tab";
+            this.panes.get(this.paneGroupLeader!)?.title || "Untitled tab";
 
         if (this.title !== title) {
             this.onTitleUpdated(title);

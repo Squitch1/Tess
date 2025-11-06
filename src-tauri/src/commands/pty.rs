@@ -11,14 +11,14 @@ use uuid::Uuid;
 
 #[tauri::command]
 pub async fn pty_open(
-    app: tauri::AppHandle,
-    uuid: Uuid,
-    profile_uuid: Uuid,
+    pty_id: Uuid,
+    profile_id: Uuid,
     command: Option<&str>,
-    workdir: Option<&str>,
     title: Option<String>,
-    settings: tauri::State<'_, Arc<RwLock<Settings>>>,
+    workdir: Option<&str>,
+    app: tauri::AppHandle,
     ptys: tauri::State<'_, Ptys>,
+    settings: tauri::State<'_, Arc<RwLock<Settings>>>,
 ) -> Result<(), PtyError> {
     let settings = settings.read().await;
     let app_title_update = app.clone();
@@ -29,7 +29,7 @@ pub async fn pty_open(
     let opening_profile = settings
         .profiles
         .iter()
-        .find(|profile| profile.uuid == profile_uuid)
+        .find(|profile| profile.id == profile_id)
         .ok_or_else(|| {
             PtyError::Creation(String::from(
                 "There is no profile corresponding to this ID.",
@@ -37,7 +37,7 @@ pub async fn pty_open(
         })?;
 
     ptys.0.write().await.insert(
-        uuid,
+        pty_id,
         Pty::build_and_run(
             command.unwrap_or(&opening_profile.command),
             workdir,
@@ -48,7 +48,10 @@ pub async fn pty_open(
             move |readed| {
                 app.emit(
                     "js_pty_incoming_data",
-                    schemas::pty::SendData { data: readed, uuid },
+                    schemas::pty::SendData {
+                        data: readed,
+                        pty_id,
+                    },
                 )
                 .ok();
             },
@@ -57,7 +60,7 @@ pub async fn pty_open(
                     .emit(
                         "js_pty_title_update",
                         schemas::pty::TitleChanged {
-                            uuid,
+                            pty_id,
                             title: tab_title,
                         },
                     )
@@ -67,17 +70,17 @@ pub async fn pty_open(
                 app_progress_update
                     .emit(
                         "js_pty_progress_update",
-                        schemas::pty::ProgressUpdated { uuid, progress },
+                        schemas::pty::ProgressUpdated { pty_id, progress },
                     )
                     .ok();
             },
             move || {
                 app_displayed_content_update
-                    .emit("js_pty_display_content_update", &uuid)
+                    .emit("js_pty_display_content_update", &pty_id)
                     .ok();
             },
             move || {
-                app_pty_closed.emit("js_pty_closed", uuid).ok();
+                app_pty_closed.emit("js_pty_closed", pty_id).ok();
             },
         )?,
     );
@@ -86,26 +89,26 @@ pub async fn pty_open(
 }
 
 #[tauri::command]
-pub async fn pty_close(ptys: tauri::State<'_, Ptys>, uuid: Uuid) -> Result<(), PtyError> {
+pub async fn pty_close(pty_id: Uuid, ptys: tauri::State<'_, Ptys>) -> Result<(), PtyError> {
     let mut ptys = ptys.0.write().await;
-    ptys.get_mut(&uuid)
+    ptys.get_mut(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .kill()
         .inspect(|()| {
-            ptys.remove(&uuid);
+            ptys.remove(&pty_id);
         })
 }
 
 #[tauri::command]
 pub async fn pty_write(
-    uuid: Uuid,
+    pty_id: Uuid,
     data: String,
     ptys: tauri::State<'_, Ptys>,
 ) -> Result<(), PtyError> {
     ptys.0
         .read()
         .await
-        .get(&uuid)
+        .get(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .write(&data)
         .await
@@ -113,15 +116,15 @@ pub async fn pty_write(
 
 #[tauri::command]
 pub async fn pty_resize(
-    ptys: tauri::State<'_, Ptys>,
-    uuid: Uuid,
+    pty_id: Uuid,
     cols: u16,
     rows: u16,
+    ptys: tauri::State<'_, Ptys>,
 ) -> Result<(), PtyError> {
     ptys.0
         .read()
         .await
-        .get(&uuid)
+        .get(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .resize(cols, rows)
         .await
@@ -129,14 +132,14 @@ pub async fn pty_resize(
 
 #[tauri::command]
 pub async fn pty_get_closable(
+    pty_id: Uuid,
     ptys: tauri::State<'_, Ptys>,
     settings: tauri::State<'_, Arc<RwLock<Settings>>>,
-    uuid: Uuid,
 ) -> Result<bool, PtyError> {
     let settings = settings.read().await;
     if settings.close_confirmation.process {
         let locked_ptys = ptys.0.read().await;
-        let pty = locked_ptys.get(&uuid).ok_or(PtyError::UnknownPty)?;
+        let pty = locked_ptys.get(&pty_id).ok_or(PtyError::UnknownPty)?;
 
         Ok(pty.closed.load(std::sync::atomic::Ordering::Relaxed)
             || settings
@@ -150,14 +153,14 @@ pub async fn pty_get_closable(
 
 #[tauri::command]
 pub async fn pty_get_leader_name(
+    pty_id: Uuid,
     ptys: tauri::State<'_, Ptys>,
-    uuid: Uuid,
 ) -> Result<String, PtyError> {
     Ok(ptys
         .0
         .read()
         .await
-        .get(&uuid)
+        .get(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .leader_name
         .lock()
@@ -166,22 +169,22 @@ pub async fn pty_get_leader_name(
 }
 
 #[tauri::command]
-pub async fn pty_pause(ptys: tauri::State<'_, Ptys>, uuid: Uuid) -> Result<(), PtyError> {
+pub async fn pty_pause(pty_id: Uuid, ptys: tauri::State<'_, Ptys>) -> Result<(), PtyError> {
     ptys.0
         .read()
         .await
-        .get(&uuid)
+        .get(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .pause();
     Ok(())
 }
 
 #[tauri::command]
-pub async fn pty_resume(ptys: tauri::State<'_, Ptys>, uuid: Uuid) -> Result<(), PtyError> {
+pub async fn pty_resume(pty_id: Uuid, ptys: tauri::State<'_, Ptys>) -> Result<(), PtyError> {
     ptys.0
         .read()
         .await
-        .get(&uuid)
+        .get(&pty_id)
         .ok_or(PtyError::UnknownPty)?
         .resume();
     Ok(())

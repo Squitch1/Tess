@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 import Widget from "@/components/view/widgets/base";
 
 export class FancyError extends Error {
@@ -17,13 +19,13 @@ export class PtyExitError extends FancyError {}
 export class PtyPropertyError extends FancyError {}
 
 export class UnknownProfileError extends FancyError {
-    constructor(uuid: string) {
-        super(`There is no profile with ID ${uuid}.`, "Unknown profile");
+    constructor(profileId: UUID) {
+        super(`There is no profile with ID ${profileId}.`, "Unknown profile");
     }
 }
 export class UnknownMacroError extends FancyError {
-    constructor(uuid: string) {
-        super(`There is no macro with ID ${uuid}.`, "Unknown macro");
+    constructor(macroId: UUID) {
+        super(`There is no macro with ID ${macroId}.`, "Unknown macro");
     }
 }
 export class UnknownTerminalError extends FancyError {

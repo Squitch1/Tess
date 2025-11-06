@@ -22,7 +22,7 @@ pub enum ToastType {
 #[serde(rename_all = "camelCase")]
 pub enum OpenTab {
     Profile {
-        uuid: Option<Uuid>,
+        id: Option<Uuid>,
         command: Option<String>,
         workdir: Option<PathBuf>,
         title: Option<String>,
@@ -32,7 +32,7 @@ pub enum OpenTab {
 impl Default for OpenTab {
     fn default() -> Self {
         Self::Profile {
-            uuid: None,
+            id: None,
             command: None,
             workdir: None,
             title: None,
@@ -43,7 +43,7 @@ impl Default for OpenTab {
 impl From<TransmissionPayload<'_>> for OpenTab {
     fn from(payload: TransmissionPayload) -> Self {
         Self::Profile {
-            uuid: payload.profile.map(Uuid::from_u128),
+            id: payload.profile.map(Uuid::from_u128),
             command: payload.command.map(str::to_owned),
             workdir: payload.workdir.map(PathBuf::from),
             title: payload.title.map(str::to_owned),
@@ -54,7 +54,7 @@ impl From<TransmissionPayload<'_>> for OpenTab {
 impl From<RunCommand> for OpenTab {
     fn from(cmd: RunCommand) -> Self {
         Self::Profile {
-            uuid: cmd.profile,
+            id: cmd.profile,
             command: cmd.command,
             workdir: cmd.workdir,
             title: cmd.title,

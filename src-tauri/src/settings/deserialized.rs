@@ -35,14 +35,14 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        let uuid = Uuid::new_v4();
+        let profile_id = Uuid::new_v4();
 
         Self {
             app_theme: String::default(),
             terminal_theme: TerminalTheme::default(),
             background: BackgroundType::default(),
             profiles: vec![default_profile(
-                uuid,
+                profile_id,
                 &default_title_format(),
                 RangedInt::default(),
                 TerminalSettings::default(),
@@ -53,7 +53,7 @@ impl Default for Settings {
             shortcuts: default_shortcuts(),
             macros: Vec::default(),
             default_profile: default_profile(
-                uuid,
+                profile_id,
                 &default_title_format(),
                 RangedInt::default(),
                 TerminalSettings::default(),
@@ -160,7 +160,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
                     &partial_profile.name,
                 );
                 profiles.push(Profile {
-                    uuid: partial_profile.uuid.unwrap_or_else(Uuid::new_v4),
+                    id: partial_profile.id.unwrap_or_else(Uuid::new_v4),
                     name: partial_profile.name,
                     command: partial_profile.command,
                     title: partial_profile.title,
@@ -181,10 +181,10 @@ impl<'de> serde::Deserialize<'de> for Settings {
         let mut macros = Vec::new();
         if let Some(partial_macros) = partial_settings.macros {
             macros.reserve_exact(partial_macros.len());
-            for macro_command in partial_macros {
+            for partial_macro in partial_macros {
                 macros.push(Macro {
-                    content: macro_command.content,
-                    uuid: macro_command.uuid.unwrap_or_else(Uuid::new_v4),
+                    content: partial_macro.content,
+                    id: partial_macro.id.unwrap_or_else(Uuid::new_v4),
                 });
             }
         }
@@ -195,15 +195,15 @@ impl<'de> serde::Deserialize<'de> for Settings {
                 shortcuts
                     .iter()
                     .filter(|shortcut| match shortcut.action {
-                        ShortcutAction::OpenProfile(ref profile_uuid)
-                        | ShortcutAction::SplitSpecificPaneAndOpenProfile(ref profile_uuid)
-                        | ShortcutAction::SplitFocusedPaneAndOpenProfile(ref profile_uuid)
-                        | ShortcutAction::SplitTabAndOpenProfile(ref profile_uuid) => {
-                            profiles.iter().any(|profile| &profile.uuid == profile_uuid)
+                        ShortcutAction::OpenProfile(ref profile_id)
+                        | ShortcutAction::SplitSpecificPaneAndOpenProfile(ref profile_id)
+                        | ShortcutAction::SplitFocusedPaneAndOpenProfile(ref profile_id)
+                        | ShortcutAction::SplitTabAndOpenProfile(ref profile_id) => {
+                            profiles.iter().any(|profile| &profile.id == profile_id)
                         }
-                        ShortcutAction::ExecuteMacro(ref macro_uuid) => macros
+                        ShortcutAction::ExecuteMacro(ref macro_id) => macros
                             .iter()
-                            .any(|macro_command| &macro_command.uuid == macro_uuid),
+                            .any(|macro_command| &macro_command.id == macro_id),
                         _ => true,
                     })
                     .cloned()
@@ -221,7 +221,7 @@ impl<'de> serde::Deserialize<'de> for Settings {
             macros,
             default_profile: profiles
                 .iter()
-                .find(|&profile| profile.uuid == partial_settings.default_profile)
+                .find(|&profile| profile.id == partial_settings.default_profile)
                 .unwrap_or(&profiles[0])
                 .clone(),
             close_confirmation: partial_settings.close_confirmation,
@@ -301,7 +301,7 @@ impl Default for TerminalSettings {
 #[derive(Debug, Serialize, Clone)]
 pub struct Macro {
     pub content: String,
-    pub uuid: Uuid,
+    pub id: Uuid,
 }
 
 #[derive(Debug, Serialize, Clone, Deserialize)]
@@ -404,7 +404,7 @@ impl Serialize for ShortcutAction {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct Profile {
-    pub uuid: Uuid,
+    pub id: Uuid,
     pub name: String,
     pub command: String,
     #[serde(skip_serializing)]
@@ -751,7 +751,7 @@ fn default_hyperlink_modifier() -> String {
 
 #[inline]
 fn default_profile(
-    uuid: Uuid,
+    profile_id: Uuid,
     title_format: &str,
     background_transparency: RangedInt<0, 100, 100>,
     terminal_settings: TerminalSettings,
@@ -763,7 +763,7 @@ fn default_profile(
         terminal_settings,
         theme,
         background_transparency,
-        uuid,
+        id: profile_id,
         #[cfg(target_family = "unix")]
         command: String::from("$SHELL"),
         #[cfg(target_os = "windows")]

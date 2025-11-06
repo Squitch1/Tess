@@ -10,7 +10,7 @@ pub fn window_focus(window: tauri::Window) {
 }
 
 #[tauri::command]
-pub fn window_set_title(window: tauri::Window, title: &str) {
+pub fn window_set_title(title: &str, window: tauri::Window) {
     window.set_title(&format!("Tess - {title}")).ok();
 }
 

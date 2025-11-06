@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 import Slider from "@/components/interface/slider";
 import { PaneData, Tab, TabIcon } from "@/components/interface/tab";
 
@@ -75,7 +77,7 @@ export default class DetailsCard extends EventTarget {
     }
 
     showForTab(tab: Tab) {
-        if (this.tab?.uuid === tab.uuid) {
+        if (this.tab?.id === tab.id) {
             return;
         }
 
@@ -162,14 +164,14 @@ export default class DetailsCard extends EventTarget {
         entry.addEventListener("closeRequest", (e: CustomEventInit) => {
             this.dispatchEvent(
                 new CustomEvent("paneCloseRequest", {
-                    detail: { tabId: this.tab!.uuid, paneId: e.detail },
+                    detail: { tabId: this.tab!.id, paneId: e.detail },
                 })
             );
         });
         entry.addEventListener("focusRequest", (e: CustomEventInit) => {
             this.dispatchEvent(
                 new CustomEvent("paneFocusRequest", {
-                    detail: { tabId: this.tab!.uuid, paneId: e.detail },
+                    detail: { tabId: this.tab!.id, paneId: e.detail },
                 })
             );
         });
@@ -349,7 +351,7 @@ export default class DetailsCard extends EventTarget {
 class DetailsCardEntry extends EventTarget {
     readonly element: HTMLDivElement;
 
-    private id: string;
+    private id: UUID;
     private icon: TabIcon;
     private title: HTMLSpanElement;
 

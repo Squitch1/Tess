@@ -1,7 +1,9 @@
+import { UUID } from "crypto";
+
 import Pane from "../pane";
 
 export default abstract class Widget {
-    readonly uuid: string;
+    readonly id: UUID;
     readonly element: HTMLElement;
 
     initialTitle?: string;
@@ -14,7 +16,7 @@ export default abstract class Widget {
     onceClosed: () => void;
 
     constructor() {
-        this.uuid = crypto.randomUUID();
+        this.id = crypto.randomUUID();
 
         this.element = document.createElement("div");
         this.element.classList.add("widget");

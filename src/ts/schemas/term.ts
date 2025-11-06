@@ -1,14 +1,16 @@
-export type terminalDataPayload = {
+import { UUID } from "crypto";
+
+export type PtyDataPayload = {
     data: string;
-    uuid: string;
+    ptyId: UUID;
 };
 
-export type terminalTitleChangedPayload = {
+export type PtyTitleChangedPayload = {
     title: string;
-    uuid: string;
+    ptyId: UUID;
 };
 
-export type terminalProgressUpdatedPayload = {
+export type PtyProgressUpdatedPayload = {
     progress: number;
-    uuid: string;
+    ptyId: UUID;
 };

@@ -1,3 +1,5 @@
+import { UUID } from "crypto";
+
 import { PopupBuilder, PopupButton } from "@/components/interface/popup";
 import Widget from "@/components/view/widgets/base";
 
@@ -16,7 +18,7 @@ export default class Pane {
     private popupManager: PopupManager;
     private viewAnchoring: HTMLElement;
 
-    uuid: string;
+    id: UUID;
     content?: Widget | Pane[];
     element: HTMLElement;
 
@@ -25,8 +27,8 @@ export default class Pane {
     private inSpecificSelection: boolean = false;
     private keydownListener?: (this: Document, ev: KeyboardEvent) => void;
 
-    private onceClosed: (uuid: string) => void;
-    private onWidgetClosed: (uuid: string) => void;
+    private onceClosed: (paneId: UUID) => void;
+    private onWidgetClosed: (widgetId: UUID) => void;
 
     resizeObserver: ResizeObserver;
 
@@ -35,11 +37,11 @@ export default class Pane {
 
     constructor(
         target: HTMLElement,
-        uuid: string,
+        paneId: UUID,
         popupManager: PopupManager,
         viewAnchoring: HTMLElement,
-        onceClosed: (uuid: string) => void,
-        onWidgetClosed: (uuid: string) => void,
+        onceClosed: (paneId: UUID) => void,
+        onWidgetClosed: (widgetId: UUID) => void,
         widget?: Widget
     ) {
         this.popupManager = popupManager;
@@ -48,7 +50,7 @@ export default class Pane {
         this.onWidgetClosed = onWidgetClosed;
         this.onceClosed = onceClosed;
 
-        this.uuid = uuid;
+        this.id = paneId;
 
         this.element = Pane.generateComponent();
 
@@ -58,8 +60,8 @@ export default class Pane {
             this.element.appendChild(widget.element);
 
             widget.onceClosed = () => {
-                this.onWidgetClosed(widget.uuid);
-                this.onContentClosed(widget.uuid);
+                this.onWidgetClosed(widget.id);
+                this.onContentClosed(widget.id);
             };
             widget.run();
         }
@@ -86,16 +88,16 @@ export default class Pane {
                 crypto.randomUUID(),
                 this.popupManager,
                 this.viewAnchoring,
-                (id) => this.onContentClosed(id),
-                (id) => this.onWidgetClosed(id),
+                (paneId) => this.onContentClosed(paneId),
+                (widgetId) => this.onWidgetClosed(widgetId),
                 undefined
             );
             innerPane.element.appendChild((this.content as Widget).element);
             const previousContent = this.content as Widget;
 
             previousContent.onceClosed = () => {
-                innerPane.onWidgetClosed(previousContent.uuid);
-                innerPane.onContentClosed(previousContent.uuid);
+                innerPane.onWidgetClosed(previousContent.id);
+                innerPane.onContentClosed(previousContent.id);
             };
             previousContent.anchoringPane = innerPane;
             innerPane.content = this.content;
@@ -107,18 +109,18 @@ export default class Pane {
             crypto.randomUUID(),
             this.popupManager,
             this.viewAnchoring,
-            (id) => this.onContentClosed(id),
-            (id) => this.onWidgetClosed(id),
+            (paneId) => this.onContentClosed(paneId),
+            (widgetId) => this.onWidgetClosed(widgetId),
             widget
         );
         (this.content as Pane[]).push(newPane);
         this.reflowLayout();
     }
 
-    private onContentClosed(uuid: string) {
+    private onContentClosed(paneId: UUID) {
         if (this.isSubview) {
             const paneIndex = (this.content as Pane[]).findIndex(
-                (pane) => pane.uuid === uuid
+                (pane) => pane.id === paneId
             );
 
             const removedPane = (this.content as Pane[]).splice(
@@ -150,22 +152,24 @@ export default class Pane {
 
                 if (this.isSubview) {
                     (innerPane.content as Pane[]).forEach((pane) => {
-                        pane.onceClosed = (id) => this.onContentClosed(id);
-                        pane.onWidgetClosed = (id) => this.onWidgetClosed(id);
+                        pane.onceClosed = (paneId) =>
+                            this.onContentClosed(paneId);
+                        pane.onWidgetClosed = (widgetId) =>
+                            this.onWidgetClosed(widgetId);
                     });
                 } else {
                     const widget = this.content as Widget;
                     widget.anchoringPane = this;
                     widget.onceClosed = () => {
-                        this.onWidgetClosed(widget.uuid);
-                        this.onContentClosed(widget.uuid);
+                        this.onWidgetClosed(widget.id);
+                        this.onContentClosed(widget.id);
                     };
                 }
             }
 
             this.reflowLayout();
         } else {
-            this.onceClosed(this.uuid);
+            this.onceClosed(this.id);
         }
     }
 
