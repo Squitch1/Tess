@@ -30,6 +30,7 @@ module.exports = {
         "no-shadow": "off",
         "no-use-before-define": "off",
 
+        "@typescript-eslint/await-thenable": "error",
         "@typescript-eslint/naming-convention": "error",
         "@typescript-eslint/no-floating-promises": "error",
         "@typescript-eslint/no-unnecessary-condition": "error",

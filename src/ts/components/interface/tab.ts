@@ -25,25 +25,18 @@ export class Tab extends EventTarget {
     id: UUID;
     index: number;
 
-    onClose: (tabId: UUID) => void;
-
     title: string = "";
 
     panes: Map<UUID, PaneData> = new Map();
 
     paneGroupLeader?: UUID;
 
-    onCloseButtonClick: () => void;
-    onClick?: (e: MouseEvent) => void;
-
-    onTitleUpdated: (title: string) => void;
-
     resizeObserver: ResizeObserver;
 
     private titleElement: HTMLSpanElement;
     private icon: TabIcon;
 
-    constructor(index: number, tabId: UUID, onClose: (tabId: UUID) => void) {
+    constructor(index: number, tabId: UUID) {
         super();
 
         this.id = tabId;
@@ -52,21 +45,15 @@ export class Tab extends EventTarget {
         let closeButton;
         [this.element, this.titleElement, closeButton] =
             Tab.generateComponent();
-        closeButton.addEventListener(
-            "click",
-            (this.onCloseButtonClick = () => {
-                this.onClose(this.id);
-            })
-        );
+        closeButton.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.dispatchEvent(new Event("closeRequest"));
+        });
 
         this.icon = new TabIcon();
         this.element.appendChild(this.icon.element);
 
-        this.onTitleUpdated = () => {};
-
         this.updateTitle();
-
-        this.onClose = onClose;
 
         this.resizeObserver = new ResizeObserver(() => {
             this.computeTitleClipping();
@@ -163,8 +150,8 @@ export class Tab extends EventTarget {
         const title =
             this.panes.get(this.paneGroupLeader!)?.title || "Untitled tab";
 
-        if (this.title !== title) {
-            this.onTitleUpdated(title);
+        if (this.title === title) {
+            return;
         }
 
         this.title = title;
@@ -173,6 +160,7 @@ export class Tab extends EventTarget {
             "clipped",
             this.titleElement.scrollWidth > this.titleElement.clientWidth
         );
+        this.dispatchEvent(new Event("titleUpdate"));
     }
 
     updateProgress() {

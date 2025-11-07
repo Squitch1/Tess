@@ -27,7 +27,6 @@ export default class App {
     private target: Element;
 
     private tabsManager: TabManager;
-
     private popupManager: PopupManager;
     private shortcutsManager: ShortcutManager;
     private terminalManager: TerminalManager;
@@ -51,20 +50,27 @@ export default class App {
             this.focusedView?.focus();
         };
 
-        this.tabsManager = new TabManager(tabsTarget, (tabId) =>
-            this.onTabRequestClose(tabId)
-        );
-        this.tabsManager.onTabFocused = (tabId) => this.onTabFocused(tabId);
-        this.tabsManager.onFocusedTabTitleUpdated = (title) =>
-            this.onFocusedTabTitleUpdated(title);
-        this.tabsManager.onPaneFocused = (tabId, paneId) => {
+        this.tabsManager = new TabManager(tabsTarget);
+        this.tabsManager.addEventListener("tabRequestClose", async (e) => {
+            await this.onTabRequestClose((e as CustomEvent<UUID>).detail);
+        });
+        this.tabsManager.addEventListener("tabFocus", (e) => {
+            this.onTabFocused((e as CustomEvent).detail);
+        });
+        this.tabsManager.addEventListener("tabTitleUpdate", (e) => {
+            this.onFocusedTabTitleUpdated((e as CustomEvent).detail);
+        });
+        this.tabsManager.addEventListener("paneRequestFocus", (e) => {
+            const { tabId, paneId } = (e as CustomEvent).detail;
             this.views.find((view) => view.id === tabId)?.focusWidget(paneId);
-        };
-        this.tabsManager.onPaneClosed = async (tabId, paneId) => {
+        });
+        this.tabsManager.addEventListener("paneRequestClose", async (e) => {
+            const { tabId, paneId } = (e as CustomEvent).detail;
+
             await this.views
                 .find((view) => view.id === tabId)
                 ?.closeWidget(paneId);
-        };
+        });
 
         this.shortcutsManager = new ShortcutManager(
             settings.shortcuts,
@@ -193,7 +199,7 @@ export default class App {
                                 (macro) => macro.id === action[1]
                             );
                             if (macro) {
-                                await this.terminalManager.insertContent(
+                                this.terminalManager.insertContent(
                                     targetId,
                                     macro.content
                                 );
@@ -282,7 +288,7 @@ export default class App {
                         );
                         break;
                     case "closeFocusedTab":
-                        this.tabsManager.requestTabClosing(
+                        await this.onTabRequestClose(
                             this.tabsManager.getSelected().id
                         );
                         break;
@@ -334,7 +340,7 @@ export default class App {
     private async closeWindow() {
         try {
             if (this.views.length === 1) {
-                this.tabsManager.requestTabClosing(this.views[0].id);
+                await this.onTabRequestClose(this.views[0].id);
             } else {
                 const confirmButton = new PopupButton("confirm", "validate");
                 const cancelButton = new PopupButton("cancel", "dismiss");
