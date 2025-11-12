@@ -36,7 +36,6 @@ export default class Pane {
     private rowsSpan: number = 1;
 
     constructor(
-        target: HTMLElement,
         paneId: UUID,
         popupManager: PopupManager,
         viewAnchoring: HTMLElement,
@@ -55,23 +54,24 @@ export default class Pane {
         this.element = Pane.generateComponent();
 
         if (widget) {
-            widget.anchoringPane = this;
-            this.content = widget;
-            this.element.appendChild(widget.element);
-
-            widget.onceClosed = () => {
-                this.onWidgetClosed(widget.id);
-                this.onContentClosed(widget.id);
-            };
-            widget.run();
+            this.setWidget(widget);
         }
-
-        target.appendChild(this.element);
 
         this.resizeObserver = new ResizeObserver(() => {
             this.reflowLayout();
         });
         this.resizeObserver.observe(this.element);
+    }
+
+    setWidget(widget: Widget) {
+        widget.anchoringPane = this;
+        this.content = widget;
+        this.element.appendChild(widget.element);
+
+        widget.onceClosed = () => {
+            this.onWidgetClosed(widget.id);
+            this.onContentClosed(widget.id);
+        };
     }
 
     split(widget: Widget) {
@@ -84,28 +84,18 @@ export default class Pane {
             this.isSubview = true;
             this.element.classList.add("subview");
             const innerPane = new Pane(
-                this.element,
                 crypto.randomUUID(),
                 this.popupManager,
                 this.viewAnchoring,
                 (paneId) => this.onContentClosed(paneId),
                 (widgetId) => this.onWidgetClosed(widgetId),
-                undefined
+                this.content as Widget
             );
-            innerPane.element.appendChild((this.content as Widget).element);
-            const previousContent = this.content as Widget;
-
-            previousContent.onceClosed = () => {
-                innerPane.onWidgetClosed(previousContent.id);
-                innerPane.onContentClosed(previousContent.id);
-            };
-            previousContent.anchoringPane = innerPane;
-            innerPane.content = this.content;
+            this.element.appendChild(innerPane.element);
             this.content = [innerPane];
         }
 
         const newPane = new Pane(
-            this.element,
             crypto.randomUUID(),
             this.popupManager,
             this.viewAnchoring,
@@ -113,6 +103,7 @@ export default class Pane {
             (widgetId) => this.onWidgetClosed(widgetId),
             widget
         );
+        this.element.appendChild(newPane.element);
         (this.content as Pane[]).push(newPane);
         this.reflowLayout();
     }
@@ -192,9 +183,11 @@ export default class Pane {
         }
 
         return new Promise<number[]>((resolve, reject) => {
+            const panes = this.content as Pane[];
+
             this.element.classList.add("indexed");
             let selectedIndex: number = 0;
-            (this.content as Pane[]).forEach((pane, i) => {
+            panes.forEach((pane, i) => {
                 pane.element.classList.toggle(
                     "unselected",
                     i !== selectedIndex
@@ -244,7 +237,7 @@ export default class Pane {
                                 resolve([selectedIndex]);
                             }
 
-                            (this.content as Pane[]).forEach((pane, i) => {
+                            panes.forEach((pane, i) => {
                                 pane.element.classList.remove("unselected");
                                 pane.element.classList.add(
                                     "fade-out-background",
@@ -257,8 +250,7 @@ export default class Pane {
                             });
                         } else {
                             try {
-                                const currentPanes = this.content as Pane[];
-                                currentPanes.forEach((pane, i) => {
+                                panes.forEach((pane, i) => {
                                     pane.element.setAttribute(
                                         "data-index",
                                         i.toString(36)
@@ -268,24 +260,27 @@ export default class Pane {
                                     );
                                 });
                                 setTimeout(() => {
-                                    currentPanes.forEach((pane) => {
+                                    panes.forEach((pane) => {
                                         pane.element.classList.remove(
                                             "fade-out-index"
                                         );
                                     });
                                 }, 100);
 
-                                const partialPath =
-                                    (await (this.content as Pane[])[
-                                        selectedIndex
-                                    ]?.selectSpecific()) ??
+                                const partialPath = await panes
+                                    .at(selectedIndex)
+                                    ?.selectSpecific();
+                                if (!partialPath) {
                                     reject(
                                         new ViewSelectSpecificPaneError(
                                             SelectSpecificPathRejectionReason.appAborted,
                                             "The selected pane is unreachable."
                                         )
                                     );
-                                (this.content as Pane[]).forEach((pane) => {
+                                    return;
+                                }
+
+                                panes.forEach((pane) => {
                                     pane.element.classList.remove("unselected");
                                     pane.element.classList.add(
                                         "fade-out-background"
@@ -306,16 +301,14 @@ export default class Pane {
                                     );
                                     this.inSpecificSelection = true;
                                     this.element.classList.add("indexed");
-                                    (this.content as Pane[]).forEach(
-                                        (pane, i) => {
-                                            pane.element.classList.toggle(
-                                                "unselected",
-                                                i !== selectedIndex
-                                            );
-                                        }
-                                    );
+                                    panes.forEach((pane, i) => {
+                                        pane.element.classList.toggle(
+                                            "unselected",
+                                            i !== selectedIndex
+                                        );
+                                    });
                                 } else {
-                                    (this.content as Pane[]).forEach((pane) => {
+                                    panes.forEach((pane) => {
                                         pane.element.classList.remove(
                                             "unselected"
                                         );
@@ -327,9 +320,8 @@ export default class Pane {
                                 }
                             }
                         }
-                        const currentPanes = this.content as Pane[];
                         setTimeout(() => {
-                            currentPanes.forEach((pane) => {
+                            panes.forEach((pane) => {
                                 pane.element.classList.remove(
                                     "fade-out-background",
                                     "fade-out-index"
@@ -338,7 +330,7 @@ export default class Pane {
                         }, 100);
                     } else {
                         let newSelectedIndex: number = NaN;
-                        const panesCount = (this.content as Pane[]).length;
+                        const panesCount = panes.length;
                         switch (e.code) {
                             case "Tab":
                                 if (e.shiftKey) {
@@ -425,7 +417,7 @@ export default class Pane {
                             newSelectedIndex < panesCount
                         ) {
                             selectedIndex = newSelectedIndex;
-                            (this.content as Pane[]).forEach((pane, i) => {
+                            panes.forEach((pane, i) => {
                                 pane.element.classList.toggle(
                                     "unselected",
                                     i !== selectedIndex

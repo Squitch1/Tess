@@ -214,6 +214,6 @@ export default class Toaster {
                 this.toasts.splice(this.toasts.indexOf(toast), 1);
                 toast.remove();
             }, 140);
-        }, 50_000_000 /* 20_000 */);
+        }, 20_000);
     }
 }
