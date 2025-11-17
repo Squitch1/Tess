@@ -29,21 +29,21 @@ export default class TabManager extends EventTarget {
         this.detailsCard = new DetailsCard();
 
         this.detailsCard.addEventListener(
-            "paneFocusRequest",
+            "widgetFocusRequest",
             (e: CustomEventInit) => {
                 this.select(e.detail.tabId);
                 this.dispatchEvent(
-                    new CustomEvent("paneRequestFocus", {
+                    new CustomEvent("widgetFocusRequest", {
                         detail: e.detail,
                     })
                 );
             }
         );
         this.detailsCard.addEventListener(
-            "paneCloseRequest",
+            "widgetCloseRequest",
             (e: CustomEventInit) => {
                 this.dispatchEvent(
-                    new CustomEvent("paneRequestClose", { detail: e.detail })
+                    new CustomEvent("widgetCloseRequest", { detail: e.detail })
                 );
             }
         );
@@ -108,13 +108,13 @@ export default class TabManager extends EventTarget {
                 );
             }
             this.dispatchEvent(
-                new CustomEvent("tabRequestClose", { detail: tabId })
+                new CustomEvent("tabCloseRequest", { detail: tabId })
             );
         });
-        tab.addEventListener("titleUpdate", () => {
+        tab.addEventListener("titleChange", () => {
             if (this.selectedTab === tab) {
                 this.dispatchEvent(
-                    new CustomEvent("tabTitleUpdate", { detail: tab.title })
+                    new CustomEvent("tabTitleChange", { detail: tab.title })
                 );
             }
         });
@@ -152,35 +152,39 @@ export default class TabManager extends EventTarget {
         return tab.id;
     }
 
-    setPaneTitle(tabId: UUID, paneId: UUID, title: string) {
-        this.tabs.find((tab) => tab.id === tabId)?.setPaneTitle(paneId, title);
-    }
-
-    setPaneProgress(tabId: UUID, paneId: UUID, progress: number) {
+    setWidgetTitle(tabId: UUID, widgetId: UUID, title: string) {
         this.tabs
             .find((tab) => tab.id === tabId)
-            ?.setPaneProgress(
-                paneId,
+            ?.setWidgetTitle(widgetId, title);
+    }
+
+    setWidgetProgress(tabId: UUID, widgetId: UUID, progress: number) {
+        this.tabs
+            .find((tab) => tab.id === tabId)
+            ?.setWidgetProgress(
+                widgetId,
                 progress > 0 && progress < 100 ? progress : 0
             );
     }
 
-    setPaneAttention(tabId: UUID, paneId: UUID, needsAttention: boolean) {
+    setWidgetAttention(tabId: UUID, widgetId: UUID, needsAttention: boolean) {
         if (tabId === this.selectedTab!.id) {
             return;
         }
 
         this.tabs
             .find((tab) => tab.id === tabId)
-            ?.setPaneAttention(paneId, needsAttention);
+            ?.setWidgetAttention(widgetId, needsAttention);
     }
 
-    setPaneGroupLeader(tabId: UUID, paneId: UUID) {
-        this.tabs.find((tab) => tab.id === tabId)?.setPaneGroupLeader(paneId);
+    setWidgetGroupLeader(tabId: UUID, widgetId: UUID) {
+        this.tabs
+            .find((tab) => tab.id === tabId)
+            ?.setWidgetGroupLeader(widgetId);
     }
 
-    addPane(tabId: UUID, paneId: UUID) {
-        this.tabs.find((tab) => tab.id === tabId)?.addPane(paneId);
+    addWidget(tabId: UUID, widgetId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.addWidget(widgetId);
 
         if (this.selectedTab?.id === tabId) {
             setTimeout(
@@ -193,8 +197,8 @@ export default class TabManager extends EventTarget {
         }
     }
 
-    removePane(tabId: UUID, paneId: UUID) {
-        this.tabs.find((tab) => tab.id === tabId)?.removePane(paneId);
+    removeWidget(tabId: UUID, widgetId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.removeWidget(widgetId);
 
         if (this.selectedTab?.id === tabId) {
             setTimeout(
@@ -263,7 +267,7 @@ export default class TabManager extends EventTarget {
         if (tab && tab !== this.selectedTab) {
             this.selectedTab?.element.classList.remove("selected");
             this.selectedTab = tab;
-            this.selectedTab.clearPanesAttention();
+            this.selectedTab.clearWidgetsAttention();
             tab.element.classList.add("selected");
 
             this.dispatchEvent(new CustomEvent("tabFocus", { detail: tab.id }));

@@ -1,7 +1,7 @@
 import { UUID } from "crypto";
 
 import Slider from "@/components/interface/slider";
-import { PaneData, Tab, TabIcon } from "@/components/interface/tab";
+import { Tab, TabIcon, WidgetData } from "@/components/interface/tab";
 
 import clamp from "@/utils/clamp";
 
@@ -38,9 +38,9 @@ export default class DetailsCard extends EventTarget {
     private transitioning: boolean = false;
     private slidingPageIndexOffset: number = 0;
 
-    private onPaneUpdated: (e: CustomEventInit) => void;
-    private onPaneAdded: (e: CustomEventInit) => void;
-    private onPaneRemoved: (e: CustomEventInit) => void;
+    private onWidgetAdded: (e: CustomEventInit) => void;
+    private onWidgetChange: (e: CustomEventInit) => void;
+    private onWidgetRemoved: (e: CustomEventInit) => void;
 
     constructor() {
         super();
@@ -61,14 +61,14 @@ export default class DetailsCard extends EventTarget {
             )
         );
 
-        this.onPaneUpdated = (e) => {
-            this.onEntryUpdate(e.detail);
+        this.onWidgetAdded = (e) => {
+            this.createEntry(e.detail);
         };
-        this.onPaneAdded = (e) => {
-            this.onEntryCreation(e.detail);
+        this.onWidgetChange = (e) => {
+            this.changeEntry(e.detail);
         };
-        this.onPaneRemoved = (e) => {
-            this.onEntryRemoval(e.detail);
+        this.onWidgetRemoved = (e) => {
+            this.removeEntry(e.detail);
         };
     }
 
@@ -103,8 +103,8 @@ export default class DetailsCard extends EventTarget {
         });
 
         const chunkSize = 5;
-        this.pages = Array.from(tab.panes.values())
-            .reduce<PaneData[][]>((chunks, _, i, arr) => {
+        this.pages = Array.from(tab.widgets.values())
+            .reduce<WidgetData[][]>((chunks, _, i, arr) => {
                 if (i % chunkSize === 0) {
                     chunks.push(arr.slice(i, i + chunkSize));
                 }
@@ -140,38 +140,38 @@ export default class DetailsCard extends EventTarget {
             this.pagesContainer.style.height = `${this.currentPage?.element.clientHeight}px`;
         }
 
-        this.tab?.removeEventListener("paneAdded", this.onPaneAdded);
-        this.tab?.removeEventListener("paneUpdated", this.onPaneUpdated);
-        this.tab?.removeEventListener("paneRemoved", this.onPaneRemoved);
+        this.tab?.removeEventListener("widgetAdded", this.onWidgetAdded);
+        this.tab?.removeEventListener("widgetChange", this.onWidgetChange);
+        this.tab?.removeEventListener("widgetRemoved", this.onWidgetRemoved);
         this.tab = tab;
-        this.tab.addEventListener("paneAdded", this.onPaneAdded);
-        this.tab.addEventListener("paneUpdated", this.onPaneUpdated);
-        this.tab.addEventListener("paneRemoved", this.onPaneRemoved);
+        this.tab.addEventListener("widgetAdded", this.onWidgetAdded);
+        this.tab.addEventListener("widgetChange", this.onWidgetChange);
+        this.tab.addEventListener("widgetRemoved", this.onWidgetRemoved);
     }
 
     hide() {
         if (this.tab) {
-            this.tab.removeEventListener("paneAdded", this.onPaneAdded);
-            this.tab.removeEventListener("paneUpdated", this.onPaneUpdated);
-            this.tab.removeEventListener("paneRemoved", this.onPaneRemoved);
+            this.tab.removeEventListener("widgetAdded", this.onWidgetAdded);
+            this.tab.removeEventListener("widgetChange", this.onWidgetChange);
+            this.tab.removeEventListener("widgetRemoved", this.onWidgetRemoved);
             this.tab = undefined;
             this.element.remove();
         }
     }
 
-    private setupEntry(data: PaneData): DetailsCardEntry {
+    private setupEntry(data: WidgetData): DetailsCardEntry {
         const entry = new DetailsCardEntry(data);
         entry.addEventListener("closeRequest", (e: CustomEventInit) => {
             this.dispatchEvent(
-                new CustomEvent("paneCloseRequest", {
-                    detail: { tabId: this.tab!.id, paneId: e.detail },
+                new CustomEvent("widgetCloseRequest", {
+                    detail: { tabId: this.tab!.id, widgetId: e.detail },
                 })
             );
         });
         entry.addEventListener("focusRequest", (e: CustomEventInit) => {
             this.dispatchEvent(
-                new CustomEvent("paneFocusRequest", {
-                    detail: { tabId: this.tab!.id, paneId: e.detail },
+                new CustomEvent("widgetFocusRequest", {
+                    detail: { tabId: this.tab!.id, widgetId: e.detail },
                 })
             );
         });
@@ -179,19 +179,7 @@ export default class DetailsCard extends EventTarget {
         return entry;
     }
 
-    private onEntryUpdate(data: PaneData) {
-        for (const page of this.pages) {
-            const entry = page.entries.find(
-                (entry) => entry.paneId === data.id
-            );
-            if (entry) {
-                entry.setData(data);
-                break;
-            }
-        }
-    }
-
-    private onEntryCreation(data: PaneData) {
+    private createEntry(data: WidgetData) {
         const entry = this.setupEntry(data);
 
         if (this.pages[this.pages.length - 1].entries.length < 5) {
@@ -238,10 +226,22 @@ export default class DetailsCard extends EventTarget {
         }px`;
     }
 
-    private onEntryRemoval(data: PaneData) {
+    private changeEntry(data: WidgetData) {
         for (const page of this.pages) {
             const entry = page.entries.find(
-                (entry) => entry.paneId === data.id
+                (entry) => entry.widgetId === data.id
+            );
+            if (entry) {
+                entry.setData(data);
+                break;
+            }
+        }
+    }
+
+    private removeEntry(data: WidgetData) {
+        for (const page of this.pages) {
+            const entry = page.entries.find(
+                (entry) => entry.widgetId === data.id
             );
             if (entry) {
                 entry.markAsClosed();
@@ -355,7 +355,7 @@ class DetailsCardEntry extends EventTarget {
     private icon: TabIcon;
     private title: HTMLSpanElement;
 
-    constructor(data: PaneData) {
+    constructor(data: WidgetData) {
         super();
         let closeButton;
         [this.element, this.icon, this.title, closeButton] =
@@ -377,11 +377,11 @@ class DetailsCardEntry extends EventTarget {
         this.setData(data);
     }
 
-    get paneId() {
+    get widgetId() {
         return this.id;
     }
 
-    setData(data: PaneData) {
+    setData(data: WidgetData) {
         this.title.innerText = data.title;
         this.icon.setProgress(data.progress);
         this.icon.setAttention(data.needsAttention);

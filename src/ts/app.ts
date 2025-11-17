@@ -51,25 +51,25 @@ export default class App {
         };
 
         this.tabsManager = new TabManager(tabsTarget);
-        this.tabsManager.addEventListener("tabRequestClose", async (e) => {
-            await this.onTabRequestClose((e as CustomEvent<UUID>).detail);
+        this.tabsManager.addEventListener("tabCloseRequest", async (e) => {
+            await this.onTabRequestClose((e as CustomEvent).detail);
         });
         this.tabsManager.addEventListener("tabFocus", (e) => {
             this.onTabFocused((e as CustomEvent).detail);
         });
-        this.tabsManager.addEventListener("tabTitleUpdate", (e) => {
+        this.tabsManager.addEventListener("tabTitleChange", (e) => {
             this.onFocusedTabTitleUpdated((e as CustomEvent).detail);
         });
-        this.tabsManager.addEventListener("paneRequestFocus", (e) => {
-            const { tabId, paneId } = (e as CustomEvent).detail;
-            this.views.find((view) => view.id === tabId)?.focusWidget(paneId);
+        this.tabsManager.addEventListener("widgetFocusRequest", (e) => {
+            const { tabId, widgetId } = (e as CustomEvent).detail;
+            this.views.find((view) => view.id === tabId)?.focusWidget(widgetId);
         });
-        this.tabsManager.addEventListener("paneRequestClose", async (e) => {
-            const { tabId, paneId } = (e as CustomEvent).detail;
+        this.tabsManager.addEventListener("widgetCloseRequest", async (e) => {
+            const { tabId, widgetId } = (e as CustomEvent).detail;
 
             await this.views
                 .find((view) => view.id === tabId)
-                ?.closeWidget(paneId);
+                ?.closeWidget(widgetId);
         });
 
         this.shortcutsManager = new ShortcutManager(
@@ -421,11 +421,11 @@ export default class App {
     }
 
     private onWidgetRequestHighlight(viewId: UUID, paneId: UUID) {
-        this.tabsManager.setPaneAttention(viewId, paneId, true);
+        this.tabsManager.setWidgetAttention(viewId, paneId, true);
     }
 
     private onWidgetTitleUpdated(viewId: UUID, paneId: UUID, title: string) {
-        this.tabsManager.setPaneTitle(viewId, paneId, title);
+        this.tabsManager.setWidgetTitle(viewId, paneId, title);
     }
 
     private onWidgetProgressUpdated(
@@ -433,18 +433,18 @@ export default class App {
         paneId: UUID,
         progress: number
     ) {
-        this.tabsManager.setPaneProgress(viewId, paneId, progress);
+        this.tabsManager.setWidgetProgress(viewId, paneId, progress);
     }
 
     private onWidgetFocused(viewId: UUID, paneId: UUID) {
-        this.tabsManager.setPaneGroupLeader(viewId, paneId);
+        this.tabsManager.setWidgetGroupLeader(viewId, paneId);
     }
 
     private onWidgetClosed(viewId: UUID, paneId: UUID) {
-        this.tabsManager.removePane(viewId, paneId);
+        this.tabsManager.removeWidget(viewId, paneId);
     }
 
     private onWidgetAdded(viewId: UUID, paneId: UUID) {
-        this.tabsManager.addPane(viewId, paneId);
+        this.tabsManager.addWidget(viewId, paneId);
     }
 }

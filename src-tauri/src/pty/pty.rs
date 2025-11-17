@@ -234,7 +234,7 @@ impl Pty {
                                         .split('%')
                                         .next()
                                         .and_then(|number| number.parse::<f64>().ok())
-                                        .map(|progress| (progress.ceil() as u64))
+                                        .map(|progress| progress.ceil() as u64)
                                         .unwrap_or_default()
                                 })
                                 .filter(|progress| (0..100).contains(progress))

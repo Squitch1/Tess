@@ -4,15 +4,15 @@ import CircularProgressBar from "@/components/ux/progressBar";
 
 import defaultIcon from "@/icons/32x32/tess-alt.png";
 
-export type PaneData = {
+export type WidgetData = {
     id: UUID;
     title: string;
     progress: number;
     needsAttention: boolean;
 };
-function defaultPaneData(paneId: UUID): PaneData {
+function defaultWidgetData(widgetId: UUID): WidgetData {
     return {
-        id: paneId,
+        id: widgetId,
         title: "",
         progress: 0,
         needsAttention: false,
@@ -27,9 +27,9 @@ export class Tab extends EventTarget {
 
     title: string = "";
 
-    panes: Map<UUID, PaneData> = new Map();
+    widgets: Map<UUID, WidgetData> = new Map();
 
-    paneGroupLeader?: UUID;
+    widgetGroupLeader?: UUID;
 
     resizeObserver: ResizeObserver;
 
@@ -84,71 +84,74 @@ export class Tab extends EventTarget {
         }
     }
 
-    addPane(paneId: UUID) {
-        const pane = defaultPaneData(paneId);
-        this.panes.set(paneId, pane);
-        this.dispatchEvent(new CustomEvent("paneAdded", { detail: pane }));
+    addWidget(widgetId: UUID) {
+        const widget = defaultWidgetData(widgetId);
+        this.widgets.set(widgetId, widget);
+        this.dispatchEvent(new CustomEvent("widgetAdded", { detail: widget }));
     }
 
-    clearPanesAttention() {
-        this.panes.forEach((pane) => {
-            pane.needsAttention = false;
+    clearWidgetsAttention() {
+        this.widgets.forEach((widget) => {
+            widget.needsAttention = false;
             this.dispatchEvent(
-                new CustomEvent("paneUpdated", { detail: pane })
+                new CustomEvent("widgetChange", { detail: widget })
             );
         });
 
         this.updateAttentionStatus();
     }
 
-    setPaneTitle(paneId: UUID, title: string) {
-        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
-        pane.title = title;
-        this.panes.set(paneId, pane);
+    setWidgetTitle(widgetId: UUID, title: string) {
+        const widget =
+            this.widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+        widget.title = title;
+        this.widgets.set(widgetId, widget);
 
         this.updateTitle();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+        this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setPaneProgress(paneId: UUID, progress: number) {
-        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
-        pane.progress = progress;
-        this.panes.set(paneId, pane);
+    setWidgetProgress(widgetId: UUID, progress: number) {
+        const widget =
+            this.widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+        widget.progress = progress;
+        this.widgets.set(widgetId, widget);
 
         this.updateProgress();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+        this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setPaneAttention(paneId: UUID, needsAttention: boolean) {
-        const pane = this.panes.get(paneId) ?? defaultPaneData(paneId);
-        pane.needsAttention = needsAttention;
-        this.panes.set(paneId, pane);
+    setWidgetAttention(widgetId: UUID, needsAttention: boolean) {
+        const widget =
+            this.widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+        widget.needsAttention = needsAttention;
+        this.widgets.set(widgetId, widget);
 
         this.updateAttentionStatus();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+        this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setPaneGroupLeader(paneId: UUID) {
-        if (this.panes.has(paneId)) {
-            this.paneGroupLeader = paneId;
+    setWidgetGroupLeader(widgetId: UUID) {
+        if (this.widgets.has(widgetId)) {
+            this.widgetGroupLeader = widgetId;
         }
 
         this.updateTitle();
     }
 
-    removePane(paneId: UUID) {
-        const pane = this.panes.get(paneId);
-        if (pane) {
-            this.panes.delete(paneId);
+    removeWidget(widgetId: UUID) {
+        const widget = this.widgets.get(widgetId);
+        if (widget) {
+            this.widgets.delete(widgetId);
             this.dispatchEvent(
-                new CustomEvent("paneRemoved", { detail: pane })
+                new CustomEvent("widgetRemoved", { detail: widget })
             );
         }
     }
 
     updateTitle() {
         const title =
-            this.panes.get(this.paneGroupLeader!)?.title || "Untitled tab";
+            this.widgets.get(this.widgetGroupLeader!)?.title || "Untitled tab";
 
         if (this.title === title) {
             return;
@@ -160,16 +163,16 @@ export class Tab extends EventTarget {
             "clipped",
             this.titleElement.scrollWidth > this.titleElement.clientWidth
         );
-        this.dispatchEvent(new Event("titleUpdate"));
+        this.dispatchEvent(new Event("titleChange"));
     }
 
     updateProgress() {
         let count = 0;
         let sum = 0;
-        this.panes.forEach((pane) => {
-            if (pane.progress > 0) {
+        this.widgets.forEach((widget) => {
+            if (widget.progress > 0) {
                 count++;
-                sum += pane.progress;
+                sum += widget.progress;
             }
         });
 
@@ -178,8 +181,8 @@ export class Tab extends EventTarget {
 
     private updateAttentionStatus() {
         this.icon.setAttention(
-            Array.from(this.panes.values()).some(
-                (pane: PaneData) => pane.needsAttention
+            Array.from(this.widgets.values()).some(
+                (widget) => widget.needsAttention
             )
         );
     }
