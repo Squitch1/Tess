@@ -3,8 +3,6 @@ import { UUID } from "crypto";
 import { PopupBuilder, PopupButton } from "@/components/interface/popup";
 import Widget from "@/components/view/widgets/base";
 
-import PopupManager from "@/managers/popup";
-
 import {
     PaneOutOfCapacityError,
     SelectSpecificPathRejectionReason,
@@ -14,64 +12,59 @@ import {
 
 import computeLayout from "@/utils/tilling";
 
-export default class Pane {
-    private popupManager: PopupManager;
-    private viewAnchoring: HTMLElement;
+export default class Pane extends EventTarget {
+    readonly id: UUID;
+    #element: HTMLElement;
 
-    id: UUID;
-    content?: Widget | Pane[];
-    element: HTMLElement;
+    private content?: Widget | Pane[];
 
     private isSubview: boolean = false;
-
     private inSpecificSelection: boolean = false;
-    private keydownListener?: (this: Document, ev: KeyboardEvent) => void;
-
-    private onceClosed: (paneId: UUID) => void;
-    private onWidgetClosed: (widgetId: UUID) => void;
-
-    resizeObserver: ResizeObserver;
-
     private colsSpan: number = 1;
     private rowsSpan: number = 1;
 
-    constructor(
-        paneId: UUID,
-        popupManager: PopupManager,
-        viewAnchoring: HTMLElement,
-        onceClosed: (paneId: UUID) => void,
-        onWidgetClosed: (widgetId: UUID) => void,
-        widget?: Widget
-    ) {
-        this.popupManager = popupManager;
+    private viewAnchoring: HTMLElement;
+    private resizeObserver: ResizeObserver;
+
+    private keydownListener?: (this: Document, ev: KeyboardEvent) => void;
+
+    private onceWidgetClosedListener: () => void;
+    private onceContentClosedListener: (e: CustomEventInit<UUID>) => void;
+
+    constructor(viewAnchoring: HTMLElement, widget?: Widget) {
+        super();
+
         this.viewAnchoring = viewAnchoring;
 
-        this.onWidgetClosed = onWidgetClosed;
-        this.onceClosed = onceClosed;
+        this.id = crypto.randomUUID();
 
-        this.id = paneId;
+        this.#element = Pane.generateComponent();
 
-        this.element = Pane.generateComponent();
-
-        if (widget) {
-            this.setWidget(widget);
-        }
+        this.onceWidgetClosedListener = () => this.onContentClosed();
+        this.onceContentClosedListener = (e) => this.onContentClosed(e.detail);
 
         this.resizeObserver = new ResizeObserver(() => {
             this.reflowLayout();
         });
-        this.resizeObserver.observe(this.element);
+
+        if (widget) {
+            this.setWidget(widget);
+        }
+    }
+
+    get element() {
+        return this.#element;
     }
 
     setWidget(widget: Widget) {
         widget.anchoringPane = this;
         this.content = widget;
-        this.element.appendChild(widget.element);
+        this.#element.appendChild(widget.element);
 
-        widget.onceClosed = () => {
-            this.onWidgetClosed(widget.id);
-            this.onContentClosed(widget.id);
-        };
+        widget.addEventListener("close", this.onceWidgetClosedListener, {
+            once: true,
+        });
+        this.resizeObserver.observe(this.#element);
     }
 
     split(widget: Widget) {
@@ -80,88 +73,93 @@ export default class Pane {
         }
 
         if (!this.isSubview) {
-            (this.content as Widget).blur();
-            this.isSubview = true;
-            this.element.classList.add("subview");
-            const innerPane = new Pane(
-                crypto.randomUUID(),
-                this.popupManager,
-                this.viewAnchoring,
-                (paneId) => this.onContentClosed(paneId),
-                (widgetId) => this.onWidgetClosed(widgetId),
-                this.content as Widget
+            const widget = this.content as Widget;
+            widget.removeEventListener("close", this.onceWidgetClosedListener);
+            const innerPane = new Pane(this.viewAnchoring, widget);
+            innerPane.addEventListener(
+                "close",
+                this.onceContentClosedListener,
+                {
+                    once: true,
+                }
             );
-            this.element.appendChild(innerPane.element);
+            this.#element.classList.add("subview");
+            this.#element.appendChild(innerPane.#element);
             this.content = [innerPane];
+            this.isSubview = true;
         }
 
-        const newPane = new Pane(
-            crypto.randomUUID(),
-            this.popupManager,
-            this.viewAnchoring,
-            (paneId) => this.onContentClosed(paneId),
-            (widgetId) => this.onWidgetClosed(widgetId),
-            widget
-        );
-        this.element.appendChild(newPane.element);
+        const newPane = new Pane(this.viewAnchoring, widget);
+        newPane.addEventListener("close", this.onceContentClosedListener, {
+            once: true,
+        });
+        this.#element.appendChild(newPane.#element);
         (this.content as Pane[]).push(newPane);
         this.reflowLayout();
     }
 
-    private onContentClosed(paneId: UUID) {
-        if (this.isSubview) {
-            const paneIndex = (this.content as Pane[]).findIndex(
-                (pane) => pane.id === paneId
-            );
-
-            const removedPane = (this.content as Pane[]).splice(
-                paneIndex,
-                1
-            )[0];
-            removedPane.element.remove();
-            removedPane.resizeObserver.disconnect();
-
-            if ((this.content as Pane[]).length === 1) {
-                const innerPane = (this.content as Pane[])[0];
-
-                const computedStyle = getComputedStyle(this.element);
-                innerPane.element.style.setProperty(
-                    "--cols-span",
-                    computedStyle.getPropertyValue("--cols-span")
-                );
-                innerPane.element.style.setProperty(
-                    "--rows-span",
-                    computedStyle.getPropertyValue("--rows-span")
-                );
-                this.element.parentElement!.replaceChild(
-                    innerPane.element,
-                    this.element
-                );
-                this.isSubview = innerPane.isSubview;
-                this.element = innerPane.element;
-                this.content = innerPane.content;
-
-                if (this.isSubview) {
-                    (innerPane.content as Pane[]).forEach((pane) => {
-                        pane.onceClosed = (paneId) =>
-                            this.onContentClosed(paneId);
-                        pane.onWidgetClosed = (widgetId) =>
-                            this.onWidgetClosed(widgetId);
-                    });
-                } else {
-                    const widget = this.content as Widget;
-                    widget.anchoringPane = this;
-                    widget.onceClosed = () => {
-                        this.onWidgetClosed(widget.id);
-                        this.onContentClosed(widget.id);
-                    };
-                }
-            }
-
-            this.reflowLayout();
-        } else {
-            this.onceClosed(this.id);
+    private onContentClosed(paneId?: UUID) {
+        if (!this.isSubview) {
+            this.dispatchEvent(new CustomEvent("close", { detail: this.id }));
+            return;
         }
+
+        const panes = this.content as Pane[];
+        const removedPane = panes.splice(
+            panes.findIndex((pane) => pane.id === paneId),
+            1
+        )[0];
+        removedPane.#element.remove();
+        removedPane.resizeObserver.disconnect();
+
+        if (panes.length === 1) {
+            const innerPane = panes[0];
+
+            const computedStyle = getComputedStyle(this.#element);
+            innerPane.#element.style.setProperty(
+                "--cols-span",
+                computedStyle.getPropertyValue("--cols-span")
+            );
+            innerPane.#element.style.setProperty(
+                "--rows-span",
+                computedStyle.getPropertyValue("--rows-span")
+            );
+            this.#element.parentElement!.replaceChild(
+                innerPane.#element,
+                this.#element
+            );
+            this.isSubview = innerPane.isSubview;
+            this.#element = innerPane.#element;
+            this.content = innerPane.content;
+
+            if (this.isSubview) {
+                (innerPane.content as Pane[]).forEach((pane) => {
+                    pane.removeEventListener(
+                        "close",
+                        innerPane.onceContentClosedListener
+                    );
+                    pane.addEventListener(
+                        "close",
+                        this.onceContentClosedListener,
+                        { once: true }
+                    );
+                });
+            } else {
+                const widget = this.content as Widget;
+                widget.anchoringPane = this;
+                widget.removeEventListener(
+                    "close",
+                    innerPane.onceWidgetClosedListener
+                );
+                widget.addEventListener(
+                    "close",
+                    this.onceWidgetClosedListener,
+                    { once: true }
+                );
+            }
+        }
+
+        this.reflowLayout();
     }
 
     splitSpecific(widget: Widget, path: number[]) {
@@ -185,14 +183,14 @@ export default class Pane {
         return new Promise<number[]>((resolve, reject) => {
             const panes = this.content as Pane[];
 
-            this.element.classList.add("indexed");
+            this.#element.classList.add("indexed");
             let selectedIndex: number = 0;
             panes.forEach((pane, i) => {
-                pane.element.classList.toggle(
+                pane.#element.classList.toggle(
                     "unselected",
                     i !== selectedIndex
                 );
-                pane.element.classList.remove(
+                pane.#element.classList.remove(
                     "fade-out-background",
                     "fade-out-index"
                 );
@@ -215,7 +213,7 @@ export default class Pane {
                             { capture: true }
                         );
                         this.inSpecificSelection = false;
-                        this.element.classList.remove("indexed");
+                        this.#element.classList.remove("indexed");
 
                         if (
                             (e.key === "Enter" && e.ctrlKey) ||
@@ -238,12 +236,12 @@ export default class Pane {
                             }
 
                             panes.forEach((pane, i) => {
-                                pane.element.classList.remove("unselected");
-                                pane.element.classList.add(
+                                pane.#element.classList.remove("unselected");
+                                pane.#element.classList.add(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );
-                                pane.element.setAttribute(
+                                pane.#element.setAttribute(
                                     "data-index",
                                     i.toString(36)
                                 );
@@ -251,17 +249,17 @@ export default class Pane {
                         } else {
                             try {
                                 panes.forEach((pane, i) => {
-                                    pane.element.setAttribute(
+                                    pane.#element.setAttribute(
                                         "data-index",
                                         i.toString(36)
                                     );
-                                    pane.element.classList.add(
+                                    pane.#element.classList.add(
                                         "fade-out-index"
                                     );
                                 });
                                 setTimeout(() => {
                                     panes.forEach((pane) => {
-                                        pane.element.classList.remove(
+                                        pane.#element.classList.remove(
                                             "fade-out-index"
                                         );
                                     });
@@ -281,8 +279,10 @@ export default class Pane {
                                 }
 
                                 panes.forEach((pane) => {
-                                    pane.element.classList.remove("unselected");
-                                    pane.element.classList.add(
+                                    pane.#element.classList.remove(
+                                        "unselected"
+                                    );
+                                    pane.#element.classList.add(
                                         "fade-out-background"
                                     );
                                 });
@@ -300,19 +300,19 @@ export default class Pane {
                                         { capture: true }
                                     );
                                     this.inSpecificSelection = true;
-                                    this.element.classList.add("indexed");
+                                    this.#element.classList.add("indexed");
                                     panes.forEach((pane, i) => {
-                                        pane.element.classList.toggle(
+                                        pane.#element.classList.toggle(
                                             "unselected",
                                             i !== selectedIndex
                                         );
                                     });
                                 } else {
                                     panes.forEach((pane) => {
-                                        pane.element.classList.remove(
+                                        pane.#element.classList.remove(
                                             "unselected"
                                         );
-                                        pane.element.classList.add(
+                                        pane.#element.classList.add(
                                             "fade-out-background"
                                         );
                                     });
@@ -322,7 +322,7 @@ export default class Pane {
                         }
                         setTimeout(() => {
                             panes.forEach((pane) => {
-                                pane.element.classList.remove(
+                                pane.#element.classList.remove(
                                     "fade-out-background",
                                     "fade-out-index"
                                 );
@@ -418,7 +418,7 @@ export default class Pane {
                         ) {
                             selectedIndex = newSelectedIndex;
                             panes.forEach((pane, i) => {
-                                pane.element.classList.toggle(
+                                pane.#element.classList.toggle(
                                     "unselected",
                                     i !== selectedIndex
                                 );
@@ -432,35 +432,7 @@ export default class Pane {
     }
 
     private reflowLayout() {
-        if (this.isSubview) {
-            if (this.element.clientWidth && this.element.clientHeight) {
-                const layout = computeLayout(
-                    this.element.clientWidth,
-                    this.element.clientHeight,
-                    (this.content as Pane[]).length
-                );
-
-                this.colsSpan = Math.min(
-                    layout[0],
-                    (this.content as Pane[]).length
-                );
-                this.rowsSpan = Math.min(
-                    layout[1],
-                    (this.content as Pane[]).length
-                );
-
-                (this.content as Pane[]).forEach((pane) => {
-                    pane.element.style.setProperty(
-                        "--cols-span",
-                        `${this.colsSpan}`
-                    );
-                    pane.element.style.setProperty(
-                        "--rows-span",
-                        `${this.rowsSpan}`
-                    );
-                });
-            }
-        } else {
+        if (!this.isSubview) {
             (this.content as Widget).element.style.setProperty(
                 "--cols-span",
                 "1"
@@ -469,6 +441,35 @@ export default class Pane {
                 "--rows-span",
                 "1"
             );
+            return;
+        }
+
+        if (this.#element.clientWidth && this.#element.clientHeight) {
+            const layout = computeLayout(
+                this.#element.clientWidth,
+                this.#element.clientHeight,
+                (this.content as Pane[]).length
+            );
+
+            this.colsSpan = Math.min(
+                layout[0],
+                (this.content as Pane[]).length
+            );
+            this.rowsSpan = Math.min(
+                layout[1],
+                (this.content as Pane[]).length
+            );
+
+            (this.content as Pane[]).forEach((pane) => {
+                pane.#element.style.setProperty(
+                    "--cols-span",
+                    `${this.colsSpan}`
+                );
+                pane.#element.style.setProperty(
+                    "--rows-span",
+                    `${this.rowsSpan}`
+                );
+            });
         }
     }
 
@@ -480,13 +481,14 @@ export default class Pane {
     }
 
     async requestClosing() {
+        const cancelButton = new PopupButton("cancel", "dismiss");
+        const confirmButton = new PopupButton("confirm", "validate");
+
         if (this.isSubview) {
-            const cancelButton = new PopupButton("cancel", "dismiss");
-            const confirmButton = new PopupButton("confirm", "validate");
             if (
                 !settings.closeConfirmation.group ||
                 (
-                    await this.popupManager.sendPopup(
+                    await popupManager.sendPopup(
                         new PopupBuilder(
                             `Confirm close of ${this.widgetsCount()} widgets`
                         )
@@ -498,27 +500,22 @@ export default class Pane {
             ) {
                 await this.close();
             }
-        } else if (await (this.content as Widget).getClosability()) {
-            await (this.content as Widget).close();
-        } else {
-            const cancelButton = new PopupButton("cancel", "dismiss");
-            const confirmButton = new PopupButton("confirm", "validate");
-            if (
-                (
-                    await this.popupManager.sendPopup(
-                        new PopupBuilder(
-                            `Confirm close of ${await (
-                                this.content as Widget
-                            ).getShortTitle()}`
-                        )
-                            .withMessage("Are you sure to close this widget?")
-                            .withButtons(cancelButton, confirmButton),
-                        this.viewAnchoring
+        } else if (
+            (await (this.content as Widget).getClosability()) ||
+            (
+                await popupManager.sendPopup(
+                    new PopupBuilder(
+                        `Confirm close of ${await (
+                            this.content as Widget
+                        ).getShortTitle()}`
                     )
-                ).action === "confirm"
-            ) {
-                await (this.content as Widget).close();
-            }
+                        .withMessage("Are you sure to close this widget?")
+                        .withButtons(cancelButton, confirmButton),
+                    this.viewAnchoring
+                )
+            ).action === "confirm"
+        ) {
+            await (this.content as Widget).close();
         }
     }
 

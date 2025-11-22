@@ -45,24 +45,18 @@ pub async fn pty_open(
             opening_profile.title_format.clone(),
             opening_profile.terminal_settings.progress_tracking,
             opening_profile.terminal_settings.notify_content_change,
-            move |readed| {
+            move |data| {
                 app.emit(
                     "js_pty_incoming_data",
-                    schemas::pty::SendData {
-                        data: readed,
-                        pty_id,
-                    },
+                    schemas::pty::SendData { data, pty_id },
                 )
                 .ok();
             },
-            move |tab_title| {
+            move |title| {
                 app_title_update
                     .emit(
                         "js_pty_title_update",
-                        schemas::pty::TitleChanged {
-                            pty_id,
-                            title: tab_title,
-                        },
+                        schemas::pty::TitleChanged { pty_id, title },
                     )
                     .ok();
             },

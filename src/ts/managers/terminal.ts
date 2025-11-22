@@ -20,26 +20,20 @@ import {
     PtyTitleChangedPayload,
 } from "@/schemas/term";
 
-import Toaster from "./toast";
-
 export default class TerminalManager {
     profiles: Profile[];
     terminals: Terminal[] = [];
 
     terminalFlows: Map<string, [number, boolean]> = new Map();
 
-    toaster: Toaster;
-
-    onTerminalKeyPressed: (e: KeyboardEvent, term: Terminal) => boolean;
+    onTerminalKeyPress: (e: KeyboardEvent, term: Terminal) => boolean;
 
     constructor(
         profiles: Profile[],
-        toaster: Toaster,
-        onTerminalKeyPressed: (e: KeyboardEvent, term: Terminal) => boolean
+        onTerminalKeyPress: (e: KeyboardEvent, term: Terminal) => boolean
     ) {
         this.profiles = profiles;
-        this.onTerminalKeyPressed = onTerminalKeyPressed;
-        this.toaster = toaster;
+        this.onTerminalKeyPress = onTerminalKeyPress;
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         listen<PtyDataPayload>("js_pty_incoming_data", (e) =>
@@ -62,9 +56,12 @@ export default class TerminalManager {
     }
 
     private onTerminalTitleChanged(e: Event<PtyTitleChangedPayload>) {
-        this.terminals
-            .find((terminal) => terminal.id === e.payload.ptyId)
-            ?.onTitleUpdate(e.payload.title);
+        const terminal = this.terminals.find(
+            (terminal) => terminal.id === e.payload.ptyId
+        );
+        if (terminal) {
+            terminal.title = e.payload.title;
+        }
     }
 
     private async onTerminalProcessExited(e: Event<UUID>) {
@@ -80,7 +77,7 @@ export default class TerminalManager {
             const terminal = this.terminals.splice(index, 1)[0];
             this.terminalFlows.delete(e.payload);
             setTimeout(() => {
-                terminal.onceClosed();
+                terminal.dispatchEvent(new CustomEvent("close"));
             }, 0);
         }
     }
@@ -88,13 +85,16 @@ export default class TerminalManager {
     private onTerminalContentUpdated(e: Event<string>) {
         this.terminals
             .find((terminal) => terminal.id === e.payload)
-            ?.onHighlightRequest();
+            ?.askAttention();
     }
 
     private onTerminalProgressUpdated(e: Event<PtyProgressUpdatedPayload>) {
-        this.terminals
-            .find((terminal) => terminal.id === e.payload.ptyId)
-            ?.onProgressUpdated(e.payload.progress);
+        const terminal = this.terminals.find(
+            (terminal) => terminal.id === e.payload.ptyId
+        );
+        if (terminal) {
+            terminal.progress = e.payload.progress;
+        }
     }
 
     private onTerminalIncomingData(e: Event<PtyDataPayload>) {
@@ -106,7 +106,7 @@ export default class TerminalManager {
 
             if (buffered > 262144 && !paused) {
                 invoke("pty_pause", { ptyId: e.payload.ptyId }).catch((e) =>
-                    this.toaster.toast(
+                    toaster.toast(
                         new PtyPropertyError(
                             e as string,
                             "Unable to use flowcontrol"
@@ -127,7 +127,7 @@ export default class TerminalManager {
                 if (buffered < 65536 && paused) {
                     invoke("pty_resume", { ptyId: e.payload.ptyId }).catch(
                         (e) =>
-                            this.toaster.toast(
+                            toaster.toast(
                                 new PtyPropertyError(
                                     e as string,
                                     "Unable to use flowcontrol"
@@ -139,75 +139,6 @@ export default class TerminalManager {
 
                 this.terminalFlows.set(e.payload.ptyId, [buffered, paused]);
             });
-        }
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private onTerminalResize(terminalId: UUID, cols: number, rows: number) {
-        invoke("pty_resize", {
-            ptyId: terminalId,
-            cols,
-            rows,
-        }).catch((e) => {
-            this.toaster.toast(
-                new PtyResizeError(e as string, "Unable to resize terminal")
-            );
-        });
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private async onTerminalNeedClosability(
-        terminalId: UUID
-    ): Promise<boolean> {
-        return new Promise((resolve, reject) => {
-            invoke<boolean>("pty_get_closable", {
-                ptyId: terminalId,
-            })
-                .then(resolve)
-                .catch((e) =>
-                    reject(
-                        new PtyPropertyError(
-                            e as string,
-                            "Unable to detect closable status"
-                        )
-                    )
-                );
-        });
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private async onTerminalNeedLeaderName(terminalId: UUID): Promise<string> {
-        return new Promise((resolve, reject) => {
-            invoke<string>("pty_get_leader_name", {
-                ptyId: terminalId,
-            })
-                .then(resolve)
-                .catch((e) =>
-                    reject(
-                        new PtyPropertyError(
-                            e as string,
-                            "Unable to retrieve leader name"
-                        )
-                    )
-                );
-        });
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private onTerminalOutgoingData(terminalId: UUID, data: string) {
-        invoke("pty_write", { data, ptyId: terminalId }).catch((e) => {
-            this.toaster.toast(
-                new PtyWriteError(e as string, "Unable to handle data stream")
-            );
-        });
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private async onTerminalExit(terminalId: UUID): Promise<void> {
-        try {
-            return await invoke<void>("pty_close", { ptyId: terminalId });
-        } catch (e) {
-            throw new PtyExitError(e as string, "Unable to dispose terminal");
         }
     }
 
@@ -224,7 +155,45 @@ export default class TerminalManager {
             throw new UnknownProfileError(profileId);
         }
 
-        const terminal = new Terminal(profile);
+        const terminal: Terminal = new Terminal(profile, {
+            leaderName: async () => {
+                try {
+                    return await invoke<string>("pty_get_leader_name", {
+                        ptyId: terminal.id,
+                    });
+                } catch (e) {
+                    throw new PtyPropertyError(
+                        e as string,
+                        "Unable to retrieve leader name"
+                    );
+                }
+            },
+            closable: async () => {
+                try {
+                    return await invoke<boolean>("pty_get_closable", {
+                        ptyId: terminal.id,
+                    });
+                } catch (e) {
+                    throw new PtyPropertyError(
+                        e as string,
+                        "Unable to detect closable status"
+                    );
+                }
+            },
+            keyPress: (e) => this.onTerminalKeyPress(e, terminal),
+            exit: async () => {
+                try {
+                    await invoke<void>("pty_close", {
+                        ptyId: terminal.id,
+                    });
+                } catch (e) {
+                    throw new PtyExitError(
+                        e as string,
+                        "Unable to dispose terminal"
+                    );
+                }
+            },
+        });
         try {
             this.terminals.push(terminal);
             this.terminalFlows.set(terminal.id, [0, false]);
@@ -241,17 +210,37 @@ export default class TerminalManager {
             throw new PtyCreateError(e as string, "Unable to create terminal");
         }
 
-        terminal.onTerminalResize = (cols, rows) =>
-            this.onTerminalResize(terminal.id, cols, rows);
-        terminal.onTerminalNeedClosability = async () =>
-            this.onTerminalNeedClosability(terminal.id);
-        terminal.onTerminalNeedLeaderName = async () =>
-            this.onTerminalNeedLeaderName(terminal.id);
-        terminal.onTerminalOutgoingData = (data) =>
-            this.onTerminalOutgoingData(terminal.id, data);
-        terminal.onTerminalExit = async () => this.onTerminalExit(terminal.id);
-        terminal.onTerminalKeyPress = (e) =>
-            this.onTerminalKeyPressed(e, terminal);
+        terminal.addEventListener(
+            "resize",
+            (e: CustomEventInit<{ cols: number; rows: number }>) => {
+                const { cols, rows } = e.detail!;
+                invoke("pty_resize", {
+                    ptyId: terminal.id,
+                    cols,
+                    rows,
+                }).catch((e) => {
+                    toaster.toast(
+                        new PtyResizeError(
+                            e as string,
+                            "Unable to resize terminal"
+                        )
+                    );
+                });
+            }
+        );
+        terminal.addEventListener("data", (e: CustomEventInit<string>) => {
+            invoke("pty_write", { data: e.detail, ptyId: terminal.id }).catch(
+                (e) => {
+                    toaster.toast(
+                        new PtyWriteError(
+                            e as string,
+                            "Unable to handle data stream"
+                        )
+                    );
+                }
+            );
+        });
+
         return terminal;
     }
 

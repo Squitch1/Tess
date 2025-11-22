@@ -2,6 +2,7 @@ import { UUID } from "crypto";
 
 import DetailsCard from "@/components/interface/detailsCard";
 import { Tab } from "@/components/interface/tab";
+import Widget from "@/components/view/widgets/base";
 
 import clamp from "@/utils/clamp";
 
@@ -152,23 +153,18 @@ export default class TabManager extends EventTarget {
         return tab.id;
     }
 
-    setWidgetTitle(tabId: UUID, widgetId: UUID, title: string) {
+    setWidgetState(
+        tabId: UUID,
+        widgetId: UUID,
+        state: typeof Widget.prototype.state
+    ) {
         this.tabs
             .find((tab) => tab.id === tabId)
-            ?.setWidgetTitle(widgetId, title);
-    }
-
-    setWidgetProgress(tabId: UUID, widgetId: UUID, progress: number) {
-        this.tabs
-            .find((tab) => tab.id === tabId)
-            ?.setWidgetProgress(
-                widgetId,
-                progress > 0 && progress < 100 ? progress : 0
-            );
+            ?.setWidgetState(widgetId, state);
     }
 
     setWidgetAttention(tabId: UUID, widgetId: UUID, needsAttention: boolean) {
-        if (tabId === this.selectedTab!.id) {
+        if (this.selectedTab?.id === tabId) {
             return;
         }
 
@@ -183,8 +179,12 @@ export default class TabManager extends EventTarget {
             ?.setWidgetGroupLeader(widgetId);
     }
 
-    addWidget(tabId: UUID, widgetId: UUID) {
-        this.tabs.find((tab) => tab.id === tabId)?.addWidget(widgetId);
+    addWidget(
+        tabId: UUID,
+        widgetId: UUID,
+        state: typeof Widget.prototype.state
+    ) {
+        this.tabs.find((tab) => tab.id === tabId)?.addWidget(widgetId, state);
 
         if (this.selectedTab?.id === tabId) {
             setTimeout(

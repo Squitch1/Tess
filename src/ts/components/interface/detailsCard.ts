@@ -228,9 +228,7 @@ export default class DetailsCard extends EventTarget {
 
     private changeEntry(data: WidgetData) {
         for (const page of this.pages) {
-            const entry = page.entries.find(
-                (entry) => entry.widgetId === data.id
-            );
+            const entry = page.entries.find((entry) => entry.id === data.id);
             if (entry) {
                 entry.setData(data);
                 break;
@@ -238,11 +236,9 @@ export default class DetailsCard extends EventTarget {
         }
     }
 
-    private removeEntry(data: WidgetData) {
+    private removeEntry(widgetId: UUID) {
         for (const page of this.pages) {
-            const entry = page.entries.find(
-                (entry) => entry.widgetId === data.id
-            );
+            const entry = page.entries.find((entry) => entry.id === widgetId);
             if (entry) {
                 entry.markAsClosed();
                 break;
@@ -351,7 +347,7 @@ export default class DetailsCard extends EventTarget {
 class DetailsCardEntry extends EventTarget {
     readonly element: HTMLDivElement;
 
-    private id: UUID;
+    readonly id: UUID;
     private icon: TabIcon;
     private title: HTMLSpanElement;
 
@@ -375,10 +371,6 @@ class DetailsCardEntry extends EventTarget {
         });
 
         this.setData(data);
-    }
-
-    get widgetId() {
-        return this.id;
     }
 
     setData(data: WidgetData) {

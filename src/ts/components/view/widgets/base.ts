@@ -1,33 +1,26 @@
 import { UUID } from "crypto";
 
+import clamp from "@/utils/clamp";
+
 import Pane from "../pane";
 
-export default abstract class Widget {
+export default abstract class Widget extends EventTarget {
     readonly id: UUID;
     readonly element: HTMLElement;
 
-    initialTitle?: string;
+    #state: {
+        title: string;
+        progress: number;
+    } = { title: "", progress: 0 };
+
     anchoringPane?: Pane;
 
-    onTitleUpdate: (title: string) => void;
-    onHighlightRequest: () => void;
-    onProgressUpdated: (progress: number) => void;
-
-    onceClosed: () => void;
-
     constructor() {
+        super();
         this.id = crypto.randomUUID();
 
         this.element = document.createElement("div");
         this.element.classList.add("widget");
-
-        this.onTitleUpdate = (title) => {
-            this.initialTitle = title;
-        };
-        this.onHighlightRequest = () => {};
-        this.onProgressUpdated = () => {};
-
-        this.onceClosed = () => {};
     }
 
     abstract run(): void;
@@ -41,6 +34,26 @@ export default abstract class Widget {
 
     blur() {
         this.element.blur();
+    }
+
+    get state() {
+        return structuredClone(this.#state);
+    }
+
+    set title(title: string) {
+        this.#state.title = title;
+
+        this.dispatchEvent(new Event("change"));
+    }
+
+    set progress(progress: number) {
+        this.#state.progress = clamp(0, progress, 100);
+
+        this.dispatchEvent(new Event("change"));
+    }
+
+    askAttention() {
+        this.dispatchEvent(new Event("attentionRequest"));
     }
 
     // eslint-disable-next-line class-methods-use-this

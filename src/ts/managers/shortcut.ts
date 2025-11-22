@@ -42,7 +42,7 @@ export default class ShortcutManager {
             const correspondingShortcut = this.shortcuts.find(
                 (shortcut) =>
                     shortcut[0].length === pressedShortcut.length &&
-                    pressedShortcut.every((k) => shortcut[0].includes(k))
+                    pressedShortcut.every((m) => shortcut[0].includes(m))
             );
 
             if (correspondingShortcut) {

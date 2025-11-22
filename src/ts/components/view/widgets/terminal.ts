@@ -14,49 +14,45 @@ import { Profile } from "@/schemas/settings";
 
 import Widget from "./base";
 
+type TerminalCallbacks = {
+    closable: () => Promise<boolean>;
+    leaderName: () => Promise<string>;
+    exit: () => Promise<void>;
+    keyPress: (e: KeyboardEvent) => boolean;
+};
+
 export default class Terminal extends Widget {
-    xterm: Xterm;
+    readonly xterm: Xterm;
+    private root: HTMLDivElement;
 
-    xtermTarget: HTMLDivElement;
+    private fitAddon: FitAddon;
 
-    xtermFitAddon: FitAddon;
+    private callbacks: TerminalCallbacks;
 
-    resizeObserver: ResizeObserver;
-
-    onTerminalResize: (cols: number, rows: number) => void;
-    onTerminalNeedClosability: () => Promise<boolean>;
-    onTerminalNeedLeaderName: () => Promise<string>;
-    onTerminalOutgoingData: (data: string) => void;
-    onTerminalKeyPress: (e: KeyboardEvent) => boolean;
-    onTerminalExit: () => Promise<void>;
+    private resizeObserver: ResizeObserver;
 
     private tooltip?: IDecoration[];
     private tooltipMarkers?: IMarker[];
     private tooltipPopTimeout?: ReturnType<typeof setTimeout>;
     private hyperlinkModifiers: string[];
 
-    constructor(profile: Profile) {
+    constructor(profile: Profile, callbacks: TerminalCallbacks) {
         super();
 
+        this.callbacks = callbacks;
+
         let background;
-        [this.xtermTarget, background] = Terminal.generateComponent(profile);
+        [this.root, background] = Terminal.generateComponent(profile);
         if (background) {
             this.element.appendChild(background);
         }
-        this.element.appendChild(this.xtermTarget);
+        this.element.appendChild(this.root);
 
         this.hyperlinkModifiers = profile.terminalSettings.hyperlinkModifier
             .toLowerCase()
             .replaceAll(" ", "")
             .split("+")
             .filter((m) => m !== "");
-
-        this.onTerminalResize = () => {};
-        this.onTerminalNeedClosability = async () => true;
-        this.onTerminalNeedLeaderName = async () => "Untitled";
-        this.onTerminalOutgoingData = () => {};
-        this.onTerminalKeyPress = () => true;
-        this.onTerminalExit = async () => {};
 
         const theme = structuredClone(profile.theme);
         if (profile.backgroundTransparency < 100) {
@@ -87,9 +83,9 @@ export default class Terminal extends Widget {
             theme,
         });
 
-        this.xtermFitAddon = new FitAddon();
+        this.fitAddon = new FitAddon();
 
-        this.xterm.loadAddon(this.xtermFitAddon);
+        this.xterm.loadAddon(this.fitAddon);
         this.xterm.loadAddon(new CanvasAddon());
         this.xterm.loadAddon(
             new WebLinksAddon((e, uri) => this.onLinkClicked(e, uri), {
@@ -98,11 +94,13 @@ export default class Terminal extends Widget {
             })
         );
 
-        this.xterm.onData((data) => this.onTerminalOutgoingData(data));
+        this.xterm.onData((data) =>
+            this.dispatchEvent(new CustomEvent("data", { detail: data }))
+        );
         this.xterm.onScroll(() => this.disposeTooltip());
 
         this.xterm.attachCustomKeyEventHandler((e) =>
-            this.onTerminalKeyPress(e)
+            this.callbacks.keyPress(e)
         );
         this.xterm.attachCustomWheelEventHandler((e) => {
             if (
@@ -130,50 +128,54 @@ export default class Terminal extends Widget {
         this.resizeObserver = new ResizeObserver(() => this.resizeXterm());
     }
 
-    run(): void {
-        this.xterm.open(this.xtermTarget);
+    run() {
+        this.xterm.open(this.root);
         this.resizeObserver.observe(this.element);
     }
 
     getShortTitle(): Promise<string> {
-        return this.onTerminalNeedLeaderName();
+        return this.callbacks.leaderName();
     }
 
     getClosability(): Promise<boolean> {
-        return this.onTerminalNeedClosability();
+        return this.callbacks.closable();
     }
 
     async close(): Promise<void> {
         try {
             this.resizeObserver.disconnect();
-            return this.onTerminalExit();
+            return this.callbacks.exit();
         } catch (e) {
             this.resizeObserver.observe(this.element);
             throw e;
         }
     }
 
-    override focus(): void {
+    override focus() {
         this.xterm.focus();
     }
 
-    override blur(): void {
+    override blur() {
         this.xterm.blur();
     }
 
-    override dispose(): void {
+    override dispose() {
         this.xterm.dispose();
         this.resizeObserver.disconnect();
     }
 
     private resizeXterm() {
         this.disposeTooltip();
-        const proposedDimensions = this.xtermFitAddon.proposeDimensions();
-        if (proposedDimensions?.cols && proposedDimensions.rows) {
-            this.xterm.resize(proposedDimensions.cols, proposedDimensions.rows);
-            this.onTerminalResize(
-                proposedDimensions.cols,
-                proposedDimensions.rows
+        const dimensions = this.fitAddon.proposeDimensions();
+        if (dimensions?.cols && dimensions.rows) {
+            this.xterm.resize(dimensions.cols, dimensions.rows);
+            this.dispatchEvent(
+                new CustomEvent("resize", {
+                    detail: {
+                        cols: dimensions.cols,
+                        rows: dimensions.rows,
+                    },
+                })
             );
         }
     }

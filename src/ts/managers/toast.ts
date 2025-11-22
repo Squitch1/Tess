@@ -21,17 +21,13 @@ export default class Toaster {
         type?: "info" | "warn" | "error"
     ): void;
     toast(
-        titleOrError: string | Error,
+        title: string | Error,
         message?: string,
         type: "info" | "warn" | "error" = "info"
     ) {
-        let title = titleOrError as string;
-        if (titleOrError instanceof Error) {
-            title =
-                titleOrError instanceof FancyError
-                    ? titleOrError.title
-                    : "Unknown error";
-            message = titleOrError.message;
+        if (title instanceof Error) {
+            message = title.message;
+            title = title instanceof FancyError ? title.title : "Unknown error";
             type = "error";
         }
 

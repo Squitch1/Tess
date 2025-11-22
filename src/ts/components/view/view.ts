@@ -3,71 +3,34 @@ import { UUID } from "crypto";
 import { PopupBuilder, PopupButton } from "@/components/interface/popup";
 import Widget from "@/components/view/widgets/base";
 
-import PopupManager from "@/managers/popup";
-import Toaster from "@/managers/toast";
-
 import Pane from "./pane";
 
-export default class View {
-    id: UUID;
-    element: HTMLElement;
+export default class View extends EventTarget {
+    readonly id: UUID;
+    readonly element: HTMLElement;
 
-    onceClosed: () => void;
-
-    onWidgetAdded: (widgetId: UUID) => void;
-    onWidgetFocused: (widgetId: UUID) => void;
-    onWidgetTitleUpdated: (widgetId: UUID, title: string) => void;
-    onWidgetRequestHighlight: (widgetId: UUID) => void;
-    onWidgetProgressUpdated: (widgetId: UUID, progress: number) => void;
-    onWidgetClosed: (widgetId: UUID) => void;
-
-    popupManager: PopupManager;
-    toaster: Toaster;
-
-    widgets: Widget[] = [];
-
-    focusHistory: string[] = [];
-    focusedWidget?: Widget;
+    private contentPane: Pane;
+    private focusedWidget?: Widget;
+    private widgets: Widget[] = [];
+    private focusHistory: string[] = [];
 
     private closingAllRequested: boolean = false;
     private widgetClosingRequested: boolean = false;
 
-    private contentPane: Pane;
+    constructor(viewId: UUID) {
+        super();
 
-    constructor(viewId: UUID, popupManager: PopupManager, toaster: Toaster) {
         this.id = viewId;
 
-        this.element = View.generateComponent();
-
-        this.onWidgetAdded = () => {};
-        this.onWidgetFocused = () => {};
-        this.onWidgetTitleUpdated = () => {};
-        this.onWidgetRequestHighlight = () => {};
-        this.onWidgetProgressUpdated = () => {};
-        this.onWidgetClosed = () => {};
-
-        this.contentPane = new Pane(
-            crypto.randomUUID(),
-            popupManager,
-            this.element,
-            () => {},
-            (widgetId) => this.onWidgetClosing(widgetId)
-        );
-        this.element.appendChild(this.contentPane.element);
-
-        this.onceClosed = () => {};
-
-        this.popupManager = popupManager;
-        this.toaster = toaster;
+        [this.element, this.contentPane] = View.generateComponent();
     }
 
-    private linkWidget(widget: Widget) {
-        widget.onTitleUpdate = (title) =>
-            this.onWidgetTitleUpdated(widget.id, title);
-        widget.onHighlightRequest = () =>
-            this.onWidgetRequestHighlight(widget.id);
-        widget.onProgressUpdated = (progress) =>
-            this.onWidgetProgressUpdated(widget.id, progress);
+    private connectWidget(widget: Widget) {
+        widget.addEventListener(
+            "close",
+            () => this.onWidgetClosing(widget.id),
+            { once: true }
+        );
 
         widget.element.addEventListener("focusin", () => {
             if (this.focusHistory[0] !== widget.id) {
@@ -75,29 +38,26 @@ export default class View {
             }
 
             this.focusedWidget = widget;
-            this.onWidgetFocused(widget.id);
+            this.dispatchEvent(
+                new CustomEvent("focusChange", { detail: widget.id })
+            );
         });
 
-        if (widget.initialTitle) {
-            setTimeout(() => {
-                this.onWidgetTitleUpdated(widget.id, widget.initialTitle!);
-            }, 0);
-        }
+        this.focusedWidget?.blur();
+        this.focusedWidget = widget;
 
         widget.run();
     }
 
     async addWidget(widget: Widget) {
-        if (this.widgets.length === 0) {
+        this.widgets.push(widget);
+        this.connectWidget(widget);
+
+        if (this.widgets.length === 1) {
             this.contentPane.setWidget(widget);
         } else {
             this.contentPane.split(widget);
         }
-
-        this.widgets.push(widget);
-        this.onWidgetAdded(widget.id);
-        this.linkWidget(widget);
-        this.focusedWidget = widget;
     }
 
     private onWidgetClosing(widgetId: UUID) {
@@ -106,9 +66,8 @@ export default class View {
             widget.dispose();
 
             this.widgets.splice(this.widgets.indexOf(widget), 1);
-            this.onWidgetClosed(widgetId);
             if (this.widgets.length === 0) {
-                this.onceClosed();
+                this.dispatchEvent(new Event("close"));
             }
             this.focusHistory = this.focusHistory.filter(
                 (id) => id !== widgetId
@@ -121,7 +80,11 @@ export default class View {
                 this.focusedWidget = this.widgets.find(
                     (widget) => widget.id === previouslyFocusedWidgetId
                 );
-                this.onWidgetFocused(this.focusedWidget!.id);
+                this.dispatchEvent(
+                    new CustomEvent("focusChange", {
+                        detail: this.focusedWidget!.id,
+                    })
+                );
             }
         }
     }
@@ -157,7 +120,7 @@ export default class View {
                 if (
                     !settings.closeConfirmation.group ||
                     (
-                        await this.popupManager.sendPopup(
+                        await popupManager.sendPopup(
                             new PopupBuilder(
                                 `Confirm close of ${this.widgets.length} widgets`
                             )
@@ -197,7 +160,7 @@ export default class View {
                     );
                     if (
                         (
-                            await this.popupManager.sendPopup(
+                            await popupManager.sendPopup(
                                 new PopupBuilder(
                                     `Confirm close of ${await widget.getShortTitle()}`
                                 )
@@ -257,36 +220,39 @@ export default class View {
         }
 
         this.widgets.push(widget);
-        this.linkWidget(widget);
+        this.connectWidget(widget);
 
         this.focusedWidget?.anchoringPane?.split(widget);
-
-        this.focusedWidget = widget;
-        this.onWidgetAdded(widget.id);
     }
 
     async splitSpecificWidget(widget: Widget, path: number[]) {
-        this.contentPane.splitSpecific(widget, path);
-
-        this.linkWidget(widget);
         this.widgets.push(widget);
-        this.focusedWidget = widget;
-        this.onWidgetAdded(widget.id);
+        this.connectWidget(widget);
+
+        this.contentPane.splitSpecific(widget, path);
     }
 
-    selectSpecificPane(): Promise<number[]> {
+    async selectSpecificPane(): Promise<number[]> {
         if (this.widgets.length <= 1) {
-            return Promise.resolve([]);
+            return [];
         }
 
         this.focusedWidget?.blur();
-        return this.contentPane.selectSpecific();
+        try {
+            return await this.contentPane.selectSpecific();
+        } catch (e) {
+            this.focusedWidget?.focus();
+            throw e;
+        }
     }
 
-    private static generateComponent(): HTMLDivElement {
+    private static generateComponent(): [HTMLDivElement, Pane] {
         const element = document.createElement("div");
         element.classList.add("view");
 
-        return element;
+        const pane = new Pane(element);
+        element.appendChild(pane.element);
+
+        return [element, pane];
     }
 }

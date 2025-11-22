@@ -5,6 +5,8 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Settings } from "@/schemas/settings";
 
 import App from "./app";
+import PopupManager from "./managers/popup";
+import Toaster from "./managers/toast";
 
 window.addEventListener("contextmenu", (e) => {
     e.preventDefault();
@@ -15,6 +17,8 @@ window.addEventListener("load", () =>
         globalThis.settings = settings;
         globalThis.webviewWindow = getCurrentWebviewWindow();
         globalThis.SVGNamespace = "http://www.w3.org/2000/svg";
+        globalThis.popupManager = new PopupManager();
+        globalThis.toaster = new Toaster(document.querySelector(".toasts")!);
 
         if (
             settings.background !== "opaque" &&
@@ -42,8 +46,7 @@ window.addEventListener("load", () =>
 
         const app = new App(
             document.querySelector(".views")!,
-            document.querySelector(".tabs")!,
-            document.querySelector(".toasts")!
+            document.querySelector(".tabs")!
         );
 
         document.querySelector(".open")!.addEventListener("click", async () => {

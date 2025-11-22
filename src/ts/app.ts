@@ -5,12 +5,11 @@ import { UUID } from "crypto";
 
 import { PopupBuilder, PopupButton } from "@/components/interface/popup";
 import View from "@/components/view/view";
+import Widget from "@/components/view/widgets/base";
 
-import PopupManager from "@/managers/popup";
 import ShortcutManager from "@/managers/shortcut";
 import TabManager from "@/managers/tab";
 import TerminalManager from "@/managers/terminal";
-import Toaster from "@/managers/toast";
 
 import { OpenTabPayload, ShowToastPayload } from "@/schemas/common";
 import {
@@ -27,26 +26,17 @@ export default class App {
     private target: Element;
 
     private tabsManager: TabManager;
-    private popupManager: PopupManager;
     private shortcutsManager: ShortcutManager;
     private terminalManager: TerminalManager;
 
     private views: View[] = [];
     private focusedView?: View;
 
-    private toaster: Toaster;
-
-    constructor(
-        target: Element,
-        tabsTarget: HTMLElement,
-        toastTarget: Element
-    ) {
+    constructor(target: Element, tabsTarget: HTMLElement) {
         this.target = target;
 
-        this.toaster = new Toaster(toastTarget);
-        this.toaster.onToastDismissed = () => this.focusedView?.focus();
-        this.popupManager = new PopupManager();
-        this.popupManager.onPopupClosed = () => {
+        toaster.onToastDismissed = () => this.focusedView?.focus();
+        popupManager.onPopupClosed = () => {
             this.focusedView?.focus();
         };
 
@@ -58,7 +48,7 @@ export default class App {
             this.onTabFocused((e as CustomEvent).detail);
         });
         this.tabsManager.addEventListener("tabTitleChange", (e) => {
-            this.onFocusedTabTitleUpdated((e as CustomEvent).detail);
+            App.refreshWindowTitle((e as CustomEvent).detail);
         });
         this.tabsManager.addEventListener("widgetFocusRequest", (e) => {
             const { tabId, widgetId } = (e as CustomEvent).detail;
@@ -79,7 +69,6 @@ export default class App {
 
         this.terminalManager = new TerminalManager(
             settings.profiles,
-            this.toaster,
             (e, term) => this.shortcutsManager.onKeyPress(e, term)
         );
 
@@ -89,15 +78,11 @@ export default class App {
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<number>("js_app_request_exit", (e) =>
-            this.closeApp(e)
+            App.closeApp(e)
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<ShowToastPayload>("js_show_toast", (e) =>
-            this.toaster.toast(
-                e.payload.title,
-                e.payload.message,
-                e.payload.type
-            )
+            toaster.toast(e.payload.title, e.payload.message, e.payload.type)
         );
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen<OpenTabPayload>("js_open_tab", async (e) => {
@@ -122,39 +107,12 @@ export default class App {
         });
     }
 
-    private async closeApp(e: Event<number>) {
-        const confirmButton = new PopupButton("confirm", "validate");
-        const cancelButton = new PopupButton("cancel", "dismiss");
-
-        if (
-            !settings.closeConfirmation.app ||
-            (
-                await this.popupManager.sendPopup(
-                    new PopupBuilder(`Confirm close of ${e.payload} windows`)
-                        .withMessage(`Are you sure to close the app?`)
-                        .withButtons(confirmButton, cancelButton)
-                )
-            ).action === "confirm"
-        ) {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            invoke("utils_close_app");
-        }
-    }
-
     private onTabFocused(tabId: UUID) {
         const view = this.views.find((view) => view.id === tabId);
         if (view) {
             this.focusedView?.blur();
             view.focus();
             this.focusedView = view;
-        }
-    }
-
-    // eslint-disable-next-line class-methods-use-this
-    private onFocusedTabTitleUpdated(title: string) {
-        if (settings.desktopIntegration.dynamicTitle) {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            invoke("window_set_title", { title });
         }
     }
 
@@ -165,7 +123,7 @@ export default class App {
                 await view.requestClosing();
             }
         } catch (e) {
-            this.toaster.toast(e as Error);
+            toaster.toast(e as Error);
         }
     }
 
@@ -213,19 +171,28 @@ export default class App {
                         break;
                     case "splitTabAndOpenProfile":
                         await this.focusedView?.addWidget(
-                            await this.terminalManager.openNew(action[1])
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(action[1])
+                            )
                         );
                         break;
                     case "splitFocusedPaneAndOpenProfile":
                         await this.focusedView?.splitFocusedWidget(
-                            await this.terminalManager.openNew(action[1])
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(action[1])
+                            )
                         );
                         break;
                     case "splitSpecificPaneAndOpenProfile": {
                         const path =
                             await this.focusedView!.selectSpecificPane();
                         await this.focusedView?.splitSpecificWidget(
-                            await this.terminalManager.openNew(action[1]),
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(action[1])
+                            ),
                             path
                         );
                         break;
@@ -266,8 +233,11 @@ export default class App {
                         const path =
                             await this.focusedView!.selectSpecificPane();
                         await this.focusedView?.splitSpecificWidget(
-                            await this.terminalManager.openNew(
-                                settings.defaultProfile.id
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(
+                                    settings.defaultProfile.id
+                                )
                             ),
                             path
                         );
@@ -275,15 +245,21 @@ export default class App {
                     }
                     case "splitFocusedPaneAndOpenDefaultProfile":
                         await this.focusedView?.splitFocusedWidget(
-                            await this.terminalManager.openNew(
-                                settings.defaultProfile.id
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(
+                                    settings.defaultProfile.id
+                                )
                             )
                         );
                         break;
                     case "splitTabAndOpenDefaultProfile":
                         await this.focusedView?.addWidget(
-                            await this.terminalManager.openNew(
-                                settings.defaultProfile.id
+                            this.connectWidget(
+                                this.focusedView.id,
+                                await this.terminalManager.openNew(
+                                    settings.defaultProfile.id
+                                )
                             )
                         );
                         break;
@@ -333,7 +309,7 @@ export default class App {
                 await e.target.close();
             }
 
-            this.toaster.toast(e as Error);
+            toaster.toast(e as Error);
         }
     }
 
@@ -348,7 +324,7 @@ export default class App {
                 if (
                     !settings.closeConfirmation.window ||
                     (
-                        await this.popupManager.sendPopup(
+                        await popupManager.sendPopup(
                             new PopupBuilder(
                                 `Confirm close of ${this.views.length} tabs`
                             )
@@ -366,29 +342,40 @@ export default class App {
                 }
             }
         } catch (e) {
-            this.toaster.toast(e as Error);
+            toaster.toast(e as Error);
         }
     }
 
     private generateView(): View {
         const viewId = crypto.randomUUID();
-        const view = new View(viewId, this.popupManager, this.toaster);
+        const view = new View(viewId);
 
-        view.onceClosed = () => this.onViewClosed(viewId);
-
-        view.onWidgetAdded = (widgetId) => this.onWidgetAdded(viewId, widgetId);
-        view.onWidgetFocused = (widgetId) =>
-            this.onWidgetFocused(viewId, widgetId);
-        view.onWidgetTitleUpdated = (widgetId, title) =>
-            this.onWidgetTitleUpdated(viewId, widgetId, title);
-        view.onWidgetRequestHighlight = (widgetId) =>
-            this.onWidgetRequestHighlight(viewId, widgetId);
-        view.onWidgetProgressUpdated = (widgetId, progress) =>
-            this.onWidgetProgressUpdated(viewId, widgetId, progress);
-        view.onWidgetClosed = (widgetId) =>
-            this.onWidgetClosed(viewId, widgetId);
+        view.addEventListener("close", () => this.onViewClosed(viewId), {
+            once: true,
+        });
+        view.addEventListener("focusChange", (e: CustomEventInit<UUID>) => {
+            this.onWidgetFocused(viewId, e.detail!);
+        });
 
         return view;
+    }
+
+    private connectWidget(viewId: UUID, widget: Widget): Widget {
+        widget.addEventListener("change", () => {
+            this.tabsManager.setWidgetState(viewId, widget.id, widget.state);
+        });
+        widget.addEventListener("attentionRequest", () => {
+            this.tabsManager.setWidgetAttention(viewId, widget.id, true);
+        });
+        widget.addEventListener(
+            "close",
+            () => this.onWidgetClosed(viewId, widget.id),
+            { once: true }
+        );
+        setTimeout(() => {
+            this.tabsManager.addWidget(viewId, widget.id, widget.state);
+        }, 0);
+        return widget;
     }
 
     async openProfile(
@@ -409,42 +396,49 @@ export default class App {
             const view = this.generateView();
             this.tabsManager.openTab(view.id);
             this.target.appendChild(view.element);
-            await view.addWidget(terminalWidget);
+
+            await view.addWidget(this.connectWidget(view.id, terminalWidget));
             this.views.push(view);
 
             if (focus) {
                 this.tabsManager.select(view.id);
             }
         } catch (e) {
-            this.toaster.toast(e as Error);
+            toaster.toast(e as Error);
         }
     }
 
-    private onWidgetRequestHighlight(viewId: UUID, paneId: UUID) {
-        this.tabsManager.setWidgetAttention(viewId, paneId, true);
+    private onWidgetFocused(viewId: UUID, widgetId: UUID) {
+        this.tabsManager.setWidgetGroupLeader(viewId, widgetId);
     }
 
-    private onWidgetTitleUpdated(viewId: UUID, paneId: UUID, title: string) {
-        this.tabsManager.setWidgetTitle(viewId, paneId, title);
+    private onWidgetClosed(viewId: UUID, widgetId: UUID) {
+        this.tabsManager.removeWidget(viewId, widgetId);
     }
 
-    private onWidgetProgressUpdated(
-        viewId: UUID,
-        paneId: UUID,
-        progress: number
-    ) {
-        this.tabsManager.setWidgetProgress(viewId, paneId, progress);
+    private static async closeApp(e: Event<number>) {
+        const confirmButton = new PopupButton("confirm", "validate");
+        const cancelButton = new PopupButton("cancel", "dismiss");
+
+        if (
+            !settings.closeConfirmation.app ||
+            (
+                await popupManager.sendPopup(
+                    new PopupBuilder(`Confirm close of ${e.payload} windows`)
+                        .withMessage(`Are you sure to close the app?`)
+                        .withButtons(confirmButton, cancelButton)
+                )
+            ).action === "confirm"
+        ) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            invoke("utils_close_app");
+        }
     }
 
-    private onWidgetFocused(viewId: UUID, paneId: UUID) {
-        this.tabsManager.setWidgetGroupLeader(viewId, paneId);
-    }
-
-    private onWidgetClosed(viewId: UUID, paneId: UUID) {
-        this.tabsManager.removeWidget(viewId, paneId);
-    }
-
-    private onWidgetAdded(viewId: UUID, paneId: UUID) {
-        this.tabsManager.addWidget(viewId, paneId);
+    private static refreshWindowTitle(title: string) {
+        if (settings.desktopIntegration.dynamicTitle) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            invoke("window_set_title", { title });
+        }
     }
 }
