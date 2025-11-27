@@ -9,6 +9,10 @@ import PopupManager from "./managers/popup";
 import Toaster from "./managers/toast";
 
 window.addEventListener("contextmenu", (e) => e.preventDefault());
+document.querySelector(".topbar")!.addEventListener("pointerdown", () => {
+    const element = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => element?.focus());
+});
 
 window.addEventListener("load", () =>
     invoke<Settings>("utils_get_settings").then(async (settings) => {
