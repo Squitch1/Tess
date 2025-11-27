@@ -21,18 +21,16 @@ function defaultWidgetData(widgetId: UUID): WidgetData {
 }
 
 export class Tab extends EventTarget {
-    element: HTMLElement;
+    readonly element: HTMLElement;
+    readonly id: UUID;
+    public index: number;
 
-    id: UUID;
-    index: number;
+    readonly resizeObserver: ResizeObserver;
 
-    title: string = "";
+    #widgets: Map<UUID, WidgetData> = new Map();
+    private activeWidget?: UUID;
 
-    widgets: Map<UUID, WidgetData> = new Map();
-
-    widgetGroupLeader?: UUID;
-
-    resizeObserver: ResizeObserver;
+    #title: string = "";
 
     private titleElement: HTMLSpanElement;
     private icon: TabIcon;
@@ -62,10 +60,18 @@ export class Tab extends EventTarget {
 
         this.refreshTitle();
 
-        this.resizeObserver = new ResizeObserver(() => {
-            this.computeTitleClipping();
-        });
+        this.resizeObserver = new ResizeObserver(() =>
+            this.computeTitleClipping()
+        );
         this.resizeObserver.observe(this.element);
+    }
+
+    get title() {
+        return this.#title;
+    }
+
+    get widgets() {
+        return new Map(this.#widgets);
     }
 
     computeTitleClipping() {
@@ -88,12 +94,12 @@ export class Tab extends EventTarget {
         const widget = defaultWidgetData(widgetId);
         widget.title = state.title;
         widget.progress = state.progress;
-        this.widgets.set(widgetId, widget);
+        this.#widgets.set(widgetId, widget);
         this.dispatchEvent(new CustomEvent("widgetAdded", { detail: widget }));
     }
 
     clearWidgetsAttention() {
-        this.widgets.forEach((widget) => {
+        this.#widgets.forEach((widget) => {
             widget.needsAttention = false;
             this.dispatchEvent(
                 new CustomEvent("widgetChange", { detail: widget })
@@ -105,7 +111,7 @@ export class Tab extends EventTarget {
 
     setWidgetState(widgetId: UUID, state: typeof Widget.prototype.state) {
         const widget =
-            this.widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+            this.#widgets.get(widgetId) ?? defaultWidgetData(widgetId);
         widget.title = state.title;
         widget.progress = state.progress;
         this.refreshTitle();
@@ -116,7 +122,7 @@ export class Tab extends EventTarget {
 
     setWidgetAttention(widgetId: UUID, needsAttention: boolean) {
         const widget =
-            this.widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+            this.#widgets.get(widgetId) ?? defaultWidgetData(widgetId);
         widget.needsAttention = needsAttention;
 
         this.refreshAttentionStatus();
@@ -124,15 +130,15 @@ export class Tab extends EventTarget {
     }
 
     setWidgetGroupLeader(widgetId: UUID) {
-        if (this.widgets.has(widgetId)) {
-            this.widgetGroupLeader = widgetId;
+        if (this.#widgets.has(widgetId)) {
+            this.activeWidget = widgetId;
         }
 
         this.refreshTitle();
     }
 
     removeWidget(widgetId: UUID) {
-        if (this.widgets.delete(widgetId)) {
+        if (this.#widgets.delete(widgetId)) {
             this.dispatchEvent(
                 new CustomEvent("widgetRemoved", { detail: widgetId })
             );
@@ -141,13 +147,13 @@ export class Tab extends EventTarget {
 
     private refreshTitle() {
         const title =
-            this.widgets.get(this.widgetGroupLeader!)?.title || "Untitled tab";
+            this.#widgets.get(this.activeWidget!)?.title || "Untitled tab";
 
-        if (this.title === title) {
+        if (this.#title === title) {
             return;
         }
 
-        this.title = title;
+        this.#title = title;
         this.titleElement.innerText = title;
         this.titleElement.classList.toggle(
             "clipped",
@@ -159,7 +165,7 @@ export class Tab extends EventTarget {
     private refreshProgress() {
         let count = 0;
         let sum = 0;
-        this.widgets.forEach((widget) => {
+        this.#widgets.forEach((widget) => {
             if (widget.progress > 0) {
                 count++;
                 sum += widget.progress;
@@ -171,7 +177,7 @@ export class Tab extends EventTarget {
 
     private refreshAttentionStatus() {
         this.icon.setAttention(
-            Array.from(this.widgets.values()).some(
+            Array.from(this.#widgets.values()).some(
                 (widget) => widget.needsAttention
             )
         );

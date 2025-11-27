@@ -42,11 +42,10 @@ export default class TabManager extends EventTarget {
         );
         this.detailsCard.addEventListener(
             "widgetCloseRequest",
-            (e: CustomEventInit) => {
+            (e: CustomEventInit) =>
                 this.dispatchEvent(
                     new CustomEvent("widgetCloseRequest", { detail: e.detail })
-                );
-            }
+                )
         );
 
         let draggingAnimationFrame: number;
@@ -225,9 +224,7 @@ export default class TabManager extends EventTarget {
                     tab.element.style.order = `${tab.index}`;
                 }
             });
-            setTimeout(() => {
-                tab.element.remove();
-            }, 140);
+            setTimeout(() => tab.element.remove(), 140);
 
             if (this.selectedTab!.id === tabId) {
                 this.select(
@@ -277,58 +274,52 @@ export default class TabManager extends EventTarget {
         }
     }
 
-    getSelected(): Tab {
-        return this.selectedTab!;
-    }
-
-    private focusAndStartDragging(e: MouseEvent, target: Tab) {
+    private focusAndStartDragging(e: MouseEvent, tab: Tab) {
         if (
             (e.target as HTMLElement).classList.contains("close") ||
             this.tabs.length === 1
         ) {
+            const element = document.activeElement as HTMLElement | null;
+            requestAnimationFrame(() => element?.focus());
             return;
         }
+
         e.preventDefault();
-        this.select(target.id);
+        this.select(tab.id);
 
-        this.movingTab = target;
+        tab.element.style.animation = "";
+
+        this.movingTab = tab;
         this.initialMousePosition = e.clientX;
-        this.initialOffsetLeft = this.movingTab.element.offsetLeft;
-
-        this.movingTab.element.style.animation = "";
-
-        this.nextTab = this.tabs.find(
-            (item) => item.index === this.movingTab!.index + 1
-        );
-        this.prevTab = this.tabs.find(
-            (item) => item.index === this.movingTab!.index - 1
-        );
+        this.initialOffsetLeft = tab.element.offsetLeft;
+        this.nextTab = this.tabs.find((item) => item.index === tab.index + 1);
+        this.prevTab = this.tabs.find((item) => item.index === tab.index - 1);
     }
 
-    private inDragging(movingTab: Tab, deltaX: number) {
-        movingTab.element.classList.add("dragging");
+    private inDragging(tab: Tab, deltaX: number) {
+        tab.element.classList.add("dragging");
 
         if (
             this.initialOffsetLeft + deltaX > 0 &&
-            deltaX + movingTab.element.clientWidth + this.initialOffsetLeft <
+            deltaX + tab.element.clientWidth + this.initialOffsetLeft <
                 this.target.clientWidth
         ) {
-            movingTab.element.style.transform = `translateX(${deltaX}px)`;
+            tab.element.style.transform = `translateX(${deltaX}px)`;
         } else if (this.initialOffsetLeft + deltaX < 0) {
-            movingTab.element.style.transform = `translateX(${-this
+            tab.element.style.transform = `translateX(${-this
                 .initialOffsetLeft}px)`;
         } else if (
-            deltaX + movingTab.element.clientWidth + this.initialOffsetLeft >
+            deltaX + tab.element.clientWidth + this.initialOffsetLeft >
             this.target.clientWidth
         ) {
-            movingTab.element.style.transform = `translateX(${
+            tab.element.style.transform = `translateX(${
                 this.target.clientWidth -
-                movingTab.element.clientWidth -
+                tab.element.clientWidth -
                 this.initialOffsetLeft
             }px)`;
         }
 
-        const deltaIndex = Math.round(deltaX / movingTab.element.clientWidth);
+        const deltaIndex = Math.round(deltaX / tab.element.clientWidth);
         while (deltaIndex !== this.movingTabDeltaIndex) {
             let slidingTab;
             let slidingTabTranslation;
@@ -346,7 +337,7 @@ export default class TabManager extends EventTarget {
                 }
 
                 this.movingTabDeltaIndex += 1;
-                movingTab.index += 1;
+                tab.index += 1;
                 slidingTab.index -= 1;
                 this.prevTab = slidingTab;
                 this.nextTab = this.tabs.find(
@@ -366,7 +357,7 @@ export default class TabManager extends EventTarget {
                 }
 
                 this.movingTabDeltaIndex -= 1;
-                movingTab.index -= 1;
+                tab.index -= 1;
                 slidingTab.index += 1;
                 this.nextTab = slidingTab;
                 this.prevTab = this.tabs.find(
@@ -379,53 +370,42 @@ export default class TabManager extends EventTarget {
         }
     }
 
-    private stopDragging(movingTab: Tab) {
-        const matrix = new WebKitCSSMatrix(
-            window.getComputedStyle(movingTab.element).transform
-        );
-        const deltaX = matrix.m41;
+    private stopDragging(tab: Tab) {
+        const deltaX = new WebKitCSSMatrix(
+            window.getComputedStyle(tab.element).transform
+        ).m41;
 
         this.tabsMovedLeft.forEach((tab) => {
-            tab.element.style.order = `${Number(tab.element.style.order) - 1}`;
-            tab.index = Number(tab.element.style.order);
+            const index = Number(tab.element.style.order) - 1;
+            tab.element.style.order = `${index}`;
+            tab.index = index;
         });
-
         this.tabsMovedRight.forEach((tab) => {
-            tab.element.style.order = `${Number(tab.element.style.order) + 1}`;
-            tab.index = Number(tab.element.style.order);
+            const index = Number(tab.element.style.order) + 1;
+            tab.element.style.order = `${index}`;
+            tab.index = index;
         });
-
         this.tabs.forEach((tab) => {
             tab.element.classList.remove("moved");
             tab.element.style.transform = "";
         });
 
-        movingTab.element.style.order = `${movingTab.index}`;
-
-        const deltaIndex = Math.round(
-            deltaX / this.movingTab!.element.clientWidth
-        );
-
-        movingTab.element.style.transform = `translateX(${
-            matrix.m41 - deltaIndex * movingTab.element.clientWidth
-        }px)`;
-
-        movingTab.index = Number(movingTab.element.style.order);
-
-        const movedTab = this.movingTab!;
-        movedTab.element.style.animation =
-            "tab-slide-to-center 140ms ease-in-out forwards";
-
-        movedTab.element.addEventListener(
+        tab.element.addEventListener(
             "animationend",
             (e) => {
-                const movedTab = e.target as HTMLElement;
-                movedTab.classList.remove("dragging");
-                movedTab.style.transform = "";
-                movedTab.style.animation = "";
+                const element = e.target as HTMLElement;
+                element.classList.remove("dragging");
+                element.style.transform = "";
+                element.style.animation = "";
             },
             { once: true }
         );
+        tab.element.style.order = `${tab.index}`;
+        tab.element.style.animation =
+            "tab-slide-to-center 140ms ease-in-out forwards";
+        tab.element.style.transform = `translateX(${
+            deltaX - this.movingTabDeltaIndex * tab.element.clientWidth
+        }px)`;
 
         this.movingTab = undefined;
         this.prevTab = undefined;

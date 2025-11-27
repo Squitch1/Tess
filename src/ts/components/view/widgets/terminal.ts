@@ -115,11 +115,11 @@ export default class Terminal extends Widget {
             return true;
         });
 
-        const onRender = this.xterm.onRender(() => {
+        const onRender = this.xterm.onRender(() =>
             setTimeout(() => {
                 this.resizeXterm();
-            }, 0);
-        });
+            }, 0)
+        );
         const onResize = this.xterm.onResize(() => {
             onRender.dispose();
             onResize.dispose();
@@ -171,10 +171,7 @@ export default class Terminal extends Widget {
             this.xterm.resize(dimensions.cols, dimensions.rows);
             this.dispatchEvent(
                 new CustomEvent("resize", {
-                    detail: {
-                        cols: dimensions.cols,
-                        rows: dimensions.rows,
-                    },
+                    detail: dimensions,
                 })
             );
         }
@@ -388,12 +385,8 @@ export default class Terminal extends Widget {
         if (!this.tooltip) {
             return;
         }
-        this.tooltip.forEach((t) => {
-            t.dispose();
-        });
-        this.tooltipMarkers!.forEach((m) => {
-            m.dispose();
-        });
+        this.tooltip.forEach((t) => t.dispose());
+        this.tooltipMarkers!.forEach((m) => m.dispose());
         this.tooltip = undefined;
         this.tooltipMarkers = undefined;
     }

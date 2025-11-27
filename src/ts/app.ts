@@ -35,42 +35,53 @@ export default class App {
     constructor(target: Element, tabsTarget: HTMLElement) {
         this.target = target;
 
-        toaster.onToastDismissed = () => this.focusedView?.focus();
-        popupManager.onPopupClosed = () => {
-            this.focusedView?.focus();
-        };
-
         this.tabsManager = new TabManager(tabsTarget);
-        this.tabsManager.addEventListener("tabCloseRequest", async (e) => {
-            await this.onTabRequestClose((e as CustomEvent).detail);
-        });
-        this.tabsManager.addEventListener("tabFocus", (e) => {
-            this.onTabFocused((e as CustomEvent).detail);
-        });
-        this.tabsManager.addEventListener("tabTitleChange", (e) => {
-            App.refreshWindowTitle((e as CustomEvent).detail);
-        });
-        this.tabsManager.addEventListener("widgetFocusRequest", (e) => {
-            const { tabId, widgetId } = (e as CustomEvent).detail;
-            this.views.find((view) => view.id === tabId)?.focusWidget(widgetId);
-        });
-        this.tabsManager.addEventListener("widgetCloseRequest", async (e) => {
-            const { tabId, widgetId } = (e as CustomEvent).detail;
-
-            await this.views
-                .find((view) => view.id === tabId)
-                ?.closeWidget(widgetId);
-        });
-
-        this.shortcutsManager = new ShortcutManager(
-            settings.shortcuts,
-            (action, target) => this.onShortcutExecuted(action, target)
+        this.tabsManager.addEventListener(
+            "tabCloseRequest",
+            async (e: CustomEventInit) => this.onTabRequestClose(e.detail)
+        );
+        this.tabsManager.addEventListener("tabFocus", (e: CustomEventInit) =>
+            this.onTabFocused(e.detail)
+        );
+        this.tabsManager.addEventListener(
+            "tabTitleChange",
+            (e: CustomEventInit) => App.refreshWindowTitle(e.detail)
+        );
+        this.tabsManager.addEventListener(
+            "widgetFocusRequest",
+            (e: CustomEventInit) => {
+                const { tabId, widgetId } = e.detail;
+                this.views
+                    .find((view) => view.id === tabId)
+                    ?.focusWidget(widgetId);
+            }
+        );
+        this.tabsManager.addEventListener(
+            "widgetCloseRequest",
+            async (e: CustomEventInit) => {
+                const { tabId, widgetId } = e.detail;
+                await this.views
+                    .find((view) => view.id === tabId)
+                    ?.closeWidget(widgetId);
+            }
         );
 
-        this.terminalManager = new TerminalManager(
-            settings.profiles,
-            (e, term) => this.shortcutsManager.onKeyPress(e, term)
+        this.shortcutsManager = new ShortcutManager();
+        this.shortcutsManager.addEventListener(
+            "shortcut",
+            async (e: CustomEventInit) => {
+                const { shortcut, target } = e.detail;
+                await this.onShortcutExecuted(shortcut, target);
+            }
         );
+
+        this.terminalManager = new TerminalManager((e, target) =>
+            this.shortcutsManager.onKeyPress(e, target)
+        );
+
+        popupManager.addEventListener("popupClosed", () => {
+            this.focusedView!.focus();
+        });
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen("js_window_request_closing", () =>
@@ -264,9 +275,7 @@ export default class App {
                         );
                         break;
                     case "closeFocusedTab":
-                        await this.onTabRequestClose(
-                            this.tabsManager.getSelected().id
-                        );
+                        await this.focusedView?.requestClosing();
                         break;
                     case "closeFocusedPane":
                         await this.focusedView!.requestClosingFocused();
@@ -353,28 +362,29 @@ export default class App {
         view.addEventListener("close", () => this.onViewClosed(viewId), {
             once: true,
         });
-        view.addEventListener("focusChange", (e: CustomEventInit<UUID>) => {
-            this.onWidgetFocused(viewId, e.detail!);
-        });
+        view.addEventListener("focusChange", (e: CustomEventInit<UUID>) =>
+            this.onWidgetFocused(viewId, e.detail!)
+        );
 
         return view;
     }
 
     private connectWidget(viewId: UUID, widget: Widget): Widget {
-        widget.addEventListener("change", () => {
-            this.tabsManager.setWidgetState(viewId, widget.id, widget.state);
-        });
-        widget.addEventListener("attentionRequest", () => {
-            this.tabsManager.setWidgetAttention(viewId, widget.id, true);
-        });
+        widget.addEventListener("change", () =>
+            this.tabsManager.setWidgetState(viewId, widget.id, widget.state)
+        );
+        widget.addEventListener("attentionRequest", () =>
+            this.tabsManager.setWidgetAttention(viewId, widget.id, true)
+        );
         widget.addEventListener(
             "close",
             () => this.onWidgetClosed(viewId, widget.id),
             { once: true }
         );
-        setTimeout(() => {
-            this.tabsManager.addWidget(viewId, widget.id, widget.state);
-        }, 0);
+        setTimeout(
+            () => this.tabsManager.addWidget(viewId, widget.id, widget.state),
+            0
+        );
         return widget;
     }
 

@@ -8,9 +8,7 @@ import App from "./app";
 import PopupManager from "./managers/popup";
 import Toaster from "./managers/toast";
 
-window.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-});
+window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 window.addEventListener("load", () =>
     invoke<Settings>("utils_get_settings").then(async (settings) => {
@@ -49,9 +47,11 @@ window.addEventListener("load", () =>
             document.querySelector(".tabs")!
         );
 
-        document.querySelector(".open")!.addEventListener("click", async () => {
-            await app.openProfile(settings.defaultProfile.id, true);
-        });
+        document
+            .querySelector(".open")!
+            .addEventListener("click", async () =>
+                app.openProfile(settings.defaultProfile.id, true)
+            );
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         emit("loaded");

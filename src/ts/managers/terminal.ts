@@ -13,7 +13,6 @@ import {
     UnknownProfileError,
     UnknownTerminalError,
 } from "@/schemas/error";
-import { Profile } from "@/schemas/settings";
 import {
     PtyDataPayload,
     PtyProgressUpdatedPayload,
@@ -21,19 +20,15 @@ import {
 } from "@/schemas/term";
 
 export default class TerminalManager {
-    profiles: Profile[];
-    terminals: Terminal[] = [];
+    private terminals: Terminal[] = [];
+    private flows: Map<string, [number, boolean]> = new Map();
 
-    terminalFlows: Map<string, [number, boolean]> = new Map();
-
-    onTerminalKeyPress: (e: KeyboardEvent, term: Terminal) => boolean;
+    private keyPressCallback: (e: KeyboardEvent, term: Terminal) => boolean;
 
     constructor(
-        profiles: Profile[],
-        onTerminalKeyPress: (e: KeyboardEvent, term: Terminal) => boolean
+        keyPressCallback: (e: KeyboardEvent, term: Terminal) => boolean
     ) {
-        this.profiles = profiles;
-        this.onTerminalKeyPress = onTerminalKeyPress;
+        this.keyPressCallback = keyPressCallback;
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         listen<PtyDataPayload>("js_pty_incoming_data", (e) =>
@@ -75,10 +70,11 @@ export default class TerminalManager {
         );
         if (index > -1) {
             const terminal = this.terminals.splice(index, 1)[0];
-            this.terminalFlows.delete(e.payload);
-            setTimeout(() => {
-                terminal.dispatchEvent(new CustomEvent("close"));
-            }, 0);
+            this.flows.delete(e.payload);
+            setTimeout(
+                () => terminal.dispatchEvent(new CustomEvent("close")),
+                0
+            );
         }
     }
 
@@ -102,7 +98,7 @@ export default class TerminalManager {
             (terminal) => terminal.id === e.payload.ptyId
         );
         if (terminal) {
-            let [buffered, paused] = this.terminalFlows.get(e.payload.ptyId)!;
+            let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
 
             if (buffered > 262144 && !paused) {
                 invoke("pty_pause", { ptyId: e.payload.ptyId }).catch((e) =>
@@ -116,12 +112,10 @@ export default class TerminalManager {
                 paused = true;
             }
             buffered += e.payload.data.length;
-            this.terminalFlows.set(e.payload.ptyId, [buffered, paused]);
+            this.flows.set(e.payload.ptyId, [buffered, paused]);
 
             terminal.xterm.write(e.payload.data, () => {
-                let [buffered, paused] = this.terminalFlows.get(
-                    e.payload.ptyId
-                )!;
+                let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
                 buffered = Math.max(buffered - e.payload.data.length, 0);
 
                 if (buffered < 65536 && paused) {
@@ -137,7 +131,7 @@ export default class TerminalManager {
                     paused = false;
                 }
 
-                this.terminalFlows.set(e.payload.ptyId, [buffered, paused]);
+                this.flows.set(e.payload.ptyId, [buffered, paused]);
             });
         }
     }
@@ -148,7 +142,7 @@ export default class TerminalManager {
         workdir?: string,
         title?: string
     ): Promise<Terminal> {
-        const profile = this.profiles.find(
+        const profile = settings.profiles.find(
             (profile) => profile.id === profileId
         );
         if (!profile) {
@@ -180,7 +174,7 @@ export default class TerminalManager {
                     );
                 }
             },
-            keyPress: (e) => this.onTerminalKeyPress(e, terminal),
+            keyPress: (e) => this.keyPressCallback(e, terminal),
             exit: async () => {
                 try {
                     await invoke<void>("pty_close", {
@@ -196,7 +190,7 @@ export default class TerminalManager {
         });
         try {
             this.terminals.push(terminal);
-            this.terminalFlows.set(terminal.id, [0, false]);
+            this.flows.set(terminal.id, [0, false]);
             await invoke("pty_open", {
                 ptyId: terminal.id,
                 profileId,
@@ -206,7 +200,7 @@ export default class TerminalManager {
             });
         } catch (e) {
             this.terminals.pop();
-            this.terminalFlows.delete(terminal.id);
+            this.flows.delete(terminal.id);
             throw new PtyCreateError(e as string, "Unable to create terminal");
         }
 
@@ -228,7 +222,7 @@ export default class TerminalManager {
                 });
             }
         );
-        terminal.addEventListener("data", (e: CustomEventInit<string>) => {
+        terminal.addEventListener("data", (e: CustomEventInit<string>) =>
             invoke("pty_write", { data: e.detail, ptyId: terminal.id }).catch(
                 (e) => {
                     toaster.toast(
@@ -238,8 +232,8 @@ export default class TerminalManager {
                         )
                     );
                 }
-            );
-        });
+            )
+        );
 
         return terminal;
     }

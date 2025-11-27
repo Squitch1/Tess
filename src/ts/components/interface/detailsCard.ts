@@ -358,11 +358,11 @@ class DetailsCardEntry extends EventTarget {
             DetailsCardEntry.generateComponent();
         this.id = data.id;
 
-        this.element.addEventListener("click", () => {
+        this.element.addEventListener("click", () =>
             this.dispatchEvent(
                 new CustomEvent("focusRequest", { detail: this.id })
-            );
-        });
+            )
+        );
         closeButton.addEventListener("click", (e) => {
             e.stopImmediatePropagation();
             this.dispatchEvent(

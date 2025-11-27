@@ -13,11 +13,7 @@ module.exports = {
     },
     rules: {
         "default-case": "off",
-        "lines-between-class-members": [
-            "error",
-            "always",
-            { exceptAfterSingleLine: true },
-        ],
+        "lines-between-class-members": "off",
         "max-classes-per-file": "off",
         "no-param-reassign": "off",
         "no-plusplus": "off",
@@ -31,6 +27,11 @@ module.exports = {
         "no-use-before-define": "off",
 
         "@typescript-eslint/await-thenable": "error",
+        "@typescript-eslint/lines-between-class-members": [
+            "error",
+            "always",
+            { exceptAfterSingleLine: true },
+        ],
         "@typescript-eslint/naming-convention": "error",
         "@typescript-eslint/no-floating-promises": "error",
         "@typescript-eslint/no-unnecessary-condition": "error",
@@ -42,10 +43,7 @@ module.exports = {
         "import/extensions": [
             "error",
             "ignorePackages",
-            {
-                js: "never",
-                ts: "never",
-            },
+            { js: "never", ts: "never" },
         ],
         "import/no-cycle": "error",
         "import/no-extraneous-dependencies": [

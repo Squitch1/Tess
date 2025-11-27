@@ -43,9 +43,7 @@ export default class Pane extends EventTarget {
         this.onceWidgetClosedListener = () => this.onContentClosed();
         this.onceContentClosedListener = (e) => this.onContentClosed(e.detail);
 
-        this.resizeObserver = new ResizeObserver(() => {
-            this.reflowLayout();
-        });
+        this.resizeObserver = new ResizeObserver(() => this.reflowLayout());
 
         if (widget) {
             this.setWidget(widget);
@@ -79,9 +77,7 @@ export default class Pane extends EventTarget {
             innerPane.addEventListener(
                 "close",
                 this.onceContentClosedListener,
-                {
-                    once: true,
-                }
+                { once: true }
             );
             this.#element.classList.add("subview");
             this.#element.appendChild(innerPane.#element);
@@ -257,13 +253,15 @@ export default class Pane extends EventTarget {
                                         "fade-out-index"
                                     );
                                 });
-                                setTimeout(() => {
-                                    panes.forEach((pane) => {
-                                        pane.#element.classList.remove(
-                                            "fade-out-index"
-                                        );
-                                    });
-                                }, 100);
+                                setTimeout(
+                                    () =>
+                                        panes.forEach((pane) => {
+                                            pane.#element.classList.remove(
+                                                "fade-out-index"
+                                            );
+                                        }),
+                                    100
+                                );
 
                                 const partialPath = await panes
                                     .at(selectedIndex)
@@ -301,12 +299,12 @@ export default class Pane extends EventTarget {
                                     );
                                     this.inSpecificSelection = true;
                                     this.#element.classList.add("indexed");
-                                    panes.forEach((pane, i) => {
+                                    panes.forEach((pane, i) =>
                                         pane.#element.classList.toggle(
                                             "unselected",
                                             i !== selectedIndex
-                                        );
-                                    });
+                                        )
+                                    );
                                 } else {
                                     panes.forEach((pane) => {
                                         pane.#element.classList.remove(
@@ -320,14 +318,16 @@ export default class Pane extends EventTarget {
                                 }
                             }
                         }
-                        setTimeout(() => {
-                            panes.forEach((pane) => {
-                                pane.#element.classList.remove(
-                                    "fade-out-background",
-                                    "fade-out-index"
-                                );
-                            });
-                        }, 100);
+                        setTimeout(
+                            () =>
+                                panes.forEach((pane) =>
+                                    pane.#element.classList.remove(
+                                        "fade-out-background",
+                                        "fade-out-index"
+                                    )
+                                ),
+                            100
+                        );
                     } else {
                         let newSelectedIndex: number = NaN;
                         const panesCount = panes.length;
@@ -417,12 +417,12 @@ export default class Pane extends EventTarget {
                             newSelectedIndex < panesCount
                         ) {
                             selectedIndex = newSelectedIndex;
-                            panes.forEach((pane, i) => {
+                            panes.forEach((pane, i) =>
                                 pane.#element.classList.toggle(
                                     "unselected",
                                     i !== selectedIndex
-                                );
-                            });
+                                )
+                            );
                         }
                     }
                 }),

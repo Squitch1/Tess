@@ -1,17 +1,14 @@
-/* eslint-disable lines-between-class-members */
 import { FancyError } from "@/schemas/error";
 
 import hasCSSAnimation from "@/utils/dom";
 
-export default class Toaster {
+export default class Toaster extends EventTarget {
     private target: Element;
     private toasts: HTMLDivElement[] = [];
 
-    onToastDismissed: () => void;
-
     constructor(target: Element) {
+        super();
         this.target = target;
-        this.onToastDismissed = () => {};
     }
 
     toast(e: Error): void;
@@ -149,6 +146,12 @@ export default class Toaster {
 
         let closeButtonListener;
         let closeTimeout: ReturnType<typeof setTimeout>;
+
+        toast.addEventListener("pointerdown", () => {
+            const element = document.activeElement as HTMLElement | null;
+            requestAnimationFrame(() => element?.focus());
+        });
+
         dismissToastButton.addEventListener(
             "click",
             (closeButtonListener = () => {
@@ -164,7 +167,6 @@ export default class Toaster {
                     this.toasts.indexOf(toast)
                 );
                 this.toasts.splice(this.toasts.indexOf(toast), 1);
-                this.onToastDismissed();
 
                 setTimeout(() => {
                     const toastHeight = toast.clientHeight;

@@ -23,19 +23,6 @@ export default abstract class Widget extends EventTarget {
         this.element.classList.add("widget");
     }
 
-    abstract run(): void;
-    abstract getShortTitle(): Promise<string>;
-    abstract getClosability(): Promise<boolean>;
-    abstract close(): Promise<void>;
-
-    focus() {
-        this.element.focus();
-    }
-
-    blur() {
-        this.element.blur();
-    }
-
     get state() {
         return structuredClone(this.#state);
     }
@@ -52,9 +39,22 @@ export default abstract class Widget extends EventTarget {
         this.dispatchEvent(new Event("change"));
     }
 
+    focus() {
+        this.element.focus();
+    }
+
+    blur() {
+        this.element.blur();
+    }
+
     askAttention() {
         this.dispatchEvent(new Event("attentionRequest"));
     }
+
+    abstract run(): void;
+    abstract getShortTitle(): Promise<string>;
+    abstract getClosability(): Promise<boolean>;
+    abstract close(): Promise<void>;
 
     // eslint-disable-next-line class-methods-use-this
     dispose() {}

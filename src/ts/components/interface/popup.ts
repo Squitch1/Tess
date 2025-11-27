@@ -1,8 +1,8 @@
 export class PopupBuilder {
-    title: string;
-    message?: string;
-    doNotShowAgain: boolean = false;
-    buttons: PopupButton[] = [];
+    private title: string;
+    private message?: string;
+    private doNotShowAgain: boolean = false;
+    private buttons: PopupButton[] = [];
 
     constructor(title: string) {
         this.title = title;
@@ -156,18 +156,30 @@ export class PopupBuilder {
 }
 
 export class PopupButton {
-    type: "dismiss" | "validate" | "custom";
-    content: string;
-    actionId: string;
+    #type: "dismiss" | "validate" | "custom";
+    #content: string;
+    #actionId: string;
 
     constructor(
         content: string,
         type: "dismiss" | "validate" | "custom" = "dismiss",
         actionId: string = content
     ) {
-        this.content = content;
-        this.actionId = actionId;
-        this.type = type;
+        this.#content = content;
+        this.#actionId = actionId;
+        this.#type = type;
+    }
+
+    get type() {
+        return this.#type;
+    }
+
+    get content() {
+        return this.#content;
+    }
+
+    get actionId() {
+        return this.#actionId;
     }
 }
 

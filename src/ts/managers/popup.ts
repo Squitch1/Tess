@@ -1,14 +1,8 @@
 import { PopupBuilder, PopupResult } from "@/components/interface/popup";
 
-export default class PopupManager {
-    waitingQueue: [PopupBuilder, HTMLElement, (value: unknown) => void][] = [];
-    usedTarget: HTMLElement[] = [];
-
-    onPopupClosed: () => void;
-
-    constructor() {
-        this.onPopupClosed = () => {};
-    }
+export default class PopupManager extends EventTarget {
+    private usedTargets: HTMLElement[] = [];
+    private queue: [PopupBuilder, HTMLElement, (value: void) => void][] = [];
 
     sendPopup(
         popupBuilder: PopupBuilder,
@@ -16,15 +10,15 @@ export default class PopupManager {
     ): Promise<PopupResult> {
         return new Promise(async (resolve) => {
             if (
-                this.usedTarget.find(
+                this.usedTargets.find(
                     (registredTarget) => registredTarget === target
                 )
             ) {
                 await new Promise((resolve) => {
-                    this.waitingQueue.push([popupBuilder, target, resolve]);
+                    this.queue.push([popupBuilder, target, resolve]);
                 });
             } else {
-                this.usedTarget.push(target);
+                this.usedTargets.push(target);
             }
 
             let onTargetGetFocus: (e: FocusEvent) => void;
@@ -39,11 +33,11 @@ export default class PopupManager {
                     ".popup"
                 )!.style.animation = "zoom-fade 140ms forwards reverse";
 
-                this.onPopupClosed();
+                this.dispatchEvent(new CustomEvent("popupClosed"));
 
                 setTimeout(() => {
                     target.removeChild(popupBuilt);
-                    this.popupClosed(target);
+                    this.nextPopup(target);
                 }, 140);
                 resolve({
                     action,
@@ -121,18 +115,13 @@ export default class PopupManager {
         });
     }
 
-    private popupClosed(target: HTMLElement) {
-        const waitingPopup = this.waitingQueue.find(
-            (item) => item[1] === target
-        );
-        if (waitingPopup) {
-            this.waitingQueue.splice(
-                this.waitingQueue.indexOf(waitingPopup),
-                1
-            );
-            waitingPopup[2](null);
+    private nextPopup(target: HTMLElement) {
+        const popup = this.queue.find((popup) => popup[1] === target);
+        if (popup) {
+            this.queue.splice(this.queue.indexOf(popup), 1);
+            popup[2]();
         } else {
-            this.usedTarget.splice(this.usedTarget.indexOf(target), 1);
+            this.usedTargets.splice(this.usedTargets.indexOf(target), 1);
         }
     }
 }
