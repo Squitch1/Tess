@@ -120,10 +120,10 @@ export class Tab extends EventTarget {
         this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setWidgetAttention(widgetId: UUID, needsAttention: boolean) {
+    askWidgetAttention(widgetId: UUID) {
         const widget =
             this.#widgets.get(widgetId) ?? defaultWidgetData(widgetId);
-        widget.needsAttention = needsAttention;
+        widget.needsAttention = true;
 
         this.refreshAttentionStatus();
         this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
@@ -147,6 +147,7 @@ export class Tab extends EventTarget {
 
     private refreshTitle() {
         const title =
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
             this.#widgets.get(this.activeWidget!)?.title || "Untitled tab";
 
         if (this.#title === title) {

@@ -374,7 +374,7 @@ export default class App {
             this.tabsManager.setWidgetState(viewId, widget.id, widget.state)
         );
         widget.addEventListener("attentionRequest", () =>
-            this.tabsManager.setWidgetAttention(viewId, widget.id, true)
+            this.tabsManager.askWidgetAttention(viewId, widget.id)
         );
         widget.addEventListener(
             "close",

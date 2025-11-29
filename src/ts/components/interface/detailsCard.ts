@@ -374,7 +374,7 @@ class DetailsCardEntry extends EventTarget {
     }
 
     setData(data: WidgetData) {
-        this.title.innerText = data.title;
+        this.title.innerText = data.title || "Untitled";
         this.icon.setProgress(data.progress);
         this.icon.setAttention(data.needsAttention);
     }

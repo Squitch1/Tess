@@ -162,14 +162,12 @@ export default class TabManager extends EventTarget {
             ?.setWidgetState(widgetId, state);
     }
 
-    setWidgetAttention(tabId: UUID, widgetId: UUID, needsAttention: boolean) {
+    askWidgetAttention(tabId: UUID, widgetId: UUID) {
         if (this.selectedTab?.id === tabId) {
             return;
         }
 
-        this.tabs
-            .find((tab) => tab.id === tabId)
-            ?.setWidgetAttention(widgetId, needsAttention);
+        this.tabs.find((tab) => tab.id === tabId)?.askWidgetAttention(widgetId);
     }
 
     setWidgetGroupLeader(tabId: UUID, widgetId: UUID) {
