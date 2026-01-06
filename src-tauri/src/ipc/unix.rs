@@ -70,6 +70,6 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        std::fs::remove_file(self.addr.clone()).ok();
+        std::fs::remove_file(&self.addr).ok();
     }
 }
