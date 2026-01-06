@@ -62,30 +62,27 @@ export default class View extends EventTarget {
 
     private onWidgetClosing(widgetId: UUID) {
         const widget = this.widgets.find((widget) => widget.id === widgetId);
-        if (widget) {
-            widget.dispose();
+        if (!widget) {
+            return;
+        }
 
-            this.widgets.splice(this.widgets.indexOf(widget), 1);
-            if (this.widgets.length === 0) {
-                this.dispatchEvent(new Event("close"));
-            }
-            this.focusHistory = this.focusHistory.filter(
-                (id) => id !== widgetId
+        widget.dispose();
+
+        this.widgets.splice(this.widgets.indexOf(widget), 1);
+        if (this.widgets.length === 0) {
+            this.dispatchEvent(new Event("close"));
+        }
+        this.focusHistory = this.focusHistory.filter((id) => id !== widgetId);
+        if (this.focusedWidget?.id === widgetId && this.widgets.length > 0) {
+            const previouslyFocusedWidgetId = this.focusHistory.shift()!;
+            this.focusedWidget = this.widgets.find(
+                (widget) => widget.id === previouslyFocusedWidgetId
             );
-            if (
-                this.focusedWidget?.id === widgetId &&
-                this.widgets.length > 0
-            ) {
-                const previouslyFocusedWidgetId = this.focusHistory.shift()!;
-                this.focusedWidget = this.widgets.find(
-                    (widget) => widget.id === previouslyFocusedWidgetId
-                );
-                this.dispatchEvent(
-                    new CustomEvent("focusChange", {
-                        detail: this.focusedWidget!.id,
-                    })
-                );
-            }
+            this.dispatchEvent(
+                new CustomEvent("focusChange", {
+                    detail: this.focusedWidget!.id,
+                })
+            );
         }
     }
 

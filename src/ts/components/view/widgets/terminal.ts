@@ -321,21 +321,20 @@ export default class Terminal extends Widget {
                     tooltipRenderedEvent.dispose();
                     element.classList.add("highlight");
 
-                    if (
-                        lineIndex === 0 &&
-                        range.start.x > 1 &&
-                        (lineCount > 2 ||
-                            (lineCount === 2 && range.end.x >= range.start.x))
-                    ) {
-                        element.classList.add("bl-corner-inv");
+                    if (lineCount === 1) {
+                        return;
                     }
-                    if (
-                        lineIndex === lineCount - 1 &&
-                        range.end.x < this.xterm.cols &&
-                        (lineCount > 2 ||
-                            (lineCount === 2 && range.end.x >= range.start.x))
-                    ) {
-                        element.classList.add("tr-corner-inv");
+
+                    if (lineCount > 2 || range.end.x >= range.start.x) {
+                        if (lineIndex === 0 && range.start.x > 1) {
+                            element.classList.add("bl-corner-inv");
+                        }
+                        if (
+                            lineIndex === lineCount - 1 &&
+                            range.end.x < this.xterm.cols
+                        ) {
+                            element.classList.add("tr-corner-inv");
+                        }
                     }
 
                     if (lineCount === 2) {
@@ -352,27 +351,27 @@ export default class Terminal extends Widget {
                                 }
                             }
                         }
-                    } else if (lineCount >= 3) {
-                        element.style.borderTopLeftRadius = "0";
-                        element.style.borderTopRightRadius = "0";
-                        element.style.borderBottomLeftRadius = "0";
-                        element.style.borderBottomRightRadius = "0";
+                        return;
+                    }
+                    element.style.borderTopLeftRadius = "0";
+                    element.style.borderTopRightRadius = "0";
+                    element.style.borderBottomLeftRadius = "0";
+                    element.style.borderBottomRightRadius = "0";
 
-                        if (lineIndex === 0) {
-                            element.style.borderTopLeftRadius = "";
-                            element.style.borderTopRightRadius = "";
-                            element.classList.add("aa");
-                        } else if (lineIndex === 1 && range.start.x > 1) {
-                            element.style.borderTopLeftRadius = "";
-                        } else if (
-                            lineIndex === lineCount - 2 &&
-                            range.end.x < this.xterm.cols
-                        ) {
-                            element.style.borderBottomRightRadius = "";
-                        } else if (lineIndex === lineCount - 1) {
-                            element.style.borderBottomLeftRadius = "";
-                            element.style.borderBottomRightRadius = "";
-                        }
+                    if (lineIndex === 0) {
+                        element.style.borderTopLeftRadius = "";
+                        element.style.borderTopRightRadius = "";
+                        element.classList.add("aa");
+                    } else if (lineIndex === 1 && range.start.x > 1) {
+                        element.style.borderTopLeftRadius = "";
+                    } else if (
+                        lineIndex === lineCount - 2 &&
+                        range.end.x < this.xterm.cols
+                    ) {
+                        element.style.borderBottomRightRadius = "";
+                    } else if (lineIndex === lineCount - 1) {
+                        element.style.borderBottomLeftRadius = "";
+                        element.style.borderBottomRightRadius = "";
                     }
                 }
             );

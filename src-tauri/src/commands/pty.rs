@@ -48,7 +48,7 @@ pub async fn pty_open(
             move |data| {
                 app.emit(
                     "js_pty_incoming_data",
-                    schemas::pty::SendData { data, pty_id },
+                    schemas::pty::SendData { pty_id, data },
                 )
                 .ok();
             },

@@ -41,7 +41,10 @@ export class PaneOutOfCapacityError extends FancyError {
     target: Widget;
 
     constructor(title: string, target: Widget) {
-        super("You can only have 36 sub-panes per pane.", title);
+        super(
+            `You can only have ${MAX_SPLITS_PER_PANE} sub-panes per pane.`,
+            title
+        );
         this.target = target;
     }
 }

@@ -18,7 +18,6 @@ window.addEventListener("load", () =>
     invoke<Settings>("utils_get_settings").then(async (settings) => {
         globalThis.settings = settings;
         globalThis.webviewWindow = getCurrentWebviewWindow();
-        globalThis.SVGNamespace = "http://www.w3.org/2000/svg";
         globalThis.popupManager = new PopupManager();
         globalThis.toaster = new Toaster(document.querySelector(".toasts")!);
 

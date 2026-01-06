@@ -15,9 +15,9 @@ export default class CircularProgressBar {
         const element = document.createElement("div");
         element.classList.add("circular-progress-bar");
 
-        const svg = document.createElementNS(SVGNamespace, "svg");
+        const svg = document.createElementNS(SVG_NAMESPACE, "svg");
         svg.setAttribute("viewBox", "0 0 18 18");
-        const circle = document.createElementNS(SVGNamespace, "circle");
+        const circle = document.createElementNS(SVG_NAMESPACE, "circle");
         circle.setAttribute("cx", "9");
         circle.setAttribute("cy", "9");
         circle.setAttribute("r", "8");

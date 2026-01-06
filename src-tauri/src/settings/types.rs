@@ -79,9 +79,10 @@ impl<const MIN: u32, const MAX: u32, const DEF: u32> serde::Serialize
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Default, Serialize, Clone)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub enum BackgroundType {
+    #[default]
     Opaque,
     Media(BackgroundMedia),
     Transparent,
@@ -119,12 +120,6 @@ impl FromStr for BackgroundType {
     }
 }
 
-impl Default for BackgroundType {
-    fn default() -> Self {
-        Self::Opaque
-    }
-}
-
 impl<'de> serde::Deserialize<'de> for BackgroundType {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Debug, Deserialize)]
@@ -141,18 +136,13 @@ impl<'de> serde::Deserialize<'de> for BackgroundType {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, Serialize)]
+#[derive(Debug, Default, Deserialize, Clone, Copy, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CursorType {
+    #[default]
     Block,
     Bar,
     Underline,
-}
-
-impl Default for CursorType {
-    fn default() -> Self {
-        Self::Block
-    }
 }
 
 #[derive(Debug, Serialize, Clone)]

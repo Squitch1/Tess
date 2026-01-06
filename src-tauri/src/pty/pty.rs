@@ -1,12 +1,11 @@
 use super::process;
 use super::title_formatter::{Params, TitleFormatter};
 
-use crate::common::consts::{PTY_BUFFER_SIZE, TESS_VERSION};
+use crate::common::consts::{PTY_BUFFER_SIZE, RE_FRACTION, RE_PERCENTAGE, TESS_VERSION};
 use crate::common::errors::PtyError;
 
 use futures::future::join_all;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-use regex_lite::Regex;
 use std::ffi::{OsStr, OsString};
 use std::io::{Read, Write};
 use std::pin::Pin;
@@ -43,6 +42,7 @@ unsafe impl Send for Pty {}
 unsafe impl Sync for Pty {}
 
 impl Pty {
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub fn build_and_run(
         command: &str,
         workdir: Option<impl AsRef<OsStr>>,
@@ -182,11 +182,6 @@ impl Pty {
                 let mut buf = [0; PTY_BUFFER_SIZE];
                 let mut remaining = 0;
 
-                lazy_static::lazy_static! {
-                    static ref PROGRESS_PARSING_PERCENT_REGEX: Regex = Regex::new(r"(([0-9]*[.])?[0-9]+%)").unwrap();
-                    static ref PROGRESS_PARSING_FRAC_REGEX: Regex = Regex::new(r"(\d+/\d+)").unwrap();
-                }
-
                 loop {
                     if paused.load(Ordering::Relaxed) {
                         std::thread::sleep(Duration::from_millis(10));
@@ -227,23 +222,22 @@ impl Pty {
                         }
 
                         if progress_tracking && !pre_parser.screen().alternate_screen() {
-                            let fetched_progress = PROGRESS_PARSING_PERCENT_REGEX
+                            let fetched_progress = RE_PERCENTAGE
                                 .find_iter(&cached_content)
                                 .map(|m| {
                                     m.as_str()
                                         .split('%')
                                         .next()
                                         .and_then(|number| number.parse::<f64>().ok())
-                                        .map(|progress| progress.ceil() as u64)
+                                        .filter(|progress| (0f64..100f64).contains(progress))
                                         .unwrap_or_default()
                                 })
-                                .filter(|progress| (0..100).contains(progress))
                                 .last()
                                 .map_or_else(
                                     || {
-                                        PROGRESS_PARSING_FRAC_REGEX
+                                        RE_FRACTION
                                             .find_iter(&cached_content)
-                                            .map(|m| {
+                                            .filter_map(|m| {
                                                 let (numerator, denominator) = m
                                                     .as_str()
                                                     .split_once('/')
@@ -254,18 +248,25 @@ impl Pty {
                                                         )
                                                     });
                                                 if numerator == 0 || numerator >= denominator {
-                                                    0
+                                                    None
                                                 } else {
-                                                    (numerator * 100 / denominator).max(1)
+                                                    Some(
+                                                        f64::from(numerator * 100)
+                                                            / f64::from(denominator),
+                                                    )
                                                 }
                                             })
-                                            .filter(|progress| *progress > 0)
                                             .last()
                                     },
                                     Some,
                                 )
-                                .filter(|progress| *progress <= 100)
-                                .map(|progress| (progress % 100) as u8)
+                                .map(
+                                    #[allow(
+                                        clippy::cast_possible_truncation,
+                                        clippy::cast_sign_loss
+                                    )]
+                                    |progress| progress as u8,
+                                )
                                 .unwrap_or_default();
 
                             if fetched_progress != current_progress.load(Ordering::Relaxed) {

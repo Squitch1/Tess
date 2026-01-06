@@ -66,7 +66,10 @@ export default class Pane extends EventTarget {
     }
 
     split(widget: Widget) {
-        if (this.isSubview && (this.content as Pane[]).length >= 36) {
+        if (
+            this.isSubview &&
+            (this.content as Pane[]).length >= MAX_SPLITS_PER_PANE
+        ) {
             throw new PaneOutOfCapacityError("Unable to split pane", widget);
         }
 
@@ -239,7 +242,7 @@ export default class Pane extends EventTarget {
                                 );
                                 pane.#element.setAttribute(
                                     "data-index",
-                                    i.toString(36)
+                                    i.toString(MAX_SPLITS_PER_PANE)
                                 );
                             });
                         } else {
@@ -247,7 +250,7 @@ export default class Pane extends EventTarget {
                                 panes.forEach((pane, i) => {
                                     pane.#element.setAttribute(
                                         "data-index",
-                                        i.toString(36)
+                                        i.toString(MAX_SPLITS_PER_PANE)
                                     );
                                     pane.#element.classList.add(
                                         "fade-out-index"
@@ -408,7 +411,10 @@ export default class Pane extends EventTarget {
                                 }
                                 break;
                             default:
-                                newSelectedIndex = Number.parseInt(e.key, 36);
+                                newSelectedIndex = Number.parseInt(
+                                    e.key,
+                                    MAX_SPLITS_PER_PANE
+                                );
                         }
 
                         if (

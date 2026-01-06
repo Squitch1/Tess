@@ -11,11 +11,12 @@ declare global {
     var webviewWindow: WebviewWindow;
     var popupManager: PopupManager;
     var toaster: Toaster;
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    var SVGNamespace: string;
 
     declare module "*.png" {
         const value: string;
         export default value;
     }
+
+    declare const MAX_SPLITS_PER_PANE: number;
+    declare const SVG_NAMESPACE: string;
 }

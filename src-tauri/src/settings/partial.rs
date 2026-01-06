@@ -80,6 +80,7 @@ pub struct PartialMacro {
     pub id: Option<Uuid>,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn deserialize_profile_background<'de, D>(data: D) -> Result<Option<BackgroundMedia>, D::Error>
 where
     D: Deserializer<'de>,

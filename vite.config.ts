@@ -8,6 +8,10 @@ export default defineConfig({
     server: {
         strictPort: true,
     },
+    define: {
+        MAX_SPLITS_PER_PANE: 36,
+        SVG_NAMESPACE: JSON.stringify("http://www.w3.org/2000/svg"),
+    },
     build: {
         target: ["esnext"],
         minify: !process.env["TAURI_DEBUG"] ? "terser" : false,

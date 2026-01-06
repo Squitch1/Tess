@@ -129,10 +129,9 @@ export default class App {
 
     private async onTabRequestClose(tabId: UUID) {
         try {
-            const view = this.views.find((view) => view.id === tabId);
-            if (view) {
-                await view.requestClosing();
-            }
+            await this.views
+                .find((view) => view.id === tabId)
+                ?.requestClosing();
         } catch (e) {
             toaster.toast(e as Error);
         }

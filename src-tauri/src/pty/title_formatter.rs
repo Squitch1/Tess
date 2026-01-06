@@ -3,6 +3,7 @@ enum TitlePart {
     Static(String),
     Dynamic([String; 3]),
 }
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Default, Clone, Copy, Debug)]
 pub struct Options {
     pub pwd: bool,

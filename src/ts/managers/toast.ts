@@ -38,7 +38,7 @@ export default class Toaster extends EventTarget {
         toastTitle.classList.add("title");
         toastTitle.innerText = title;
 
-        const toastIcon = document.createElementNS(SVGNamespace, "svg");
+        const toastIcon = document.createElementNS(SVG_NAMESPACE, "svg");
         toastIcon.setAttribute("fill", "currentColor");
         toastIcon.setAttribute("viewBox", "0 0 20 20");
         toastIcon.classList.add("icon");

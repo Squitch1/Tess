@@ -72,6 +72,7 @@ impl Default for Settings {
 }
 
 impl<'de> serde::Deserialize<'de> for Settings {
+    #[allow(clippy::too_many_lines)]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let partial_settings = PartialSettings::deserialize(deserializer)?;
 
@@ -471,6 +472,7 @@ impl Default for TerminalTheme {
 }
 
 impl<'de> Deserialize<'de> for TerminalTheme {
+    #[allow(clippy::too_many_lines)]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize, Default)]
         struct PartialTerminalTheme {

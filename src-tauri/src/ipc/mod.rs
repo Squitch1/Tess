@@ -1,3 +1,5 @@
+#![allow(clippy::ref_option_ref)]
+
 #[cfg(target_family = "unix")]
 mod unix;
 
