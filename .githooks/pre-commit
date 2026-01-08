@@ -1,25 +1,26 @@
 #!/bin/bash
 
-exe=$(which rustfmt)
+reset="\033[0m"
+red="\033[1;31m"
+green="\033[1;32m"
+erase_line="\r\033[2K"
 
-if [ -n "$exe" ]
-then
-    IFS=$'\n'
+IFS=""
+commands=(
+    "cargo fmt --check --manifest-path src-tauri/Cargo.toml"
+    "npx eslint . --color"
+)
+steps=(
+    "cargo fmt"
+    "eslint"
+)
 
-    for line in $(git status -s)
-    do
-        if [[ $line == A* || $line == M* ]]
-        then
-            if [[ $line == *.rs ]]
-            then
-                rustfmt $(pwd)/${line:3}
-                git add $(pwd)/${line:3}
-            fi
-        fi
-    done
-
-else
-    echo "rustfmt was not found"
-fi
-
-# From "https://stackoverflow.com/questions/71222422/how-can-i-auto-format-rust-and-c-code-on-commit-automatically"
+for i in "${!commands[@]}"; do
+    printf "[$((i + 1))/${#commands[@]}] ${green}Validating$reset ${steps[$i]}"
+    if ! output=$(eval "${commands[$i]}"); then
+        printf "$erase_line[$((i + 1))/${#commands[@]}] ${red}Failed$reset ${steps[$i]}\n"
+        printf "$output"
+        exit 1
+    fi
+    printf "$erase_line[$((i + 1))/${#commands[@]}] ${green}Validated$reset ${steps[$i]}\n"
+done

@@ -6,7 +6,7 @@ module.exports = {
         "plugin:import/recommended",
         "prettier",
     ],
-    ignorePatterns: [".eslintrc.cjs", "vite.config.ts"],
+    ignorePatterns: [".eslintrc.cjs", "vite.config.ts", "src-tauri"],
     plugins: ["prettier"],
     parserOptions: {
         project: ["tsconfig.json"],

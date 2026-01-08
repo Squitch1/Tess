@@ -138,6 +138,7 @@ export class PopupBuilder {
             });
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!hasDismissButtons) {
             const buttonElement = document.createElement("div");
             buttonElement.classList.add("button", "dismiss");

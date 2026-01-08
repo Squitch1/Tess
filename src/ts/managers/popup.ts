@@ -8,6 +8,7 @@ export default class PopupManager extends EventTarget {
         popupBuilder: PopupBuilder,
         target: HTMLElement = document.body
     ): Promise<PopupResult> {
+        // eslint-disable-next-line no-async-promise-executor
         return new Promise(async (resolve) => {
             if (
                 this.usedTargets.find(
