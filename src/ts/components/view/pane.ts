@@ -10,6 +10,7 @@ import {
     ViewSelectSpecificPaneError,
 } from "@/schemas/error";
 
+import { roundHalfDown } from "@/utils/math";
 import computeLayout from "@/utils/tilling";
 
 export default class Pane extends EventTarget {
@@ -376,9 +377,7 @@ export default class Pane extends EventTarget {
 
                                     newSelectedIndex =
                                         (this.rowsSpan - 1) * this.colsSpan +
-                                        (x - Math.floor(x) === 0.5
-                                            ? Math.floor(x)
-                                            : Math.round(x));
+                                        roundHalfDown(x);
                                 }
                                 break;
                             case "ArrowUp":

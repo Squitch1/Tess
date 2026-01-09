@@ -1,6 +1,6 @@
 import { UUID } from "crypto";
 
-import clamp from "@/utils/clamp";
+import { clamp } from "@/utils/math";
 
 import Pane from "../pane";
 

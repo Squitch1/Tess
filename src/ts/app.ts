@@ -222,7 +222,7 @@ export default class App {
                             let clipboardContent;
                             try {
                                 clipboardContent = await clipboard.readText();
-                            } catch (e) {
+                            } catch (_) {
                                 /* empty */
                             }
                             if (clipboardContent) {

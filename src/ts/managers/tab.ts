@@ -4,7 +4,7 @@ import DetailsCard from "@/components/interface/detailsCard";
 import { Tab } from "@/components/interface/tab";
 import Widget from "@/components/view/widgets/base";
 
-import clamp from "@/utils/clamp";
+import { clamp } from "@/utils/math";
 
 export default class TabManager extends EventTarget {
     private target: Element;
@@ -60,7 +60,7 @@ export default class TabManager extends EventTarget {
             if (
                 !this.movingTab ||
                 (!this.movingTab.element.classList.contains("dragging") &&
-                    deltaX * deltaX < 12 * 12)
+                    deltaX * deltaX < TAB_DRAG_THRESHOLD * TAB_DRAG_THRESHOLD)
             ) {
                 return;
             }
@@ -219,7 +219,7 @@ export default class TabManager extends EventTarget {
             this.tabs.forEach((tab) => {
                 if (tab.index > closingTabIndex) {
                     tab.index -= 1;
-                    tab.element.style.order = `${tab.index}`;
+                    tab.element.style.order = tab.index.toString(10);
                 }
             });
             setTimeout(() => tab.element.remove(), 140);
@@ -398,7 +398,7 @@ export default class TabManager extends EventTarget {
             },
             { once: true }
         );
-        tab.element.style.order = `${tab.index}`;
+        tab.element.style.order = tab.index.toString(10);
         tab.element.style.animation =
             "tab-slide-to-center 140ms ease-in-out forwards";
         tab.element.style.transform = `translateX(${

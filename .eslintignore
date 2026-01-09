@@ -1,0 +1,17 @@
+/packaging
+/src-tauri
+/target
+
+/icons
+/src/assets
+/src/style
+/src/index.html
+
+.eslintrc.cjs
+package-lock.json
+package.json
+tsconfig.json
+vite.config.ts
+
+LICENSE
+README.md

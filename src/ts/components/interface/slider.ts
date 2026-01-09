@@ -43,7 +43,7 @@ export default class Slider extends EventTarget {
         const onceDotsHidden = () => {
             const shallResize = this.element.children.length < 2 !== count < 2;
 
-            this.element.innerHTML = "";
+            this.element.replaceChildren();
             for (let index = 0; index < this.pageCount; index++) {
                 const dot = document.createElement("div");
                 dot.classList.toggle("active", index === this.currentPageIndex);

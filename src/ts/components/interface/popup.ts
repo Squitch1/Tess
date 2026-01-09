@@ -85,60 +85,37 @@ export class PopupBuilder {
             popupButtons.appendChild(doNotShowAgainElement);
         }
 
-        let hasDismissButtons = false;
+        let hasDismissButtons = false as boolean;
         if (this.buttons.length > 0) {
             let hasValidateButton = false;
 
             this.buttons.forEach((button) => {
-                if (!hasValidateButton && button.type === "validate") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
+                if (
+                    (hasValidateButton && button.type === "validate") ||
+                    (hasDismissButtons && button.type === "dismiss")
+                ) {
+                    return;
+                }
+
+                const buttonElement = document.createElement("div");
+                buttonElement.classList.add("button");
+                buttonElement.innerText = button.content;
+                buttonElement.setAttribute("tabindex", "0");
+                buttonElement.addEventListener("click", () =>
+                    callback(button.actionId, doNotShowAgainCheckbox?.checked)
+                );
+                popupButtons.appendChild(buttonElement);
+
+                if (button.type === "validate") {
                     buttonElement.classList.add("primary");
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
-
                     hasValidateButton = true;
-                } else if (!hasDismissButtons && button.type === "dismiss") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button", "dismiss");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
-
+                } else if (button.type === "dismiss") {
+                    buttonElement.classList.add("dismiss");
                     hasDismissButtons = true;
-                } else if (button.type === "custom") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
                 }
             });
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (!hasDismissButtons) {
             const buttonElement = document.createElement("div");
             buttonElement.classList.add("button", "dismiss");

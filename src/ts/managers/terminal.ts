@@ -62,7 +62,7 @@ export default class TerminalManager {
     private async onTerminalProcessExited(e: Event<UUID>) {
         try {
             await invoke<void>("pty_close", { ptyId: e.payload });
-        } catch (e) {
+        } catch (_) {
             /* empty */
         }
         const index = this.terminals.findIndex(
@@ -100,7 +100,7 @@ export default class TerminalManager {
         if (terminal) {
             let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
 
-            if (buffered > 262144 && !paused) {
+            if (buffered > PTY_BUFFERED_MAX && !paused) {
                 invoke("pty_pause", { ptyId: e.payload.ptyId }).catch((e) =>
                     toaster.toast(
                         new PtyPropertyError(
@@ -118,7 +118,7 @@ export default class TerminalManager {
                 let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
                 buffered = Math.max(buffered - e.payload.data.length, 0);
 
-                if (buffered < 65536 && paused) {
+                if (buffered < PTY_BUFFERED_MIN && paused) {
                     invoke("pty_resume", { ptyId: e.payload.ptyId }).catch(
                         (e) =>
                             toaster.toast(

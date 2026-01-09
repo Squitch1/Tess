@@ -18,5 +18,8 @@ declare global {
     }
 
     declare const MAX_SPLITS_PER_PANE: number;
+    declare const TAB_DRAG_THRESHOLD: number;
+    declare const PTY_BUFFERED_MIN: number;
+    declare const PTY_BUFFERED_MAX: number;
     declare const SVG_NAMESPACE: string;
 }

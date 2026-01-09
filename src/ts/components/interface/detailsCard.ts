@@ -3,7 +3,7 @@ import { UUID } from "crypto";
 import Slider from "@/components/interface/slider";
 import { Tab, TabIcon, WidgetData } from "@/components/interface/tab";
 
-import clamp from "@/utils/clamp";
+import { clamp } from "@/utils/math";
 
 type DetailsCardEntriesPage = {
     element: HTMLDivElement;
@@ -14,14 +14,15 @@ enum Direction {
     left = "-1",
     right = "1",
 }
+// eslint-disable-next-line @typescript-eslint/consistent-return
 function reverseDirection(dir?: Direction) {
     switch (dir) {
         case Direction.left:
             return Direction.right;
         case Direction.right:
             return Direction.left;
-        default:
-            return dir;
+        case undefined:
+            return undefined;
     }
 }
 
@@ -83,7 +84,7 @@ export default class DetailsCard extends EventTarget {
 
         if (!this.tab) {
             this.pages = [];
-            this.pagesContainer.innerHTML = "";
+            this.pagesContainer.replaceChildren();
             this.pagesContainer.style.height = "";
         }
 

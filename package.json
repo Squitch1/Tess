@@ -17,9 +17,10 @@
         "@xterm/xterm": "5.4.0"
     },
     "devDependencies": {
+        "@stylistic/eslint-plugin": "^3.1.0",
         "@trivago/prettier-plugin-sort-imports": "^5.2.2",
         "@types/node": "^24.10.0",
-        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "@typescript-eslint/eslint-plugin": "^8.52.0",
         "cssnano": "^7.1.2",
         "eslint": "^8.57.1",
         "eslint-config-airbnb-base": "^15.0.0",

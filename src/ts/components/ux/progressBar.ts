@@ -7,7 +7,7 @@ export default class CircularProgressBar {
 
     setProgress(progress: number) {
         if (progress >= 0 && progress <= 100) {
-            this.element.style.setProperty("--progress", `${progress}`);
+            this.element.style.setProperty("--progress", progress.toString(10));
         }
     }
 
