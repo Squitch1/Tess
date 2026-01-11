@@ -74,7 +74,7 @@ export class PopupBuilder {
 
             doNotShowAgainCheckbox = document.createElement("input");
             doNotShowAgainCheckbox.type = "checkbox";
-            doNotShowAgainCheckbox.setAttribute("tabindex", "0");
+            doNotShowAgainCheckbox.tabIndex = 0;
 
             doNotShowAgainInput.append(
                 doNotShowAgainCheckbox,
@@ -100,7 +100,7 @@ export class PopupBuilder {
                 const buttonElement = document.createElement("div");
                 buttonElement.classList.add("button");
                 buttonElement.innerText = button.content;
-                buttonElement.setAttribute("tabindex", "0");
+                buttonElement.tabIndex = 0;
                 buttonElement.addEventListener("click", () =>
                     callback(button.actionId, doNotShowAgainCheckbox?.checked)
                 );
@@ -123,7 +123,7 @@ export class PopupBuilder {
             buttonElement.addEventListener("click", () =>
                 callback("dismiss", doNotShowAgainCheckbox?.checked)
             );
-            buttonElement.setAttribute("tabindex", "0");
+            buttonElement.tabIndex = 0;
             popupButtons.prepend(buttonElement);
         }
 

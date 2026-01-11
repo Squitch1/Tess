@@ -361,7 +361,6 @@ export default class Terminal extends Widget {
                     if (lineIndex === 0) {
                         element.style.borderTopLeftRadius = "";
                         element.style.borderTopRightRadius = "";
-                        element.classList.add("aa");
                     } else if (lineIndex === 1 && range.start.x > 1) {
                         element.style.borderTopLeftRadius = "";
                     } else if (

@@ -100,7 +100,7 @@ export default class PopupManager extends EventTarget {
                 )!.style.animation = "";
             }, 140);
 
-            popupBuilt.setAttribute("tabindex", "0");
+            popupBuilt.tabIndex = 0;
             target.appendChild(popupBuilt);
 
             target.addEventListener(
