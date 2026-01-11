@@ -9,7 +9,7 @@ export default class Slider extends EventTarget {
     constructor() {
         super();
 
-        this.element = Slider.generateComponents();
+        this.element = Slider.generateComponent();
 
         this.element.addEventListener("click", (e) => {
             for (let k = 0; k < this.element.children.length; k++) {
@@ -43,7 +43,7 @@ export default class Slider extends EventTarget {
         const onceDotsHidden = () => {
             const shallResize = this.element.children.length < 2 !== count < 2;
 
-            this.element.innerHTML = "";
+            this.element.replaceChildren();
             for (let index = 0; index < this.pageCount; index++) {
                 const dot = document.createElement("div");
                 dot.classList.toggle("active", index === this.currentPageIndex);
@@ -84,7 +84,7 @@ export default class Slider extends EventTarget {
         }
     }
 
-    private static generateComponents(): HTMLDivElement {
+    private static generateComponent(): HTMLDivElement {
         const element = document.createElement("div");
         element.classList.add("slider");
         return element;

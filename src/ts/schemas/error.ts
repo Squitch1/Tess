@@ -1,4 +1,6 @@
-import Widget from "components/view/widgets/base";
+import { UUID } from "crypto";
+
+import Widget from "@/components/view/widgets/base";
 
 export class FancyError extends Error {
     title: string;
@@ -6,7 +8,7 @@ export class FancyError extends Error {
     constructor(message: string, title?: string) {
         super(message);
 
-        this.title = title || "Unknown error";
+        this.title = title ?? "Unknown error";
     }
 }
 
@@ -17,19 +19,19 @@ export class PtyExitError extends FancyError {}
 export class PtyPropertyError extends FancyError {}
 
 export class UnknownProfileError extends FancyError {
-    constructor(uuid: string) {
-        super(`There is no profile with ID ${uuid}.`, "Unknown profile");
+    constructor(profileId: UUID) {
+        super(`There is no profile with ID ${profileId}.`, "Unknown profile");
     }
 }
 export class UnknownMacroError extends FancyError {
-    constructor(uuid: string) {
-        super(`There is no macro with ID ${uuid}.`, "Unknown macro");
+    constructor(macroId: UUID) {
+        super(`There is no macro with ID ${macroId}.`, "Unknown macro");
     }
 }
 export class UnknownTerminalError extends FancyError {
     constructor(message?: string) {
         super(
-            message || "There is no focused terminal available.",
+            message ?? "There is no focused terminal available.",
             "Unknown terminal"
         );
     }
@@ -39,7 +41,10 @@ export class PaneOutOfCapacityError extends FancyError {
     target: Widget;
 
     constructor(title: string, target: Widget) {
-        super("You can only have 36 sub-panes per pane.", title);
+        super(
+            `You can only have ${MAX_SPLITS_PER_PANE} sub-panes per pane.`,
+            title
+        );
         this.target = target;
     }
 }
@@ -52,14 +57,14 @@ export class ViewSelectSpecificPaneError extends FancyError {
         message?: string,
         title?: string
     ) {
-        super(message || "", title || "Unable to split the pane");
+        super(message ?? "", title ?? "Unable to split the pane");
         this.type = type;
     }
 }
 export enum SelectSpecificPathRejectionReason {
-    UserAborted,
-    Backward,
-    AppAborted,
+    userAborted,
+    backward,
+    appAborted,
 }
 
 export class UnkownSplitPathError extends FancyError {

@@ -1,15 +1,19 @@
-import CircularProgressBar from "components/ux/progressBar";
-import defaultIcon from "icons/32x32/tess-alt.png";
+import { UUID } from "crypto";
 
-export type PaneData = {
-    id: string;
+import CircularProgressBar from "@/components/ux/progressBar";
+import Widget from "@/components/view/widgets/base";
+
+import defaultIcon from "@/icons/32x32/tess-alt.png";
+
+export type WidgetData = {
+    id: UUID;
     title: string;
     progress: number;
     needsAttention: boolean;
 };
-function defaultPaneData(id: string): PaneData {
+function defaultWidgetData(widgetId: UUID): WidgetData {
     return {
-        id,
+        id: widgetId,
         title: "",
         progress: 0,
         needsAttention: false,
@@ -17,57 +21,57 @@ function defaultPaneData(id: string): PaneData {
 }
 
 export class Tab extends EventTarget {
-    element: HTMLElement;
+    readonly element: HTMLElement;
+    readonly id: UUID;
+    public index: number;
 
-    uuid: string;
-    index: number;
+    readonly resizeObserver: ResizeObserver;
 
-    onClose: ((uuid: string) => void) | null = null;
+    #widgets: Map<UUID, WidgetData> = new Map();
+    private activeWidget?: UUID;
 
-    title: string = "";
-
-    panes: Map<string, PaneData> = new Map();
-
-    paneGroupLeader: string = "";
-
-    onCloseButtonClick?: () => void;
-    onClick?: (e: MouseEvent) => void;
-
-    onTitleUpdated: (title: string) => void;
-
-    resizeObserver: ResizeObserver;
+    #title: string = "";
 
     private titleElement: HTMLSpanElement;
     private icon: TabIcon;
 
-    constructor(index: number, uuid: string, onClose: (uuid: string) => void) {
+    constructor(index: number, tabId: UUID) {
         super();
 
-        this.uuid = uuid;
+        this.id = tabId;
         this.index = index;
-        this.element = this.generateComponent();
 
-        this.titleElement = this.element.querySelector(".title")!;
-        this.icon = new TabIcon();
-        this.element.appendChild(this.icon.element);
-
-        this.onTitleUpdated = () => {};
-
-        this.updateTitle();
-
-        this.onClose = onClose;
-
-        this.resizeObserver = new ResizeObserver(() => {
-            this.computeTitleClipping();
-        });
-        this.resizeObserver.observe(this.element);
-
+        let closeButton;
+        [this.element, this.titleElement, closeButton] =
+            Tab.generateComponent();
         this.element.addEventListener("mouseover", () =>
             this.computeTitleClipping()
         );
         this.element.addEventListener("mouseleave", () =>
             this.computeTitleClipping()
         );
+        closeButton.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.dispatchEvent(new Event("closeRequest"));
+        });
+
+        this.icon = new TabIcon();
+        this.element.appendChild(this.icon.element);
+
+        this.refreshTitle();
+
+        this.resizeObserver = new ResizeObserver(() =>
+            this.computeTitleClipping()
+        );
+        this.resizeObserver.observe(this.element);
+    }
+
+    get title() {
+        return this.#title;
+    }
+
+    get widgets() {
+        return new Map(this.#widgets);
     }
 
     computeTitleClipping() {
@@ -86,106 +90,105 @@ export class Tab extends EventTarget {
         }
     }
 
-    addPane(paneId: string) {
-        const pane = defaultPaneData(paneId);
-        this.panes.set(paneId, pane);
-        this.dispatchEvent(new CustomEvent("paneAdded", { detail: pane }));
+    addWidget(widgetId: UUID, state: typeof Widget.prototype.state) {
+        const widget = defaultWidgetData(widgetId);
+        widget.title = state.title;
+        widget.progress = state.progress;
+        this.#widgets.set(widgetId, widget);
+        this.dispatchEvent(new CustomEvent("widgetAdded", { detail: widget }));
     }
 
-    clearPanesAttention() {
-        this.panes.forEach((pane) => {
-            pane.needsAttention = false;
+    clearWidgetsAttention() {
+        this.#widgets.forEach((widget) => {
+            widget.needsAttention = false;
             this.dispatchEvent(
-                new CustomEvent("paneUpdated", { detail: pane })
+                new CustomEvent("widgetChange", { detail: widget })
             );
         });
 
-        this.updateAttentionStatus();
+        this.refreshAttentionStatus();
     }
 
-    setPaneTitle(paneId: string, title: string) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
-        pane.title = title;
-        this.panes.set(paneId, pane);
+    setWidgetState(widgetId: UUID, state: typeof Widget.prototype.state) {
+        const widget =
+            this.#widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+        widget.title = state.title;
+        widget.progress = state.progress;
+        this.refreshTitle();
+        this.refreshProgress();
 
-        this.updateTitle();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+        this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setPaneProgress(paneId: string, progress: number) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
-        pane.progress = progress;
-        this.panes.set(paneId, pane);
+    askWidgetAttention(widgetId: UUID) {
+        const widget =
+            this.#widgets.get(widgetId) ?? defaultWidgetData(widgetId);
+        widget.needsAttention = true;
 
-        this.updateProgress();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
+        this.refreshAttentionStatus();
+        this.dispatchEvent(new CustomEvent("widgetChange", { detail: widget }));
     }
 
-    setPaneAttention(paneId: string, needsAttention: boolean) {
-        const pane = this.panes.get(paneId) || defaultPaneData(paneId);
-        pane.needsAttention = needsAttention;
-        this.panes.set(paneId, pane);
-
-        this.updateAttentionStatus();
-        this.dispatchEvent(new CustomEvent("paneUpdated", { detail: pane }));
-    }
-
-    setPaneGroupLeader(paneId: string) {
-        if (this.panes.has(paneId)) {
-            this.paneGroupLeader = paneId;
+    setWidgetGroupLeader(widgetId: UUID) {
+        if (this.#widgets.has(widgetId)) {
+            this.activeWidget = widgetId;
         }
 
-        this.updateTitle();
+        this.refreshTitle();
     }
 
-    removePane(paneId: string) {
-        const pane = this.panes.get(paneId);
-        if (pane) {
-            this.panes.delete(paneId);
+    removeWidget(widgetId: UUID) {
+        if (this.#widgets.delete(widgetId)) {
             this.dispatchEvent(
-                new CustomEvent("paneRemoved", { detail: pane })
+                new CustomEvent("widgetRemoved", { detail: widgetId })
             );
         }
     }
 
-    updateTitle() {
+    private refreshTitle() {
         const title =
-            this.panes.get(this.paneGroupLeader)?.title || "Untitled tab";
+            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+            this.#widgets.get(this.activeWidget!)?.title || "Untitled tab";
 
-        if (this.title !== title) {
-            this.onTitleUpdated(title);
+        if (this.#title === title) {
+            return;
         }
 
-        this.title = title;
+        this.#title = title;
         this.titleElement.innerText = title;
         this.titleElement.classList.toggle(
             "clipped",
             this.titleElement.scrollWidth > this.titleElement.clientWidth
         );
+        this.dispatchEvent(new Event("titleChange"));
     }
 
-    updateProgress() {
+    private refreshProgress() {
         let count = 0;
         let sum = 0;
-        this.panes.forEach((pane) => {
-            if (pane.progress > 0) {
+        this.#widgets.forEach((widget) => {
+            if (widget.progress > 0) {
                 count++;
-                sum += pane.progress;
+                sum += widget.progress;
             }
         });
 
         this.icon.setProgress(count > 0 ? sum / count : 0);
     }
 
-    private updateAttentionStatus() {
+    private refreshAttentionStatus() {
         this.icon.setAttention(
-            Array.from(this.panes.values()).some(
-                (pane: PaneData) => pane.needsAttention
+            Array.from(this.#widgets.values()).some(
+                (widget) => widget.needsAttention
             )
         );
     }
 
-    private generateComponent(): HTMLElement {
+    private static generateComponent(): [
+        HTMLDivElement,
+        HTMLSpanElement,
+        HTMLDivElement,
+    ] {
         const tab = document.createElement("div");
         tab.classList.add("tab");
         tab.style.animation = "tab-created 140ms forwards";
@@ -200,16 +203,10 @@ export class Tab extends EventTarget {
             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
         </svg>
         `;
-        closeButton.addEventListener(
-            "click",
-            (this.onCloseButtonClick = () => {
-                this.onClose!(this.uuid);
-            })
-        );
 
         tab.append(title, closeButton);
 
-        return tab;
+        return [tab, title, closeButton];
     }
 }
 

@@ -1,15 +1,17 @@
-export type showToastPayload = {
+import { UUID } from "crypto";
+
+export type ShowToastPayload = {
     title: string;
     message?: string;
     type?: "error" | "warn" | "info";
 };
 
-export type openTabPayload = {
-    profile?: openTabProfilePayload;
+export type OpenTabPayload = {
+    profile?: OpenTabProfilePayload;
 };
 
-export type openTabProfilePayload = {
-    uuid?: string;
+export type OpenTabProfilePayload = {
+    id?: UUID;
     command?: string;
     workdir?: string;
     title?: string;

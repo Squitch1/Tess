@@ -1,30 +1,25 @@
-import { PopupBuilder, PopupResult } from "components/interface/popup";
+import { PopupBuilder, PopupResult } from "@/components/interface/popup";
 
-export default class PopupManager {
-    waitingQueue: [PopupBuilder, HTMLElement, (value: unknown) => void][] = [];
-    usedTarget: HTMLElement[] = [];
-
-    onPopupClosed: () => void;
-
-    constructor() {
-        this.onPopupClosed = () => {};
-    }
+export default class PopupManager extends EventTarget {
+    private usedTargets: HTMLElement[] = [];
+    private queue: [PopupBuilder, HTMLElement, (value: void) => void][] = [];
 
     sendPopup(
         popupBuilder: PopupBuilder,
         target: HTMLElement = document.body
     ): Promise<PopupResult> {
+        // eslint-disable-next-line no-async-promise-executor
         return new Promise(async (resolve) => {
             if (
-                this.usedTarget.find(
+                this.usedTargets.find(
                     (registredTarget) => registredTarget === target
                 )
             ) {
                 await new Promise((resolve) => {
-                    this.waitingQueue.push([popupBuilder, target, resolve]);
+                    this.queue.push([popupBuilder, target, resolve]);
                 });
             } else {
-                this.usedTarget.push(target);
+                this.usedTargets.push(target);
             }
 
             let onTargetGetFocus: (e: FocusEvent) => void;
@@ -36,14 +31,14 @@ export default class PopupManager {
                     "popup-added-background-fade 140ms forwards reverse";
 
                 popupBuilt.querySelector<HTMLElement>(
-                    ".inner"
+                    ".popup"
                 )!.style.animation = "zoom-fade 140ms forwards reverse";
 
-                this.onPopupClosed();
+                this.dispatchEvent(new CustomEvent("popupClosed"));
 
                 setTimeout(() => {
                     target.removeChild(popupBuilt);
-                    this.popupClosed(target);
+                    this.nextPopup(target);
                 }, 140);
                 resolve({
                     action,
@@ -95,17 +90,17 @@ export default class PopupManager {
 
             popupBuilt.style.animation =
                 "popup-added-background-fade 140ms forwards";
-            popupBuilt.querySelector<HTMLElement>(".inner")!.style.animation =
+            popupBuilt.querySelector<HTMLElement>(".popup")!.style.animation =
                 "zoom-fade 140ms forwards";
 
             setTimeout(() => {
                 popupBuilt.style.animation = "";
                 popupBuilt.querySelector<HTMLElement>(
-                    ".inner"
+                    ".popup"
                 )!.style.animation = "";
             }, 140);
 
-            popupBuilt.setAttribute("tabindex", "0");
+            popupBuilt.tabIndex = 0;
             target.appendChild(popupBuilt);
 
             target.addEventListener(
@@ -121,18 +116,13 @@ export default class PopupManager {
         });
     }
 
-    private popupClosed(target: HTMLElement) {
-        const waitingPopup = this.waitingQueue.find(
-            (item) => item[1] === target
-        );
-        if (waitingPopup) {
-            this.waitingQueue.splice(
-                this.waitingQueue.indexOf(waitingPopup),
-                1
-            );
-            waitingPopup[2](null);
+    private nextPopup(target: HTMLElement) {
+        const popup = this.queue.find((popup) => popup[1] === target);
+        if (popup) {
+            this.queue.splice(this.queue.indexOf(popup), 1);
+            popup[2]();
         } else {
-            this.usedTarget.splice(this.usedTarget.indexOf(target), 1);
+            this.usedTargets.splice(this.usedTargets.indexOf(target), 1);
         }
     }
 }

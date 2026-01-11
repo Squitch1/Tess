@@ -1,17 +1,25 @@
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { Settings } from "schemas/settings";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import App from "./app";
 
-window.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
+import { Settings } from "@/schemas/settings";
+
+import App from "./app";
+import PopupManager from "./managers/popup";
+import Toaster from "./managers/toast";
+
+window.addEventListener("contextmenu", (e) => e.preventDefault());
+document.querySelector(".topbar")!.addEventListener("pointerdown", () => {
+    const element = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => element?.focus());
 });
 
 window.addEventListener("load", () =>
     invoke<Settings>("utils_get_settings").then(async (settings) => {
         globalThis.settings = settings;
         globalThis.webviewWindow = getCurrentWebviewWindow();
+        globalThis.popupManager = new PopupManager();
+        globalThis.toaster = new Toaster(document.querySelector(".toasts")!);
 
         if (
             settings.background !== "opaque" &&
@@ -39,13 +47,14 @@ window.addEventListener("load", () =>
 
         const app = new App(
             document.querySelector(".views")!,
-            document.querySelector(".tabs")!,
-            document.querySelector(".toasts")!
+            document.querySelector(".tabs")!
         );
 
-        document.querySelector(".open")!.addEventListener("click", async () => {
-            await app.openProfile(settings.defaultProfile.uuid, true);
-        });
+        document
+            .querySelector(".open")!
+            .addEventListener("click", async () =>
+                app.openProfile(settings.defaultProfile.id, true)
+            );
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         emit("loaded");

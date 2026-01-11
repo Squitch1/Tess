@@ -1,205 +1,101 @@
-import PopupManager from "managers/popup";
+import { UUID } from "crypto";
 
-import Toaster from "managers/toast";
-import Widget from "components/view/widgets/base";
-import { PopupBuilder, PopupButton } from "components/interface/popup";
-import {
-    PaneOutOfCapacityError,
-    SelectSpecificPathRejectionReason,
-    UnkownSplitPathError,
-    ViewSelectSpecificPaneError,
-} from "schemas/error";
-import computeLayout from "utils/tilling";
+import { PopupBuilder, PopupButton } from "@/components/interface/popup";
+import Widget from "@/components/view/widgets/base";
+
 import Pane from "./pane";
 
-export default class View {
-    uuid: string;
-    element: HTMLElement;
+export default class View extends EventTarget {
+    readonly id: UUID;
+    readonly element: HTMLElement;
 
-    onceClosed: () => void;
+    private contentPane: Pane;
+    private focusedWidget?: Widget;
+    private widgets: Widget[] = [];
+    private focusHistory: string[] = [];
 
-    onWidgetAdded: (uuid: string) => void;
-    onWidgetFocused: (uuid: string) => void;
-    onWidgetTitleUpdated: (uuid: string, title: string) => void;
-    onWidgetRequestHighlight: (uuid: string) => void;
-    onWidgetProgressUpdated: (uuid: string, progress: number) => void;
-    onWidgetClosed: (uuid: string) => void;
-
-    popupManager: PopupManager;
-    toaster: Toaster;
-
-    panes: Pane[] = [];
-    widgets: Widget[] = [];
-
-    focusHistory: string[] = [];
-    focusedWidget?: Widget;
-
-    private resizeObserver: ResizeObserver;
-
-    private inSpecificSelection: boolean = false;
     private closingAllRequested: boolean = false;
     private widgetClosingRequested: boolean = false;
-    private keydownListener?: (
-        this: Document,
-        ev: KeyboardEvent
-    ) => Promise<void>;
 
-    private colsSpan: number = 1;
-    private rowsSpan: number = 1;
+    constructor(viewId: UUID) {
+        super();
 
-    constructor(viewId: string, popupManager: PopupManager, toaster: Toaster) {
-        this.uuid = viewId;
+        this.id = viewId;
 
-        this.element = document.createElement("div");
-        this.element.classList.add("view");
-
-        this.onceClosed = () => {};
-
-        this.onWidgetAdded = () => {};
-        this.onWidgetFocused = () => {};
-        this.onWidgetTitleUpdated = () => {};
-        this.onWidgetRequestHighlight = () => {};
-        this.onWidgetProgressUpdated = () => {};
-        this.onWidgetClosed = () => {};
-
-        this.popupManager = popupManager;
-        this.toaster = toaster;
-
-        this.resizeObserver = new ResizeObserver(() => {
-            this.reflowLayout();
-        });
-        this.resizeObserver.observe(this.element);
+        [this.element, this.contentPane] = View.generateComponent();
     }
 
-    private reflowLayout() {
-        if (this.element.clientWidth && this.element.clientHeight) {
-            const layout = computeLayout(
-                this.element.clientWidth,
-                this.element.clientHeight,
-                this.panes.length
-            );
-
-            this.colsSpan = Math.min(layout[0], this.panes.length);
-            this.rowsSpan = Math.min(layout[1], this.panes.length);
-
-            this.panes.forEach((pane) => {
-                pane.element.style.setProperty(
-                    "--cols-span",
-                    `${this.colsSpan}`
-                );
-                pane.element.style.setProperty(
-                    "--rows-span",
-                    `${this.rowsSpan}`
-                );
-            });
-        }
-    }
-
-    private linkWidget(widget: Widget) {
-        widget.onTitleUpdate = (title) =>
-            this.onWidgetTitleUpdated(widget.uuid, title);
-        widget.onHighlightRequest = () =>
-            this.onWidgetRequestHighlight(widget.uuid);
-        widget.onProgressUpdated = (progress) =>
-            this.onWidgetProgressUpdated(widget.uuid, progress);
+    private connectWidget(widget: Widget) {
+        widget.addEventListener(
+            "close",
+            () => this.onWidgetClosing(widget.id),
+            { once: true }
+        );
 
         widget.element.addEventListener("focusin", () => {
-            if (this.focusHistory[0] !== widget.uuid) {
-                this.focusHistory.unshift(widget.uuid);
+            if (this.focusHistory[0] !== widget.id) {
+                this.focusHistory.unshift(widget.id);
             }
 
             this.focusedWidget = widget;
-            this.onWidgetFocused(widget.uuid);
+            this.dispatchEvent(
+                new CustomEvent("focusChange", { detail: widget.id })
+            );
         });
 
-        if (widget.initialTitle) {
-            setTimeout(() => {
-                this.onWidgetTitleUpdated(widget.uuid, widget.initialTitle!);
-            }, 0);
-        }
+        this.focusedWidget?.blur();
+        this.focusedWidget = widget;
+
+        widget.run();
     }
 
     async addWidget(widget: Widget) {
-        if (this.panes.length >= 36) {
-            throw new PaneOutOfCapacityError("Unable to split tab", widget);
-        }
-
         this.widgets.push(widget);
-        const pane = new Pane(
-            this.element,
-            crypto.randomUUID(),
-            this.popupManager,
-            this.element,
-            (id) => this.onPaneClosing(id),
-            (id) => this.onWidgetClosing(id),
-            widget
-        );
+        this.connectWidget(widget);
 
-        this.onWidgetAdded(widget.uuid);
-        this.linkWidget(widget);
-
-        this.element.appendChild(pane.element);
-        this.panes.push(pane);
-        this.reflowLayout();
-
-        this.focusedWidget = widget;
-    }
-
-    private onWidgetClosing(uuid: string) {
-        const widget = this.widgets.find((widget) => widget.uuid === uuid);
-        if (widget) {
-            widget.dispose();
-
-            this.widgets.splice(this.widgets.indexOf(widget), 1);
-            this.onWidgetClosed(uuid);
-            if (this.widgets.length === 0) {
-                this.resizeObserver.disconnect();
-                this.onceClosed();
-            }
-            this.focusHistory = this.focusHistory.filter(
-                (widgetId) => widgetId !== uuid
-            );
-            if (this.focusedWidget?.uuid === uuid && this.widgets.length > 0) {
-                const previouslyFocusedWidgetId = this.focusHistory.shift()!;
-                this.focusedWidget = this.widgets.find(
-                    (widget) => widget.uuid === previouslyFocusedWidgetId
-                );
-                this.onWidgetFocused(this.focusedWidget!.uuid);
-            }
+        if (this.widgets.length === 1) {
+            this.contentPane.setWidget(widget);
+        } else {
+            this.contentPane.split(widget);
         }
     }
 
-    private onPaneClosing(uuid: string) {
-        const closedPane = this.panes.splice(
-            this.panes.findIndex((pane) => pane.uuid === uuid),
-            1
-        )[0];
-        closedPane.element.remove();
-        closedPane.resizeObserver.disconnect();
+    private onWidgetClosing(widgetId: UUID) {
+        const widget = this.widgets.find((widget) => widget.id === widgetId);
+        if (!widget) {
+            return;
+        }
 
-        this.reflowLayout();
+        widget.dispose();
+
+        this.widgets.splice(this.widgets.indexOf(widget), 1);
+        if (this.widgets.length === 0) {
+            this.dispatchEvent(new Event("close"));
+        }
+        this.focusHistory = this.focusHistory.filter((id) => id !== widgetId);
+        if (this.focusedWidget?.id === widgetId && this.widgets.length > 0) {
+            const previouslyFocusedWidgetId = this.focusHistory.shift()!;
+            this.focusedWidget = this.widgets.find(
+                (widget) => widget.id === previouslyFocusedWidgetId
+            );
+            this.dispatchEvent(
+                new CustomEvent("focusChange", {
+                    detail: this.focusedWidget!.id,
+                })
+            );
+        }
     }
 
     async close() {
         await Promise.all(this.widgets.map((widget) => widget.close()));
     }
 
-    async closeWidget(uuid: string) {
-        await this.widgets.find((widget) => widget.uuid === uuid)?.close();
+    async closeWidget(widgetId: UUID) {
+        await this.widgets.find((widget) => widget.id === widgetId)?.close();
     }
 
     cancelSelectSpecific() {
-        if (this.inSpecificSelection) {
-            document.addEventListener("keydown", this.keydownListener!, {
-                capture: true,
-            });
-        }
-        if (
-            this.inSpecificSelection ||
-            this.panes
-                .map((pane) => pane.resumeSpecificSelection())
-                .reduce((previous, current) => previous || current)
-        ) {
+        if (this.contentPane.resumeSpecificSelection()) {
             document.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "Escape" })
             );
@@ -221,7 +117,7 @@ export default class View {
                 if (
                     !settings.closeConfirmation.group ||
                     (
-                        await this.popupManager.sendPopup(
+                        await popupManager.sendPopup(
                             new PopupBuilder(
                                 `Confirm close of ${this.widgets.length} widgets`
                             )
@@ -237,18 +133,18 @@ export default class View {
                 this.closingAllRequested = false;
             }
         } else {
-            await this.requestWidgetClosing(this.widgets[0].uuid);
+            await this.requestWidgetClosing(this.widgets[0].id);
         }
     }
 
-    async requestWidgetClosing(uuid: string) {
+    async requestWidgetClosing(widgetId: UUID) {
         if (this.widgetClosingRequested) {
             return;
         }
 
         this.cancelSelectSpecific();
 
-        const widget = this.widgets.find((widget) => widget.uuid === uuid);
+        const widget = this.widgets.find((widget) => widget.id === widgetId);
 
         if (widget) {
             this.widgetClosingRequested = true;
@@ -261,7 +157,7 @@ export default class View {
                     );
                     if (
                         (
-                            await this.popupManager.sendPopup(
+                            await popupManager.sendPopup(
                                 new PopupBuilder(
                                     `Confirm close of ${await widget.getShortTitle()}`
                                 )
@@ -273,10 +169,10 @@ export default class View {
                             )
                         ).action === "confirm"
                     ) {
-                        await this.closeWidget(uuid);
+                        await this.closeWidget(widgetId);
                     }
                 } else {
-                    await this.closeWidget(uuid);
+                    await this.closeWidget(widgetId);
                 }
             } finally {
                 this.widgetClosingRequested = false;
@@ -294,42 +190,24 @@ export default class View {
         if (path.length === 0) {
             return this.requestClosing();
         }
-        return this.panes[path[0]].closeSpecific(path.slice(1));
+        return this.contentPane.closeSpecific(path);
     }
 
     focus() {
         this.element.classList.add("visible");
-
-        if (this.inSpecificSelection) {
-            document.addEventListener("keydown", this.keydownListener!, {
-                capture: true,
-            });
-        } else if (
-            !this.panes
-                .map((pane) => pane.resumeSpecificSelection())
-                .reduce((previous, current) => previous || current)
-        ) {
+        if (!this.contentPane.resumeSpecificSelection()) {
             this.focusedWidget?.focus();
         }
     }
 
-    focusWidget(uuid: string) {
-        this.widgets.find((widget) => widget.uuid === uuid)?.focus();
+    focusWidget(widgetId: UUID) {
+        this.widgets.find((widget) => widget.id === widgetId)?.focus();
     }
 
     blur() {
         this.element.classList.remove("visible");
-
         this.focusedWidget?.blur();
-
-        if (this.inSpecificSelection) {
-            document.removeEventListener("keydown", this.keydownListener!, {
-                capture: true,
-            });
-        }
-        this.panes.forEach((pane) => {
-            pane.pauseSpecificSelection();
-        });
+        this.contentPane.pauseSpecificSelection();
     }
 
     async splitFocusedWidget(widget: Widget) {
@@ -339,270 +217,39 @@ export default class View {
         }
 
         this.widgets.push(widget);
-        this.linkWidget(widget);
+        this.connectWidget(widget);
 
         this.focusedWidget?.anchoringPane?.split(widget);
-
-        this.focusedWidget = widget;
-        this.onWidgetAdded(widget.uuid);
     }
 
     async splitSpecificWidget(widget: Widget, path: number[]) {
-        if (path.length === 0) {
-            await this.addWidget(widget);
-            return;
-        }
-
-        const pane = this.panes.at(path[0]);
-        if (!pane) {
-            throw new UnkownSplitPathError(widget);
-        }
-
-        pane.splitSpecific(widget, path.slice(1));
-
-        this.linkWidget(widget);
         this.widgets.push(widget);
-        this.focusedWidget = widget;
-        this.onWidgetAdded(widget.uuid);
+        this.connectWidget(widget);
+
+        this.contentPane.splitSpecific(widget, path);
     }
 
-    selectSpecificPane(): Promise<number[]> {
+    async selectSpecificPane(): Promise<number[]> {
         if (this.widgets.length <= 1) {
-            return Promise.resolve([]);
+            return [];
         }
 
-        return new Promise<number[]>((resolve, reject) => {
-            this.focusedWidget?.blur();
-            let selectedIndex = 0;
-            this.element.classList.add("indexed");
-            this.panes.forEach((pane, i) => {
-                pane.element.classList.toggle(
-                    "unselected",
-                    i !== selectedIndex
-                );
-                pane.element.classList.remove(
-                    "fade-out-background",
-                    "fade-out-index"
-                );
-            });
-            this.inSpecificSelection = true;
-            document.addEventListener(
-                "keydown",
-                (this.keydownListener = async (e) => {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
+        this.focusedWidget?.blur();
+        try {
+            return await this.contentPane.selectSpecific();
+        } catch (e) {
+            this.focusedWidget?.focus();
+            throw e;
+        }
+    }
 
-                    if (e.key === "Enter" || e.key === "Escape") {
-                        this.element.classList.remove("indexed");
-                        document.removeEventListener(
-                            "keydown",
-                            this.keydownListener!,
-                            { capture: true }
-                        );
-                        this.inSpecificSelection = false;
+    private static generateComponent(): [HTMLDivElement, Pane] {
+        const element = document.createElement("div");
+        element.classList.add("view");
 
-                        if (e.key === "Escape" || e.ctrlKey) {
-                            this.panes.forEach((pane, i) => {
-                                pane.element.classList.remove("unselected");
-                                pane.element.classList.add(
-                                    "fade-out-background",
-                                    "fade-out-index"
-                                );
-                                pane.element.setAttribute(
-                                    "data-index",
-                                    i.toString(36)
-                                );
-                            });
-                            this.focusedWidget?.focus();
+        const pane = new Pane(element);
+        element.appendChild(pane.element);
 
-                            if (e.key === "Escape") {
-                                reject(
-                                    new ViewSelectSpecificPaneError(
-                                        SelectSpecificPathRejectionReason.UserAborted
-                                    )
-                                );
-                            } else {
-                                resolve([selectedIndex]);
-                            }
-                        } else {
-                            try {
-                                this.panes.forEach((pane, i) => {
-                                    pane.element.setAttribute(
-                                        "data-index",
-                                        i.toString(36)
-                                    );
-                                    pane.element.classList.add(
-                                        "fade-out-index"
-                                    );
-                                });
-                                setTimeout(() => {
-                                    this.panes.forEach((pane) => {
-                                        pane.element.classList.remove(
-                                            "fade-out-index"
-                                        );
-                                    });
-                                }, 100);
-
-                                const partialPath =
-                                    (await this.panes[
-                                        selectedIndex
-                                    ]?.selectSpecific()) ??
-                                    reject(
-                                        new ViewSelectSpecificPaneError(
-                                            SelectSpecificPathRejectionReason.AppAborted,
-                                            "The selected pane is unreachable."
-                                        )
-                                    );
-                                this.panes.forEach((pane) => {
-                                    pane.element.classList.remove("unselected");
-                                    pane.element.classList.add(
-                                        "fade-out-background"
-                                    );
-                                });
-                                partialPath.unshift(selectedIndex);
-                                this.focusedWidget?.focus();
-                                resolve(partialPath);
-                            } catch (e) {
-                                if (
-                                    e instanceof ViewSelectSpecificPaneError &&
-                                    e.type ===
-                                        SelectSpecificPathRejectionReason.Backward
-                                ) {
-                                    this.element.classList.add("indexed");
-                                    document.addEventListener(
-                                        "keydown",
-                                        this.keydownListener!,
-                                        { capture: true }
-                                    );
-                                    this.inSpecificSelection = true;
-                                    this.panes.forEach((pane, i) => {
-                                        pane.element.classList.toggle(
-                                            "unselected",
-                                            i !== selectedIndex
-                                        );
-                                    });
-                                } else {
-                                    this.panes.forEach((pane) => {
-                                        pane.element.classList.remove(
-                                            "unselected"
-                                        );
-                                        pane.element.classList.add(
-                                            "fade-out-background"
-                                        );
-                                    });
-                                    this.focusedWidget?.focus();
-                                    reject(e);
-                                }
-                            }
-                        }
-
-                        setTimeout(() => {
-                            this.panes.forEach((pane) => {
-                                pane.element.classList.remove(
-                                    "fade-out-background",
-                                    "fade-out-index"
-                                );
-                            });
-                        }, 100);
-                    } else {
-                        let newSelectedIndex: number = NaN;
-                        switch (e.code) {
-                            case "Tab":
-                                if (e.shiftKey) {
-                                    newSelectedIndex =
-                                        selectedIndex === 0
-                                            ? this.panes.length - 1
-                                            : selectedIndex - 1;
-                                } else {
-                                    newSelectedIndex =
-                                        (selectedIndex + 1) % this.panes.length;
-                                }
-                                break;
-                            case "ArrowLeft":
-                                if (selectedIndex % this.colsSpan !== 0) {
-                                    newSelectedIndex = selectedIndex - 1;
-                                }
-                                break;
-                            case "ArrowRight":
-                                if ((selectedIndex + 1) % this.colsSpan !== 0) {
-                                    newSelectedIndex = selectedIndex + 1;
-                                }
-                                break;
-                            case "ArrowDown":
-                                if (
-                                    Math.floor(selectedIndex / this.colsSpan) <
-                                    this.rowsSpan - 2
-                                ) {
-                                    newSelectedIndex =
-                                        selectedIndex + this.colsSpan;
-                                } else if (
-                                    Math.floor(selectedIndex / this.colsSpan) <
-                                    this.rowsSpan - 1
-                                ) {
-                                    const x =
-                                        ((selectedIndex % this.colsSpan) /
-                                            this.colsSpan) *
-                                        (this.panes.length -
-                                            this.colsSpan *
-                                                (this.rowsSpan - 1));
-
-                                    newSelectedIndex =
-                                        (this.rowsSpan - 1) * this.colsSpan +
-                                        (x - Math.floor(x) === 0.5
-                                            ? Math.floor(x)
-                                            : Math.round(x));
-                                }
-                                break;
-                            case "ArrowUp":
-                                if (
-                                    Math.floor(selectedIndex / this.colsSpan) <
-                                    this.rowsSpan - 1
-                                ) {
-                                    newSelectedIndex =
-                                        selectedIndex - this.colsSpan;
-                                } else if (
-                                    Math.floor(
-                                        selectedIndex / this.colsSpan
-                                    ) ===
-                                    this.rowsSpan - 1
-                                ) {
-                                    newSelectedIndex =
-                                        (this.rowsSpan - 2) * this.colsSpan +
-                                        Math.round(
-                                            (((selectedIndex -
-                                                (this.rowsSpan - 1) *
-                                                    this.colsSpan) %
-                                                (this.panes.length -
-                                                    this.colsSpan *
-                                                        (this.rowsSpan - 1))) /
-                                                (this.panes.length -
-                                                    this.colsSpan *
-                                                        (this.rowsSpan - 1))) *
-                                                this.colsSpan
-                                        );
-                                }
-                                break;
-                            default:
-                                newSelectedIndex = Number.parseInt(e.key, 36);
-                        }
-
-                        if (
-                            !Number.isNaN(newSelectedIndex) &&
-                            newSelectedIndex >= 0 &&
-                            newSelectedIndex < this.panes.length
-                        ) {
-                            selectedIndex = newSelectedIndex;
-                            this.panes.forEach((pane, i) => {
-                                pane.element.classList.toggle(
-                                    "unselected",
-                                    i !== selectedIndex
-                                );
-                            });
-                        }
-                    }
-                }),
-                { capture: true }
-            );
-        });
+        return [element, pane];
     }
 }

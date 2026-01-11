@@ -1,7 +1,9 @@
+import { UUID } from "crypto";
+
 export type Settings = {
     appTheme: string;
     closeConfirmation: CloseConfirmation;
-    desktopIntegration: DesktopInetgration;
+    desktopIntegration: DesktopIntegration;
     appBehavior: AppBehavior;
     profiles: Profile[];
     macros: Macro[];
@@ -38,15 +40,15 @@ export type ShortcutAction =
     | "focusFirstTab"
     | "focusLastTab"
     | ["focusTab", number]
-    | ["executeMacro", string]
-    | ["openProfile", string]
-    | ["splitTabAndOpenProfile", string]
-    | ["splitFocusedPaneAndOpenProfile", string]
-    | ["splitSpecificPaneAndOpenProfile", string];
+    | ["executeMacro", UUID]
+    | ["openProfile", UUID]
+    | ["splitTabAndOpenProfile", UUID]
+    | ["splitFocusedPaneAndOpenProfile", UUID]
+    | ["splitSpecificPaneAndOpenProfile", UUID];
 
 type Macro = {
     content: string;
-    uuid: string;
+    id: UUID;
 };
 
 export type TerminalSettings = {
@@ -69,7 +71,7 @@ export type TerminalSettings = {
 };
 
 export type Profile = {
-    uuid: string;
+    id: UUID;
     name: string;
     command: string;
     terminalSettings: TerminalSettings;
@@ -114,8 +116,8 @@ export type CloseConfirmation = {
     excludedProcess: string[];
 };
 
-export type DesktopInetgration = {
-    dynamic_title: boolean;
+export type DesktopIntegration = {
+    dynamicTitle: boolean;
 };
 
 export type AppBehavior = {

@@ -1,82 +1,62 @@
-import { Shortcut, ShortcutAction } from "schemas/settings";
-import Terminal from "components/view/widgets/terminal";
+import Terminal from "@/components/view/widgets/terminal";
 
-export default class ShortcutManager {
-    shortcuts: [string[], ShortcutAction][] = [];
+import { ShortcutAction } from "@/schemas/settings";
 
-    onShortcutExecutedCallback: (
-        shortcut: ShortcutAction,
-        targetId?: string
-    ) => void;
+export default class ShortcutManager extends EventTarget {
+    private shortcuts: [string[], ShortcutAction][];
 
-    constructor(
-        shortcuts: Shortcut[],
-        onShortcutExecuted: (
-            shortcut: ShortcutAction,
-            targetId?: string
-        ) => void
-    ) {
-        shortcuts.forEach((shortcut) =>
-            this.shortcuts.push([
-                shortcut.shortcut.toLowerCase().replaceAll(" ", "").split("+"),
-                shortcut.action,
-            ])
-        );
+    constructor() {
+        super();
 
-        this.onShortcutExecutedCallback = onShortcutExecuted;
+        this.shortcuts = settings.shortcuts.map((shortcut) => [
+            shortcut.shortcut.toLowerCase().replaceAll(" ", "").split("+"),
+            shortcut.action,
+        ]);
 
         document.addEventListener("keydown", (e) => this.onKeyPress(e));
     }
 
     onKeyPress(e: KeyboardEvent, target?: Terminal): boolean {
-        if (e.type === "keydown" && e.code !== "Space") {
-            const key = e.key.toLowerCase() === "unidentified" ? e.code : e.key;
-            const pressedShortcut: string[] = [];
-            if (!e.getModifierState(e.key)) {
-                pressedShortcut.push(key.toLowerCase());
-            }
-
-            if (e.ctrlKey) pressedShortcut.push("ctrl");
-            if (e.altKey) pressedShortcut.push("alt");
-            if (e.shiftKey) pressedShortcut.push("shift");
-            if (e.metaKey) pressedShortcut.push("meta");
-
-            const correspondingShortcut = this.shortcuts.find(
-                (shortcut) =>
-                    shortcut[0].length === pressedShortcut.length &&
-                    pressedShortcut.every((k) => shortcut[0].includes(k))
-            );
-
-            if (correspondingShortcut) {
-                if (target) {
-                    if (
-                        (correspondingShortcut[1] === "copy" &&
-                            target.xterm.hasSelection()) ||
-                        correspondingShortcut[1] !== "copy"
-                    ) {
-                        this.onShortcutExecutedCallback(
-                            correspondingShortcut[1],
-                            target.uuid
-                        );
-
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-
-                        return false;
-                    }
-                } else {
-                    this.onShortcutExecutedCallback(correspondingShortcut[1]);
-
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-
-                    return false;
-                }
-            } else {
-                return true;
-            }
+        if (e.type !== "keydown" || e.code === "Space") {
+            return true;
         }
 
-        return true;
+        const key = e.key.toLowerCase() === "unidentified" ? e.code : e.key;
+        const pressedShortcut: string[] = [];
+        if (!e.getModifierState(e.key)) {
+            pressedShortcut.push(key.toLowerCase());
+        }
+
+        if (e.ctrlKey) pressedShortcut.push("ctrl");
+        if (e.altKey) pressedShortcut.push("alt");
+        if (e.shiftKey) pressedShortcut.push("shift");
+        if (e.metaKey) pressedShortcut.push("meta");
+
+        const shortcut = this.shortcuts.find(
+            (shortcut) =>
+                shortcut[0].length === pressedShortcut.length &&
+                pressedShortcut.every((m) => shortcut[0].includes(m))
+        );
+
+        if (
+            !shortcut ||
+            (shortcut[1] === "copy" && !target?.xterm.hasSelection())
+        ) {
+            return true;
+        }
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        this.dispatchEvent(
+            new CustomEvent("shortcut", {
+                detail: {
+                    shortcut: shortcut[1],
+                    target: target?.id,
+                },
+            })
+        );
+
+        return false;
     }
 }

@@ -1,56 +1,68 @@
 module.exports = {
     extends: [
-        "airbnb-base",
-        "prettier",
         "eslint:recommended",
-        "plugin:import/recommended",
+        "airbnb-base",
         "plugin:@typescript-eslint/recommended",
-        "eslint-config-prettier",
+        "plugin:import/recommended",
+        "prettier",
     ],
-    plugins: ["prettier"],
+    plugins: ["prettier", "@stylistic"],
     parserOptions: {
         project: ["tsconfig.json"],
     },
     rules: {
-        "prettier/prettier": "error",
-        "no-plusplus": "off",
-        "no-use-before-define": "off",
-        "no-shadow": "off",
-        "no-param-reassign": "off",
-        "lines-between-class-members": [
-            "error",
-            "always",
-            { exceptAfterSingleLine: true },
-        ],
+        "consistent-return": "off",
         "default-case": "off",
+        "lines-between-class-members": "off",
         "max-classes-per-file": "off",
-        "import/extensions": [
-            "error",
-            "ignorePackages",
-            {
-                js: "never",
-                jsx: "never",
-                ts: "never",
-                tsx: "never",
-            },
-        ],
+        "no-param-reassign": "off",
+        "no-plusplus": "off",
         "no-restricted-syntax": [
             "error",
             "ForInStatement",
             "LabeledStatement",
             "WithStatement",
         ],
-        "@typescript-eslint/switch-exhaustiveness-check": "error",
+        "no-shadow": "off",
+        "no-use-before-define": "off",
+
+        "@typescript-eslint/await-thenable": "error",
+        "@typescript-eslint/consistent-return": "error",
+        "@typescript-eslint/naming-convention": "error",
         "@typescript-eslint/no-floating-promises": "error",
-        "@typescript-eslint/no-unnecessary-type-assertion": "error",
         "@typescript-eslint/no-unnecessary-condition": "error",
-        "import/no-unresolved": [2, { ignore: [".png$"] }],
+        "@typescript-eslint/no-unnecessary-type-assertion": "error",
+        "@typescript-eslint/no-unused-vars": [
+            "error",
+            { caughtErrorsIgnorePattern: "^_" },
+        ],
+        "@typescript-eslint/prefer-nullish-coalescing": "error",
+        "@typescript-eslint/prefer-optional-chain": "error",
+        "@typescript-eslint/switch-exhaustiveness-check": "error",
+
+        "@stylistic/lines-between-class-members": [
+            "error",
+            "always",
+            { exceptAfterSingleLine: true },
+        ],
+
+        "import/extensions": [
+            "error",
+            "ignorePackages",
+            { js: "never", ts: "never" },
+        ],
+        "import/no-cycle": "error",
+        "import/no-extraneous-dependencies": [
+            "error",
+            { devDependencies: ["vite.config.ts"] },
+        ],
+
+        "prettier/prettier": "error",
     },
     settings: {
         "import/resolver": {
-            node: {
-                moduleDirectory: ["node_modules", "src/ts", "icons"],
-                extensions: [".js", ".jsx", ".ts", ".tsx"],
+            typescript: {
+                project: "./tsconfig.json",
             },
         },
     },

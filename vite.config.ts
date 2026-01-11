@@ -1,30 +1,38 @@
-/* eslint-disable import/no-extraneous-dependencies */
-import { defineConfig } from "vite";
+import cssnano from "cssnano";
 import { resolve } from "path";
+import { defineConfig } from "vite";
 
 export default defineConfig({
+    root: "./src",
     clearScreen: false,
     server: {
         strictPort: true,
     },
-    envPrefix: ["VITE_", "TAURI_"],
+    define: {
+        MAX_SPLITS_PER_PANE: 36,
+        TAB_DRAG_THRESHOLD: 12,
+        PTY_BUFFERED_MIN: 65536,
+        PTY_BUFFERED_MAX: 262144,
+        SVG_NAMESPACE: JSON.stringify("http://www.w3.org/2000/svg"),
+    },
     build: {
-        target: ["es2021", "chrome100", "safari13"],
-        minify: !process.env.TAURI_DEBUG ? "terser" : false,
-        sourcemap: !!process.env.TAURI_DEBUG,
+        target: ["esnext"],
+        minify: !process.env["TAURI_DEBUG"] ? "terser" : false,
+        sourcemap: !!process.env["TAURI_DEBUG"],
         outDir: "../src-tauri/dist",
         terserOptions: {
             compress: {
+                booleans_as_integers: true,
                 drop_console: true,
                 drop_debugger: true,
-                ecma: 2018,
-                passes: 2,
-                unsafe: true,
+                ecma: 2020,
                 hoist_funs: true,
                 hoist_vars: true,
                 keep_fargs: false,
+                passes: 3,
                 pure_getters: true,
                 pure_new: true,
+                unsafe: true,
                 unsafe_arrows: true,
                 unsafe_math: true,
                 unsafe_proto: true,
@@ -36,8 +44,14 @@ export default defineConfig({
             },
         },
     },
-    root: "./src",
     css: {
+        postcss: {
+            plugins: [
+                cssnano({
+                    preset: "default",
+                }),
+            ],
+        },
         preprocessorOptions: {
             scss: {
                 additionalData:
@@ -49,11 +63,11 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            managers: resolve(__dirname, "src/ts", "managers"),
-            components: resolve(__dirname, "src/ts", "components"),
-            schemas: resolve(__dirname, "src/ts", "schemas"),
-            utils: resolve(__dirname, "src/ts", "utils"),
-            icons: resolve(__dirname, "icons"),
+            "@/managers": resolve(__dirname, "src/ts", "managers"),
+            "@/components": resolve(__dirname, "src/ts", "components"),
+            "@/schemas": resolve(__dirname, "src/ts", "schemas"),
+            "@/utils": resolve(__dirname, "src/ts", "utils"),
+            "@/icons": resolve(__dirname, "icons"),
         },
     },
 });

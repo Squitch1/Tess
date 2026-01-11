@@ -1,16 +1,14 @@
-/* eslint-disable lines-between-class-members */
-import { FancyError } from "schemas/error";
-import hasCSSAnimation from "utils/dom";
+import { FancyError } from "@/schemas/error";
 
-export default class Toaster {
+import hasCSSAnimation from "@/utils/dom";
+
+export default class Toaster extends EventTarget {
     private target: Element;
     private toasts: HTMLDivElement[] = [];
 
-    onToastDismissed: () => void;
-
     constructor(target: Element) {
+        super();
         this.target = target;
-        this.onToastDismissed = () => {};
     }
 
     toast(e: Error): void;
@@ -20,17 +18,13 @@ export default class Toaster {
         type?: "info" | "warn" | "error"
     ): void;
     toast(
-        titleOrError: string | Error,
+        title: string | Error,
         message?: string,
         type: "info" | "warn" | "error" = "info"
     ) {
-        let title = titleOrError as string;
-        if (titleOrError instanceof Error) {
-            title =
-                titleOrError instanceof FancyError
-                    ? titleOrError.title
-                    : "Unknown error";
-            message = titleOrError.message;
+        if (title instanceof Error) {
+            message = title.message;
+            title = title instanceof FancyError ? title.title : "Unknown error";
             type = "error";
         }
 
@@ -44,24 +38,23 @@ export default class Toaster {
         toastTitle.classList.add("title");
         toastTitle.innerText = title;
 
-        const toastIcon = document.createElement("div");
+        const toastIcon = document.createElementNS(SVG_NAMESPACE, "svg");
+        toastIcon.setAttribute("fill", "currentColor");
+        toastIcon.setAttribute("viewBox", "0 0 20 20");
         toastIcon.classList.add("icon");
-
         switch (type) {
             case "error":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-              </svg>
-              `;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />';
                 break;
             case "warn":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>`;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />';
                 break;
             case "info":
-                toastIcon.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-              </svg>
-              `;
+                toastIcon.innerHTML =
+                    '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />';
+                break;
         }
 
         toastContent.appendChild(toastTitle);
@@ -82,8 +75,6 @@ export default class Toaster {
 
         let toastMessage;
         if (message) {
-            toast.classList.add("with-text");
-
             const toastMessageWrapper = document.createElement("div");
 
             toastMessage = document.createElement("span");
@@ -105,7 +96,7 @@ export default class Toaster {
             toast.style.animation = hasCSSAnimation(toast, "toast-removed")
                 ? "toast-removed 140ms forwards"
                 : "";
-            // eslint-disable-next-line no-unused-expressions
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
             toast.offsetTop;
             toast.style.animation = hasCSSAnimation(toast, "toast-removed")
                 ? "toast-slide 140ms forwards, toast-removed 140ms forwards"
@@ -141,9 +132,9 @@ export default class Toaster {
             const expandToastButton = document.createElement("div");
             expandToastButton.classList.add("expand");
             expandToastButton.innerHTML = `
-            <svg viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
             `;
 
             toastActions.appendChild(expandToastButton);
@@ -155,6 +146,12 @@ export default class Toaster {
 
         let closeButtonListener;
         let closeTimeout: ReturnType<typeof setTimeout>;
+
+        toast.addEventListener("pointerdown", () => {
+            const element = document.activeElement as HTMLElement | null;
+            requestAnimationFrame(() => element?.focus());
+        });
+
         dismissToastButton.addEventListener(
             "click",
             (closeButtonListener = () => {
@@ -170,7 +167,6 @@ export default class Toaster {
                     this.toasts.indexOf(toast)
                 );
                 this.toasts.splice(this.toasts.indexOf(toast), 1);
-                this.onToastDismissed();
 
                 setTimeout(() => {
                     const toastHeight = toast.clientHeight;
@@ -186,7 +182,7 @@ export default class Toaster {
                         )
                             ? "toast-removed 140ms forwards"
                             : "";
-                        // eslint-disable-next-line no-unused-expressions
+                        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                         toast.offsetTop;
                         toast.style.animation = hasCSSAnimation(
                             toast,
@@ -216,6 +212,6 @@ export default class Toaster {
                 this.toasts.splice(this.toasts.indexOf(toast), 1);
                 toast.remove();
             }, 140);
-        }, 20000);
+        }, 20_000);
     }
 }

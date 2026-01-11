@@ -45,7 +45,7 @@ pub struct PartialSettings {
 
 #[derive(Deserialize, Debug, Default)]
 pub struct PartialProfile {
-    pub uuid: Option<Uuid>,
+    pub id: Option<Uuid>,
     pub name: String,
     pub command: String,
     pub title: Option<String>,
@@ -77,9 +77,10 @@ pub struct PartialProfile {
 #[derive(Deserialize, Debug)]
 pub struct PartialMacro {
     pub content: String,
-    pub uuid: Option<Uuid>,
+    pub id: Option<Uuid>,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn deserialize_profile_background<'de, D>(data: D) -> Result<Option<BackgroundMedia>, D::Error>
 where
     D: Deserializer<'de>,

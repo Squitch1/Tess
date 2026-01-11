@@ -1,8 +1,8 @@
 export class PopupBuilder {
-    title: string;
-    message?: string;
-    doNotShowAgain: boolean = false;
-    buttons: PopupButton[] = [];
+    private title: string;
+    private message?: string;
+    private doNotShowAgain: boolean = false;
+    private buttons: PopupButton[] = [];
 
     constructor(title: string) {
         this.title = title;
@@ -39,35 +39,30 @@ export class PopupBuilder {
     build(
         callback: (action: string, doNotShowAgain?: boolean) => void
     ): HTMLElement {
+        const popupBackdrop = document.createElement("div");
+        popupBackdrop.classList.add("popup-backdrop");
+
         const popup = document.createElement("div");
-        popup.id = "popup";
-
-        const innerPopup = document.createElement("div");
-        innerPopup.classList.add("inner");
-
-        const popupTop = document.createElement("div");
-        popupTop.classList.add("top");
+        popup.classList.add("popup");
 
         const popupTitle = document.createElement("span");
-        popupTitle.innerText = this.title;
         popupTitle.classList.add("title");
+        popupTitle.innerText = this.title;
 
-        popupTop.appendChild(popupTitle);
-        innerPopup.appendChild(popupTop);
+        popup.appendChild(popupTitle);
 
         if (this.message) {
             const popupMessage = document.createElement("div");
             popupMessage.innerText = this.message;
             popupMessage.classList.add("message");
 
-            innerPopup.appendChild(popupMessage);
+            popup.appendChild(popupMessage);
         }
 
         const popupButtons = document.createElement("div");
         popupButtons.classList.add("buttons");
 
         let doNotShowAgainCheckbox: HTMLInputElement | undefined;
-
         if (this.doNotShowAgain) {
             const doNotShowAgainElement = document.createElement("div");
             doNotShowAgainElement.classList.add("do-not-show-again");
@@ -79,7 +74,7 @@ export class PopupBuilder {
 
             doNotShowAgainCheckbox = document.createElement("input");
             doNotShowAgainCheckbox.type = "checkbox";
-            doNotShowAgainCheckbox.setAttribute("tabindex", "0");
+            doNotShowAgainCheckbox.tabIndex = 0;
 
             doNotShowAgainInput.append(
                 doNotShowAgainCheckbox,
@@ -90,55 +85,33 @@ export class PopupBuilder {
             popupButtons.appendChild(doNotShowAgainElement);
         }
 
-        let hasDismissButtons = false;
+        let hasDismissButtons = false as boolean;
         if (this.buttons.length > 0) {
             let hasValidateButton = false;
 
             this.buttons.forEach((button) => {
-                if (!hasValidateButton && button.type === "validate") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
+                if (
+                    (hasValidateButton && button.type === "validate") ||
+                    (hasDismissButtons && button.type === "dismiss")
+                ) {
+                    return;
+                }
+
+                const buttonElement = document.createElement("div");
+                buttonElement.classList.add("button");
+                buttonElement.innerText = button.content;
+                buttonElement.tabIndex = 0;
+                buttonElement.addEventListener("click", () =>
+                    callback(button.actionId, doNotShowAgainCheckbox?.checked)
+                );
+                popupButtons.appendChild(buttonElement);
+
+                if (button.type === "validate") {
                     buttonElement.classList.add("primary");
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
-
                     hasValidateButton = true;
-                } else if (!hasDismissButtons && button.type === "dismiss") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button", "dismiss");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
-
+                } else if (button.type === "dismiss") {
+                    buttonElement.classList.add("dismiss");
                     hasDismissButtons = true;
-                } else if (button.type === "custom") {
-                    const buttonElement = document.createElement("div");
-                    buttonElement.classList.add("button");
-                    buttonElement.innerText = button.content;
-                    buttonElement.addEventListener("click", () =>
-                        callback(
-                            button.actionId,
-                            doNotShowAgainCheckbox?.checked
-                        )
-                    );
-                    buttonElement.setAttribute("tabindex", "0");
-
-                    popupButtons.appendChild(buttonElement);
                 }
             });
         }
@@ -150,30 +123,41 @@ export class PopupBuilder {
             buttonElement.addEventListener("click", () =>
                 callback("dismiss", doNotShowAgainCheckbox?.checked)
             );
-            buttonElement.setAttribute("tabindex", "0");
-
+            buttonElement.tabIndex = 0;
             popupButtons.prepend(buttonElement);
         }
 
-        innerPopup.appendChild(popupButtons);
-        popup.appendChild(innerPopup);
-        return popup;
+        popup.appendChild(popupButtons);
+        popupBackdrop.appendChild(popup);
+        return popupBackdrop;
     }
 }
 
 export class PopupButton {
-    type: "dismiss" | "validate" | "custom";
-    content: string;
-    actionId: string;
+    #type: "dismiss" | "validate" | "custom";
+    #content: string;
+    #actionId: string;
 
     constructor(
         content: string,
         type: "dismiss" | "validate" | "custom" = "dismiss",
         actionId: string = content
     ) {
-        this.content = content;
-        this.actionId = actionId;
-        this.type = type;
+        this.#content = content;
+        this.#actionId = actionId;
+        this.#type = type;
+    }
+
+    get type() {
+        return this.#type;
+    }
+
+    get content() {
+        return this.#content;
+    }
+
+    get actionId() {
+        return this.#actionId;
     }
 }
 

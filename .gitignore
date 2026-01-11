@@ -14,7 +14,7 @@ src-tauri/gen
 target
 
 # Editor directories and files
-.vscode/*
+.vscode
 !.vscode/extensions.json
 .idea
 .DS_Store
@@ -28,3 +28,4 @@ target
 packaging/out
 packaging/linux/resources/man
 packaging/linux/resources/binaries
+packaging/windows/resources/binaries

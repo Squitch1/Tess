@@ -63,11 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo::rerun-if-env-changed=SKIP_FRONTEND");
 
         if std::env::var_os("GEN_RESOURCES").is_some() {
-            let man_out_dir = PathBuf::from(".").join("gen").join("man");
-            std::fs::create_dir_all(&man_out_dir)?;
-
             fn generate(
-                cmd: clap::Command,
+                cmd: &clap::Command,
                 out_dir: &PathBuf,
                 build_date: &str,
             ) -> Result<PathBuf, std::io::Error> {
@@ -80,9 +77,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let mut start = about.to_string();
                         let end = start.split_off(1);
                         start.make_ascii_lowercase();
-                        cmd = cmd.about(format!("{start}{end}"))
+                        cmd = cmd.about(format!("{start}{end}"));
                     }
-                    generate(cmd, out_dir, build_date)?;
+                    generate(&cmd, out_dir, build_date)?;
                 }
 
                 let cmd_name = cmd.get_display_name().unwrap_or_else(|| cmd.get_name());
@@ -98,7 +95,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .about("modern and web-based terminal emulator")
                 .disable_help_subcommand(true);
             cmd.build();
-            generate(cmd, &man_out_dir, &build_date)?;
+            let man_out_dir = PathBuf::from(".").join("gen").join("man");
+            std::fs::create_dir_all(&man_out_dir)?;
+
+            generate(&cmd, &man_out_dir, &build_date)?;
         }
     }
 

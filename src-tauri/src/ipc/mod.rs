@@ -1,3 +1,5 @@
+#![allow(clippy::ref_option_ref)]
+
 #[cfg(target_family = "unix")]
 mod unix;
 
@@ -33,7 +35,7 @@ impl<'a> From<&'a RunCommand> for TransmissionPayload<'a> {
             open_in_tab,
             command: cmd.command.as_deref(),
             workdir: cmd.workdir.as_ref().and_then(|p| p.to_str()),
-            profile: cmd.profile.map(|uuid| uuid.as_u128()),
+            profile: cmd.profile.map(|id| id.as_u128()),
             title: cmd.title.as_deref(),
         }
     }

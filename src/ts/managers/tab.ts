@@ -1,7 +1,12 @@
-import { Tab } from "components/interface/tab";
-import DetailsCard from "components/interface/detailsCard";
+import { UUID } from "crypto";
 
-export default class TabManager {
+import DetailsCard from "@/components/interface/detailsCard";
+import { Tab } from "@/components/interface/tab";
+import Widget from "@/components/view/widgets/base";
+
+import { clamp } from "@/utils/math";
+
+export default class TabManager extends EventTarget {
     private target: Element;
     private tabs: Tab[] = [];
     private selectedTab?: Tab;
@@ -18,38 +23,30 @@ export default class TabManager {
     private detailsCard: DetailsCard;
     private showDetailsCardTimeout?: ReturnType<typeof setTimeout>;
 
-    onTabFocused: (uuid: string) => void;
-    onFocusedTabTitleUpdated: (title: string) => void;
-    onPaneFocused: (tabid: string, paneId: string) => void;
-    onPaneClosed: (tabid: string, paneId: string) => void;
-    private onTabRequestClose: (uuid: string) => void;
+    constructor(target: HTMLElement) {
+        super();
 
-    constructor(
-        target: HTMLElement,
-        closeRequestedListener: (uuid: string) => void
-    ) {
         this.target = target;
-        this.onTabRequestClose = closeRequestedListener;
         this.detailsCard = new DetailsCard();
 
         this.detailsCard.addEventListener(
-            "paneFocusRequest",
+            "widgetFocusRequest",
             (e: CustomEventInit) => {
                 this.select(e.detail.tabId);
-                this.onPaneFocused(e.detail.tabId, e.detail.paneId);
+                this.dispatchEvent(
+                    new CustomEvent("widgetFocusRequest", {
+                        detail: e.detail,
+                    })
+                );
             }
         );
         this.detailsCard.addEventListener(
-            "paneCloseRequest",
-            (e: CustomEventInit) => {
-                this.onPaneClosed(e.detail.tabId, e.detail.paneId);
-            }
+            "widgetCloseRequest",
+            (e: CustomEventInit) =>
+                this.dispatchEvent(
+                    new CustomEvent("widgetCloseRequest", { detail: e.detail })
+                )
         );
-
-        this.onTabFocused = () => {};
-        this.onPaneFocused = () => {};
-        this.onPaneClosed = () => {};
-        this.onFocusedTabTitleUpdated = () => {};
 
         let draggingAnimationFrame: number;
         let animationLocked: boolean = false;
@@ -63,7 +60,7 @@ export default class TabManager {
             if (
                 !this.movingTab ||
                 (!this.movingTab.element.classList.contains("dragging") &&
-                    deltaX * deltaX < 12 * 12)
+                    deltaX * deltaX < TAB_DRAG_THRESHOLD * TAB_DRAG_THRESHOLD)
             ) {
                 return;
             }
@@ -99,28 +96,33 @@ export default class TabManager {
         });
     }
 
-    openTab(uuid: string): string {
-        const tab = new Tab(this.tabs.length + 1, uuid, (id) => {
+    openTab(tabId: UUID): string {
+        const tab = new Tab(this.tabs.length + 1, tabId);
+
+        tab.addEventListener("closeRequest", () => {
             if (this.selectedTab !== tab) {
-                this.onTabFocused(this.selectedTab!.uuid);
-                this.onFocusedTabTitleUpdated(this.selectedTab!.title);
+                this.dispatchEvent(
+                    new CustomEvent("tabFocus", {
+                        detail: this.selectedTab!.id,
+                    })
+                );
             }
-            this.requestTabClosing(id);
+            this.dispatchEvent(
+                new CustomEvent("tabCloseRequest", { detail: tabId })
+            );
+        });
+        tab.addEventListener("titleChange", () => {
+            if (this.selectedTab === tab) {
+                this.dispatchEvent(
+                    new CustomEvent("tabTitleChange", { detail: tab.title })
+                );
+            }
         });
 
-        tab.onTitleUpdated = (title) => {
-            if (this.selectedTab?.uuid === tab.uuid) {
-                this.onFocusedTabTitleUpdated(title);
-            }
-        };
-
-        tab.element.addEventListener(
-            "mousedown",
-            (tab.onClick = (e) => {
-                clearTimeout(this.showDetailsCardTimeout);
-                this.focusAndStartDragging(e, tab);
-            })
-        );
+        tab.element.addEventListener("mousedown", (e) => {
+            clearTimeout(this.showDetailsCardTimeout);
+            this.focusAndStartDragging(e, tab);
+        });
         tab.element.addEventListener("mouseenter", () =>
             this.showDetailsCard(tab)
         );
@@ -144,93 +146,88 @@ export default class TabManager {
 
         if (this.tabs.length === 0) {
             tab.element.classList.add("selected");
-            this.select(tab.uuid);
+            this.select(tab.id);
         }
 
-        return tab.uuid;
+        return tab.id;
     }
 
-    setPaneTitle(tabId: string, paneId: string, title: string) {
+    setWidgetState(
+        tabId: UUID,
+        widgetId: UUID,
+        state: typeof Widget.prototype.state
+    ) {
         this.tabs
-            .find((tab) => tab.uuid === tabId)
-            ?.setPaneTitle(paneId, title);
+            .find((tab) => tab.id === tabId)
+            ?.setWidgetState(widgetId, state);
     }
 
-    setPaneProgress(tabId: string, paneId: string, progress: number) {
-        this.tabs
-            .find((tab) => tab.uuid === tabId)
-            ?.setPaneProgress(
-                paneId,
-                progress > 0 && progress < 100 ? progress : 0
-            );
-    }
-
-    setPaneAttention(tabId: string, paneId: string, needsAttention: boolean) {
-        if (tabId === this.selectedTab!.uuid) {
+    askWidgetAttention(tabId: UUID, widgetId: UUID) {
+        if (this.selectedTab?.id === tabId) {
             return;
         }
 
+        this.tabs.find((tab) => tab.id === tabId)?.askWidgetAttention(widgetId);
+    }
+
+    setWidgetGroupLeader(tabId: UUID, widgetId: UUID) {
         this.tabs
-            .find((tab) => tab.uuid === tabId)
-            ?.setPaneAttention(paneId, needsAttention);
+            .find((tab) => tab.id === tabId)
+            ?.setWidgetGroupLeader(widgetId);
     }
 
-    setPaneGroupLeader(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.setPaneGroupLeader(paneId);
-    }
+    addWidget(
+        tabId: UUID,
+        widgetId: UUID,
+        state: typeof Widget.prototype.state
+    ) {
+        this.tabs.find((tab) => tab.id === tabId)?.addWidget(widgetId, state);
 
-    addPane(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.addPane(paneId);
-
-        if (this.selectedTab?.uuid === tabId) {
-            setTimeout(() => this.onTabFocused(tabId), 0);
+        if (this.selectedTab?.id === tabId) {
+            setTimeout(
+                () =>
+                    this.dispatchEvent(
+                        new CustomEvent("tabFocus", { detail: tabId })
+                    ),
+                0
+            );
         }
     }
 
-    removePane(tabId: string, paneId: string) {
-        this.tabs.find((tab) => tab.uuid === tabId)?.removePane(paneId);
+    removeWidget(tabId: UUID, widgetId: UUID) {
+        this.tabs.find((tab) => tab.id === tabId)?.removeWidget(widgetId);
 
-        if (this.selectedTab?.uuid === tabId) {
-            setTimeout(() => this.onTabFocused(tabId), 0);
+        if (this.selectedTab?.id === tabId) {
+            setTimeout(
+                () =>
+                    this.dispatchEvent(
+                        new CustomEvent("tabFocus", { detail: tabId })
+                    ),
+                0
+            );
         }
     }
 
-    requestTabClosing(tabId: string) {
-        const tab = this.tabs.find((tab) => tab.uuid === tabId);
-        if (tab) {
-            this.onTabRequestClose(tab.uuid);
-        }
-    }
-
-    closeTab(tabId: string) {
-        const tab = this.tabs.find((tab) => tab.uuid === tabId);
+    closeTab(tabId: UUID) {
+        const tab = this.tabs.find((tab) => tab.id === tabId);
         if (tab) {
             this.hideDetailsCard();
             this.tabs.splice(this.tabs.indexOf(tab), 1);
             tab.element.style.animation = "tab-removed 140ms forwards";
-
-            tab.element
-                .querySelector(".close")
-                ?.removeEventListener("click", tab.onCloseButtonClick!);
             tab.resizeObserver.disconnect();
-            tab.element.removeEventListener("mousedown", tab.onClick!);
             const closingTabIndex = tab.index;
             this.tabs.forEach((tab) => {
                 if (tab.index > closingTabIndex) {
                     tab.index -= 1;
-                    tab.element.style.order = `${tab.index}`;
+                    tab.element.style.order = tab.index.toString(10);
                 }
             });
-            setTimeout(() => {
-                tab.element.remove();
-            }, 140);
+            setTimeout(() => tab.element.remove(), 140);
 
-            if (this.selectedTab!.uuid === tabId) {
-                if (this.selectedTab!.index - 1 === this.tabs.length) {
-                    this.select(this.tabs.length);
-                } else {
-                    this.select(this.selectedTab!.index);
-                }
+            if (this.selectedTab!.id === tabId) {
+                this.select(
+                    clamp(0, this.selectedTab!.index, this.tabs.length)
+                );
             }
         }
     }
@@ -255,76 +252,72 @@ export default class TabManager {
         this.select(this.tabs.length);
     }
 
-    select(tabId: string): void;
+    select(tabId: UUID): void;
     select(index: number): void;
-    select(selector: string | number) {
+    select(selector: UUID | number) {
         const tab = this.tabs.find(
-            (tab) => tab.uuid === selector || tab.index === selector
+            (tab) => tab.id === selector || tab.index === selector
         );
 
         if (tab && tab !== this.selectedTab) {
             this.selectedTab?.element.classList.remove("selected");
             this.selectedTab = tab;
-            this.selectedTab.clearPanesAttention();
+            this.selectedTab.clearWidgetsAttention();
             tab.element.classList.add("selected");
 
-            this.onTabFocused(tab.uuid);
-            this.onFocusedTabTitleUpdated(tab.title);
+            this.dispatchEvent(new CustomEvent("tabFocus", { detail: tab.id }));
+            this.dispatchEvent(
+                new CustomEvent("tabTitle", { detail: tab.title })
+            );
         }
     }
 
-    getSelected(): Tab {
-        return this.selectedTab!;
-    }
-
-    private focusAndStartDragging(e: MouseEvent, target: Tab) {
+    private focusAndStartDragging(e: MouseEvent, tab: Tab) {
         if (
             (e.target as HTMLElement).classList.contains("close") ||
             this.tabs.length === 1
         ) {
+            const element = document.activeElement as HTMLElement | null;
+            requestAnimationFrame(() => element?.focus());
             return;
         }
+
         e.preventDefault();
-        this.select(target.uuid);
+        this.select(tab.id);
 
-        this.movingTab = target;
+        tab.element.style.animation = "";
+
+        this.movingTab = tab;
         this.initialMousePosition = e.clientX;
-        this.initialOffsetLeft = this.movingTab.element.offsetLeft;
-
-        this.movingTab.element.style.animation = "";
-
-        this.nextTab = this.tabs.find(
-            (item) => item.index === this.movingTab!.index + 1
-        );
-        this.prevTab = this.tabs.find(
-            (item) => item.index === this.movingTab!.index - 1
-        );
+        this.initialOffsetLeft = tab.element.offsetLeft;
+        this.nextTab = this.tabs.find((item) => item.index === tab.index + 1);
+        this.prevTab = this.tabs.find((item) => item.index === tab.index - 1);
     }
 
-    private inDragging(movingTab: Tab, deltaX: number) {
-        movingTab.element.classList.add("dragging");
+    private inDragging(tab: Tab, deltaX: number) {
+        tab.element.classList.add("dragging");
 
         if (
             this.initialOffsetLeft + deltaX > 0 &&
-            deltaX + movingTab.element.clientWidth + this.initialOffsetLeft <
+            deltaX + tab.element.clientWidth + this.initialOffsetLeft <
                 this.target.clientWidth
         ) {
-            movingTab.element.style.transform = `translateX(${deltaX}px)`;
+            tab.element.style.transform = `translateX(${deltaX}px)`;
         } else if (this.initialOffsetLeft + deltaX < 0) {
-            movingTab.element.style.transform = `translateX(${-this
+            tab.element.style.transform = `translateX(${-this
                 .initialOffsetLeft}px)`;
         } else if (
-            deltaX + movingTab.element.clientWidth + this.initialOffsetLeft >
+            deltaX + tab.element.clientWidth + this.initialOffsetLeft >
             this.target.clientWidth
         ) {
-            movingTab.element.style.transform = `translateX(${
+            tab.element.style.transform = `translateX(${
                 this.target.clientWidth -
-                movingTab.element.clientWidth -
+                tab.element.clientWidth -
                 this.initialOffsetLeft
             }px)`;
         }
 
-        const deltaIndex = Math.round(deltaX / movingTab.element.clientWidth);
+        const deltaIndex = Math.round(deltaX / tab.element.clientWidth);
         while (deltaIndex !== this.movingTabDeltaIndex) {
             let slidingTab;
             let slidingTabTranslation;
@@ -342,7 +335,7 @@ export default class TabManager {
                 }
 
                 this.movingTabDeltaIndex += 1;
-                movingTab.index += 1;
+                tab.index += 1;
                 slidingTab.index -= 1;
                 this.prevTab = slidingTab;
                 this.nextTab = this.tabs.find(
@@ -362,7 +355,7 @@ export default class TabManager {
                 }
 
                 this.movingTabDeltaIndex -= 1;
-                movingTab.index -= 1;
+                tab.index -= 1;
                 slidingTab.index += 1;
                 this.nextTab = slidingTab;
                 this.prevTab = this.tabs.find(
@@ -375,55 +368,46 @@ export default class TabManager {
         }
     }
 
-    private stopDragging(movingTab: Tab) {
-        const matrix = new WebKitCSSMatrix(
-            window.getComputedStyle(movingTab.element).transform
-        );
-        const deltaX = matrix.m41;
+    private stopDragging(tab: Tab) {
+        const deltaX = new WebKitCSSMatrix(
+            window.getComputedStyle(tab.element).transform
+        ).m41;
 
         this.tabsMovedLeft.forEach((tab) => {
-            tab.element.style.order = `${Number(tab.element.style.order) - 1}`;
-            tab.index = Number(tab.element.style.order);
+            const index = Number(tab.element.style.order) - 1;
+            tab.element.style.order = `${index}`;
+            tab.index = index;
         });
-
         this.tabsMovedRight.forEach((tab) => {
-            tab.element.style.order = `${Number(tab.element.style.order) + 1}`;
-            tab.index = Number(tab.element.style.order);
+            const index = Number(tab.element.style.order) + 1;
+            tab.element.style.order = `${index}`;
+            tab.index = index;
         });
-
         this.tabs.forEach((tab) => {
             tab.element.classList.remove("moved");
             tab.element.style.transform = "";
         });
 
-        movingTab.element.style.order = `${movingTab.index}`;
-
-        const deltaIndex = Math.round(
-            deltaX / this.movingTab!.element.clientWidth
-        );
-
-        movingTab.element.style.transform = `translateX(${
-            matrix.m41 - deltaIndex * movingTab.element.clientWidth
-        }px)`;
-
-        movingTab.index = Number(movingTab.element.style.order);
-
-        const movedTab = this.movingTab!;
-        movedTab.element.style.animation =
-            "tab-slide-to-center 140ms ease-in-out forwards";
-
-        movedTab.element.addEventListener(
+        tab.element.addEventListener(
             "animationend",
             (e) => {
-                const movedTab = e.target as HTMLElement;
-                movedTab.classList.remove("dragging");
-                movedTab.style.transform = "";
-                movedTab.style.animation = "";
+                const element = e.target as HTMLElement;
+                element.classList.remove("dragging");
+                element.style.transform = "";
+                element.style.animation = "";
             },
             { once: true }
         );
+        tab.element.style.order = tab.index.toString(10);
+        tab.element.style.animation =
+            "tab-slide-to-center 140ms ease-in-out forwards";
+        tab.element.style.transform = `translateX(${
+            deltaX - this.movingTabDeltaIndex * tab.element.clientWidth
+        }px)`;
 
         this.movingTab = undefined;
+        this.prevTab = undefined;
+        this.nextTab = undefined;
         this.tabsMovedLeft = [];
         this.tabsMovedRight = [];
         this.movingTabDeltaIndex = 0;

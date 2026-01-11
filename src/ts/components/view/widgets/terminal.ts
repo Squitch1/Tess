@@ -1,5 +1,7 @@
-import { Profile } from "schemas/settings";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { CanvasAddon } from "@xterm/addon-canvas";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import {
     IBufferRange,
     IDecoration,
@@ -7,76 +9,50 @@ import {
     IViewportRange,
     Terminal as Xterm,
 } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { CanvasAddon } from "@xterm/addon-canvas";
-import { WebLinksAddon } from "@xterm/addon-web-links";
+
+import { Profile } from "@/schemas/settings";
+
 import Widget from "./base";
 
+type TerminalCallbacks = {
+    closable: () => Promise<boolean>;
+    leaderName: () => Promise<string>;
+    exit: () => Promise<void>;
+    keyPress: (e: KeyboardEvent) => boolean;
+};
+
 export default class Terminal extends Widget {
-    xterm: Xterm;
+    readonly xterm: Xterm;
+    private root: HTMLDivElement;
 
-    xtermTarget: HTMLElement;
+    private fitAddon: FitAddon;
 
-    xtermFitAddon: FitAddon;
+    private callbacks: TerminalCallbacks;
 
-    resizeObserver: ResizeObserver;
-
-    onTerminalResize: (cols: number, rows: number) => void;
-    onTerminalNeedClosability: () => Promise<boolean>;
-    onTerminalNeedLeaderName: () => Promise<string>;
-    onTerminalOutgoingData: (data: string) => void;
-    onTerminalKeyPress: (e: KeyboardEvent) => boolean;
-    onTerminalExit: () => Promise<void>;
+    private resizeObserver: ResizeObserver;
 
     private tooltip?: IDecoration[];
     private tooltipMarkers?: IMarker[];
     private tooltipPopTimeout?: ReturnType<typeof setTimeout>;
     private hyperlinkModifiers: string[];
 
-    constructor(profile: Profile) {
+    constructor(profile: Profile, callbacks: TerminalCallbacks) {
         super();
+
+        this.callbacks = callbacks;
+
+        let background;
+        [this.root, background] = Terminal.generateComponent(profile);
+        if (background) {
+            this.element.appendChild(background);
+        }
+        this.element.appendChild(this.root);
 
         this.hyperlinkModifiers = profile.terminalSettings.hyperlinkModifier
             .toLowerCase()
             .replaceAll(" ", "")
             .split("+")
             .filter((m) => m !== "");
-
-        this.onTerminalResize = () => {};
-        this.onTerminalNeedClosability = async () => true;
-        this.onTerminalNeedLeaderName = async () => "Untitled";
-        this.onTerminalOutgoingData = () => {};
-        this.onTerminalKeyPress = () => true;
-        this.onTerminalExit = async () => {};
-
-        this.xtermTarget = document.createElement("div");
-        this.xtermTarget.classList.add("widget--term");
-
-        if (profile.background) {
-            const background = document.createElement("img");
-            background.src = convertFileSrc(profile.background.location);
-            background.classList.add("background-image");
-            this.element.appendChild(background);
-            this.xtermTarget.style.setProperty(
-                "-webkit-backdrop-filter",
-                `blur(${profile.background.blur}px)`
-            );
-        }
-
-        this.xtermTarget.style.setProperty(
-            "--profile-background",
-            profile.theme.background
-        );
-        this.xtermTarget.style.setProperty(
-            "--profile-background-transparency",
-            `${profile.backgroundTransparency}%`
-        );
-        this.xtermTarget.style.setProperty(
-            "--terminal-highlight-color",
-            profile.theme.highlight
-        );
-
-        this.element.appendChild(this.xtermTarget);
 
         const theme = structuredClone(profile.theme);
         if (profile.backgroundTransparency < 100) {
@@ -107,9 +83,9 @@ export default class Terminal extends Widget {
             theme,
         });
 
-        this.xtermFitAddon = new FitAddon();
+        this.fitAddon = new FitAddon();
 
-        this.xterm.loadAddon(this.xtermFitAddon);
+        this.xterm.loadAddon(this.fitAddon);
         this.xterm.loadAddon(new CanvasAddon());
         this.xterm.loadAddon(
             new WebLinksAddon((e, uri) => this.onLinkClicked(e, uri), {
@@ -118,11 +94,13 @@ export default class Terminal extends Widget {
             })
         );
 
-        this.xterm.onData((data) => this.onTerminalOutgoingData(data));
+        this.xterm.onData((data) =>
+            this.dispatchEvent(new CustomEvent("data", { detail: data }))
+        );
         this.xterm.onScroll(() => this.disposeTooltip());
 
         this.xterm.attachCustomKeyEventHandler((e) =>
-            this.onTerminalKeyPress(e)
+            this.callbacks.keyPress(e)
         );
         this.xterm.attachCustomWheelEventHandler((e) => {
             if (
@@ -137,11 +115,11 @@ export default class Terminal extends Widget {
             return true;
         });
 
-        const onRender = this.xterm.onRender(() => {
+        const onRender = this.xterm.onRender(() =>
             setTimeout(() => {
                 this.resizeXterm();
-            }, 0);
-        });
+            }, 0)
+        );
         const onResize = this.xterm.onResize(() => {
             onRender.dispose();
             onResize.dispose();
@@ -150,50 +128,51 @@ export default class Terminal extends Widget {
         this.resizeObserver = new ResizeObserver(() => this.resizeXterm());
     }
 
-    run(): void {
-        this.xterm.open(this.xtermTarget);
+    run() {
+        this.xterm.open(this.root);
         this.resizeObserver.observe(this.element);
     }
 
     getShortTitle(): Promise<string> {
-        return this.onTerminalNeedLeaderName();
+        return this.callbacks.leaderName();
     }
 
     getClosability(): Promise<boolean> {
-        return this.onTerminalNeedClosability();
+        return this.callbacks.closable();
     }
 
     async close(): Promise<void> {
         try {
             this.resizeObserver.disconnect();
-            return this.onTerminalExit();
+            return this.callbacks.exit();
         } catch (e) {
             this.resizeObserver.observe(this.element);
             throw e;
         }
     }
 
-    focus(): void {
+    override focus() {
         this.xterm.focus();
     }
 
-    blur(): void {
+    override blur() {
         this.xterm.blur();
     }
 
-    dispose(): void {
+    override dispose() {
         this.xterm.dispose();
         this.resizeObserver.disconnect();
     }
 
     private resizeXterm() {
         this.disposeTooltip();
-        const proposedDimensions = this.xtermFitAddon.proposeDimensions();
-        if (proposedDimensions?.cols && proposedDimensions.rows) {
-            this.xterm.resize(proposedDimensions.cols, proposedDimensions.rows);
-            this.onTerminalResize(
-                proposedDimensions.cols,
-                proposedDimensions.rows
+        const dimensions = this.fitAddon.proposeDimensions();
+        if (dimensions?.cols && dimensions.rows) {
+            this.xterm.resize(dimensions.cols, dimensions.rows);
+            this.dispatchEvent(
+                new CustomEvent("resize", {
+                    detail: dimensions,
+                })
             );
         }
     }
@@ -342,21 +321,20 @@ export default class Terminal extends Widget {
                     tooltipRenderedEvent.dispose();
                     element.classList.add("highlight");
 
-                    if (
-                        lineIndex === 0 &&
-                        range.start.x > 1 &&
-                        (lineCount > 2 ||
-                            (lineCount === 2 && range.end.x >= range.start.x))
-                    ) {
-                        element.classList.add("bl-corner-inv");
+                    if (lineCount === 1) {
+                        return;
                     }
-                    if (
-                        lineIndex === lineCount - 1 &&
-                        range.end.x < this.xterm.cols &&
-                        (lineCount > 2 ||
-                            (lineCount === 2 && range.end.x >= range.start.x))
-                    ) {
-                        element.classList.add("tr-corner-inv");
+
+                    if (lineCount > 2 || range.end.x >= range.start.x) {
+                        if (lineIndex === 0 && range.start.x > 1) {
+                            element.classList.add("bl-corner-inv");
+                        }
+                        if (
+                            lineIndex === lineCount - 1 &&
+                            range.end.x < this.xterm.cols
+                        ) {
+                            element.classList.add("tr-corner-inv");
+                        }
                     }
 
                     if (lineCount === 2) {
@@ -373,27 +351,26 @@ export default class Terminal extends Widget {
                                 }
                             }
                         }
-                    } else if (lineCount >= 3) {
-                        element.style.borderTopLeftRadius = "0";
-                        element.style.borderTopRightRadius = "0";
-                        element.style.borderBottomLeftRadius = "0";
-                        element.style.borderBottomRightRadius = "0";
+                        return;
+                    }
+                    element.style.borderTopLeftRadius = "0";
+                    element.style.borderTopRightRadius = "0";
+                    element.style.borderBottomLeftRadius = "0";
+                    element.style.borderBottomRightRadius = "0";
 
-                        if (lineIndex === 0) {
-                            element.style.borderTopLeftRadius = "";
-                            element.style.borderTopRightRadius = "";
-                            element.classList.add("aa");
-                        } else if (lineIndex === 1 && range.start.x > 1) {
-                            element.style.borderTopLeftRadius = "";
-                        } else if (
-                            lineIndex === lineCount - 2 &&
-                            range.end.x < this.xterm.cols
-                        ) {
-                            element.style.borderBottomRightRadius = "";
-                        } else if (lineIndex === lineCount - 1) {
-                            element.style.borderBottomLeftRadius = "";
-                            element.style.borderBottomRightRadius = "";
-                        }
+                    if (lineIndex === 0) {
+                        element.style.borderTopLeftRadius = "";
+                        element.style.borderTopRightRadius = "";
+                    } else if (lineIndex === 1 && range.start.x > 1) {
+                        element.style.borderTopLeftRadius = "";
+                    } else if (
+                        lineIndex === lineCount - 2 &&
+                        range.end.x < this.xterm.cols
+                    ) {
+                        element.style.borderBottomRightRadius = "";
+                    } else if (lineIndex === lineCount - 1) {
+                        element.style.borderBottomLeftRadius = "";
+                        element.style.borderBottomRightRadius = "";
                     }
                 }
             );
@@ -406,13 +383,42 @@ export default class Terminal extends Widget {
         if (!this.tooltip) {
             return;
         }
-        this.tooltip.forEach((t) => {
-            t.dispose();
-        });
-        this.tooltipMarkers!.forEach((m) => {
-            m.dispose();
-        });
+        this.tooltip.forEach((t) => t.dispose());
+        this.tooltipMarkers!.forEach((m) => m.dispose());
         this.tooltip = undefined;
         this.tooltipMarkers = undefined;
+    }
+
+    private static generateComponent(
+        profile: Profile
+    ): [HTMLDivElement, HTMLImageElement?] {
+        const element = document.createElement("div");
+        element.classList.add("widget--term");
+
+        let background;
+        if (profile.background) {
+            background = document.createElement("img");
+            background.src = convertFileSrc(profile.background.location);
+            background.classList.add("background-image");
+            element.style.setProperty(
+                "-webkit-backdrop-filter",
+                `blur(${profile.background.blur}px)`
+            );
+        }
+
+        element.style.setProperty(
+            "--profile-background",
+            profile.theme.background
+        );
+        element.style.setProperty(
+            "--profile-background-transparency",
+            `${profile.backgroundTransparency}%`
+        );
+        element.style.setProperty(
+            "--terminal-highlight-color",
+            profile.theme.highlight
+        );
+
+        return [element, background];
     }
 }

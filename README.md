@@ -4,10 +4,10 @@
 
 Tess was mainly built in order to offer you a new, intuitive, fully customizable, and blazing fast terminal app by using the power of web technologies.
 
-Why should you not test it? We've worked on this for more than 2 years, and we've been relied on by thousands of users.
+Why not give it a try? We've worked on this for more than 2 years, and we've been relied on by thousands of users.
 
 Tess is currently officially tested on Windows and Linux, but it should also work on other platforms.
-If you do not have access to Tess yet, fill out an issue, and we'll try to provide you with the best cross-platform experience by making new packages or helping you manually install Tess.
+If you do not have access to Tess yet, open an issue, and we'll try to provide you with the best cross-platform experience by creating new packages or helping you install Tess manually.
 
 <br>
 <br>
@@ -16,8 +16,8 @@ If you do not have access to Tess yet, fill out an issue, and we'll try to provi
 
 ## Requirements
 
--   Have an OS with `x86` arch type
--   `webkit2gtk` & `gtk3` installed
+- An OS with `x86` architecture
+- `webkit2gtk` and `gtk3` installed
 
 <br>
 
@@ -29,7 +29,7 @@ We provide packages for most major distributions; simply select the one that mat
 
 ## Installation with PPA
 
-If you prefer using apt over downloading and installing the `deb` archive, you could set up the PPA and download Tess with these
+If you prefer using apt over downloading and installing the `deb` archive, you could set up the PPA and download Tess using the following commands.
 
 ```bash
 apt install curl apt-transport-https gnupg2
@@ -71,13 +71,13 @@ yum check-update && yum install tess
 
 ## Requirements
 
--   `Windows 10 64 bits` or superior
+- `Windows 10 64-bit` or later
 
 <br>
 
 ## Installation from Installer
 
-Simply download and execute the installer, available on the [releases](https://github.com/SquitchYT/Tess/releases) page.
+Simply download and execute the installer, available on the [releases](https://github.com/Squitch1/Tess/releases) page.
 
 <br>
 
@@ -85,7 +85,7 @@ Simply download and execute the installer, available on the [releases](https://g
 
 <br>
 
-If you are running on `Windows 10 1709 (build 16299)` or superior, you could download [Winget](https://github.com/microsoft/winget-cli). It may also already be installed on your system.<br>
+If you are running `Windows 10 1709 (build 16299)` or later, you could download [Winget](https://github.com/microsoft/winget-cli). It may also already be installed on your system.<br>
 Next, execute the following command.
 
 ```sh
@@ -96,8 +96,8 @@ winget install Squitch.Tess
 
 ## Installation using Chocolatey
 
-Firstly, download [Chocolatey](https://chocolatey.org/install).<br>
-Next, you will be allowed to run this.
+First, download [Chocolatey](https://chocolatey.org/install).<br>
+Next, you can run the following command.
 
 ```sh
 choco install tess
@@ -112,11 +112,11 @@ You can also find the package [here](https://community.chocolatey.org/packages/t
 
 ## Getting started
 
-If you want to contribute to Tess, find a simple task to help us with this project.
+Want to contribute to Tess? Find something to improve and help us with this project.
 
--   If you've found a mistake in documentation, sources, or the wiki, let us know by opening an [issue](https://github.com/SquitchYT/Tess/issues).
--   You've got an amazing feature idea; simply post your suggestion by creating an issue too.
--   You want to help us close an issue, implement a feature, or do something else related to code, follow the guide below.
+- You've found a mistake in documentation, sources, or the wiki; let us know by opening an [issue](https://github.com/Squitch1/Tess/issues).
+- You've got an amazing feature idea; simply post your suggestion by creating an issue too.
+- You want to help us close an issue, implement a feature, or do something else related to code, follow the guide below.
 
 _Please, search for a similar issue before creating a new one._
 
@@ -126,40 +126,39 @@ _Please, search for a similar issue before creating a new one._
 
 First and foremost, you need to ensure that you have installed the necessary tools:
 
--   [Rust & Cargo](https://rustup.rs/)
--   [Node.js](https://nodejs.org/en)
--   Tauri CLI `cargo install tauri-cli`
+- [Rust & Cargo](https://rustup.rs/)
+- [Node.js](https://nodejs.org/en)
+- Tauri CLI `cargo install tauri-cli`
 
 <br>
 
-Next, start by downloading the source code.
+Start by downloading the source code.
 
 ```sh
-git clone -b dev https://github.com/SquitchYT/Tess
+git clone -b dev https://github.com/Squitch1/Tess
 ```
 
-Next, set up the project.
+Next, set up the project. This will install required dependencies and set up the Git hooks.
 
 ```sh
 npm i
 ```
 
-To ensure that everything is set up properly, run Tess with this command; it should launch Tess.
+Finally, test your setup by running this command. If everything was done correctly, it should launch Tess.
 
 ```sh
 cargo tauri dev
 ```
 
-You are now ready!
-
 <br>
 
 Important notice:
 
--   As Tess is cross-platform, when you implement a new feature, try to make it available everywhere. If, despite all your efforts, you are unable to make it cross-platform, let us know the supported platforms when submitting your changes.
--   If you update the code, explain why you think this change is important and what you've done.
+- As Tess is cross-platform, when you implement a new feature, try to make it available everywhere. If, despite all your efforts, you are unable to make it cross-platform, let us know the supported platforms when submitting your changes.
+- If you update the code, explain why you think this change is important and what you've done.
+- Ensure that `cargo fmt` and `eslint` do not emit any errors or warnings. The pre-commit hook will also prevent committing malformed code, and your PR will be refused if the linter complains.
 
-Simply open a [pull request](https://github.com/SquitchYT/Tess/pulls) to submit your changes.
+Simply open a [pull request](https://github.com/Squitch1/Tess/pulls) to submit your changes.
 
 <br>
 <br>
@@ -167,7 +166,7 @@ Simply open a [pull request](https://github.com/SquitchYT/Tess/pulls) to submit 
 # Roadmap
 
 As long as Tess is in beta, many bugs may occur, and some of them have not yet been fixed.<br>
-Many features are not yet available; here's a quick recap of the major features that we'll integrate in Tess.
+Many features are not yet available; here's a quick recap of the major features that we'll integrate into Tess.
 
 | Features                  | Electron | Tauri |
 | ------------------------- | -------- | ----- |
@@ -184,7 +183,7 @@ Many features are not yet available; here's a quick recap of the major features 
 | Config page               | ✔️       | ⌛    |
 | Config watching           | 🟠       | ⌛    |
 | Image display             | ❌       | ⌛    |
-| Font ligature             | 🟠       | ⌛    |
+| Font ligatures            | 🟠       | ⌛    |
 | Animated background       | ❌       | ✔️    |
 | URI scheme API            | ❌       | ⌛    |
 | Search in a shell         | ❌       | ⌛    |

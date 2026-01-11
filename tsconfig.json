@@ -1,28 +1,31 @@
 {
     "compilerOptions": {
-        "target": "ESNext",
-        "useDefineForClassFields": true,
-        "module": "ESNext",
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "bundler",
         "lib": ["ESNext", "DOM"],
-        "moduleResolution": "node",
-        "strict": true,
-        "resolveJsonModule": true,
-        "isolatedModules": true,
-        "esModuleInterop": true,
+        "skipLibCheck": true,
         "noEmit": true,
+
+        "strict": true,
+        "isolatedModules": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noImplicitReturns": true,
-        "skipLibCheck": true,
+        "noImplicitOverride": true,
+        "noFallthroughCasesInSwitch": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "noUncheckedSideEffectImports": true,
+        "useDefineForClassFields": true,
+
         "baseUrl": ".",
-        "types": ["vite/client"],
         "paths": {
-            "managers/*": ["./src/ts/managers/*"],
-            "components/*": ["./src/ts/components/*"],
-            "schemas/*": ["src/ts/schemas/*"],
-            "utils/*": ["./src/ts/utils/*"],
-            "icons/*": ["./icons/*"]
+            "@/components/*": ["./src/ts/components/*"],
+            "@/icons/*": ["./icons/*"],
+            "@/managers/*": ["./src/ts/managers/*"],
+            "@/schemas/*": ["./src/ts/schemas/*"],
+            "@/utils/*": ["./src/ts/utils/*"]
         }
     },
-    "include": ["src", ".eslintrc.cjs", "vite.config.ts", "postcss.config.cjs"]
+    "include": ["src", ".eslintrc.cjs", "vite.config.ts"]
 }
