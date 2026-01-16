@@ -106,32 +106,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(windows)]
     {
-        println!("cargo::rerun-if-changed=../packaging/windows/resources/rc");
+        println!("cargo::rerun-if-changed=resources");
 
+        let rc = embed_resource::find_windows_sdk_tool("rc.exe").ok_or("rc.exe not found")?;
         let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-        let mut includes = vec![];
 
-        for include in PathBuf::from("/")
-            .join("Program Files (x86)")
-            .join("Windows Kits")
-            .join("10")
-            .join("Include")
-            .canonicalize()?
-            .read_dir()?
-            .next()
-            .unwrap()
-            .unwrap()
-            .path()
-            .read_dir()?
-        {
-            includes.extend(["/I".into(), include?.path().into_os_string()]);
-        }
-
-        for resource in PathBuf::from("..")
-            .join("packaging")
-            .join("windows")
+        for resource in PathBuf::from(".")
             .join("resources")
-            .join("rc")
             .canonicalize()?
             .read_dir()?
         {
@@ -140,23 +121,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
 
-            let mut out_file = out_dir.join(resource.file_name());
-            out_file.set_extension("res");
-
-            let mut args = includes.clone();
-            args.extend(["/fo".into(), out_file.clone().into_os_string()]);
-            args.push(resource.path().into_os_string());
-            Command::new("rc")
-                .args(args)
-                .current_dir(PathBuf::from("..").canonicalize()?)
-                .output()?;
-
-            println!("cargo::rustc-link-arg={}", out_file.display());
+            embed_resource::compile(resource.path(), embed_resource::NONE).manifest_required()?;
         }
 
+        let tauri_resource_file = out_dir.join("resource.rc");
         std::fs::File::options()
             .append(true)
-            .open(out_dir.join("resource.rc"))?
+            .open(&tauri_resource_file)?
             .write_all(
                 format!(
                     "32513 ICON {:?}\n",
@@ -168,9 +139,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .as_bytes(),
             )?;
-        includes.extend(["/fo".into(), out_dir.join("resource.lib").into_os_string()]);
-        includes.push(out_dir.join("resource.rc").into_os_string());
-        Command::new("rc").args(includes).output()?;
+        Command::new(rc)
+            .args([
+                "/fo".into(),
+                out_dir.join("resource.lib").into_os_string(),
+                tauri_resource_file.into_os_string(),
+            ])
+            .output()?;
     }
 
     Ok(())

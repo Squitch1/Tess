@@ -42,7 +42,6 @@ cp "$script_dir/../../../package.json" "$build_dir"
 cp "$script_dir/../../../package-lock.json" "$build_dir"
 cp "$script_dir/../../../vite.config.ts" "$build_dir"
 cp "$script_dir/../../../tsconfig.json" "$build_dir"
-cp "$script_dir/../../../postcss.config.cjs" "$build_dir"
 
 if [[ -n "${USE_PREBUILT}" ]]; then
     cp "$USE_PREBUILT" "$build_dir/resources/tess"

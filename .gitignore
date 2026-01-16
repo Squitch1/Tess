@@ -12,6 +12,7 @@ src-tauri/dist
 src-tauri/gen
 *.local
 target
+!src/style/target
 
 # Editor directories and files
 .vscode
