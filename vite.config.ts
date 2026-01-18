@@ -22,7 +22,6 @@ export default defineConfig({
         outDir: "../src-tauri/dist",
         terserOptions: {
             compress: {
-                booleans_as_integers: true,
                 drop_console: true,
                 drop_debugger: true,
                 ecma: 2020,
@@ -56,7 +55,7 @@ export default defineConfig({
             scss: {
                 additionalData:
                     process.platform === "linux"
-                        ? '@use "./target/linux.scss";'
+                        ? '@use "target/linux.scss";'
                         : "",
             },
         },

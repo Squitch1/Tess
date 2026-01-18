@@ -9,6 +9,20 @@
 #   Point to the prebuilt binary going to be packaged, It's the user
 #       responsibility to ensure that the binary and $env:Arch match
 
+function FindISCC {
+   $Paths = @(
+      "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+      "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+   )
+
+   foreach ($Path in $Paths) {
+      if (Test-Path $Path) {
+         return $Path
+      }
+   }
+   return $null
+}
+
 if (-not $env:Arch ) {
    throw 'error: $env:Arch must be set'  
 }
@@ -18,8 +32,11 @@ if (-not $env:UsePrebuilt ) {
 
 
 $BuildDir = Join-Path $env:TEMP "build"
-$Iscc = Join-Path $env:LocalAppData "Programs" "Inno Setup 6" "ISCC.exe"
+$Iscc = FindISCC;
 
+if (-not $Iscc) {
+   throw 'error: ISCC.exe not found'
+}
 
 if (-Not (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $BuildDir

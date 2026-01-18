@@ -8,16 +8,18 @@ erase_line="\r\033[2K"
 IFS=""
 commands=(
     "cargo fmt --check --manifest-path src-tauri/Cargo.toml"
+    "cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml"
     "npx eslint . --color"
 )
 steps=(
     "cargo fmt"
+    "cargo clippy"
     "eslint"
 )
 
 for i in "${!commands[@]}"; do
     printf "[$((i + 1))/${#commands[@]}] ${green}Validating$reset ${steps[$i]}"
-    if ! output=$(eval "${commands[$i]}"); then
+    if ! output=$(eval "${commands[$i]}" 2>&1); then
         printf "$erase_line[$((i + 1))/${#commands[@]}] ${red}Failed$reset ${steps[$i]}\n"
         printf "$output"
         exit 1
