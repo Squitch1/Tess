@@ -1,3 +1,18 @@
+tess (0.7.0~alpha.15-1) unstable; urgency=medium
+
+  * Add details card on tab hover.
+  * Support multi-line highlighting for hyperlinks.
+  * Handle quotes and environment variables when parsing the profile command.
+  * Add focus_mode and details_card_delay fields to app_behavior settings.
+  * Add minimum_contrast_ratio field to terminal settings.
+  * Add intercept_signals field to desktop_integration settings.
+  * Move open_in_tab field from desktop_integration to app_behavior settings.
+  * Rename tab field to process in close_confirmation settings.
+  * Prevent losing focus when clicking the titlebar.
+  * Display "Untitled" as the default widget title.
+
+ -- Clément FOURÉ <clement.foure@proton.me>  Tue, 20 Jan 2026 21:09:49 +0000
+
 tess (0.7.0~alpha.14-1) unstable; urgency=medium
 
   * Add hyperlink support as well as detection of http and https URLs.
