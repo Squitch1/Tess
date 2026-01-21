@@ -3985,7 +3985,7 @@ dependencies = [
 
 [[package]]
 name = "tess"
-version = "0.7.0-alpha.14"
+version = "0.7.0-alpha.15"
 dependencies = [
  "bitcode",
  "chrono",
