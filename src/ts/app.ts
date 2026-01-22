@@ -48,6 +48,10 @@ export default class App {
             (e: CustomEventInit) => App.refreshWindowTitle(e.detail)
         );
         this.tabsManager.addEventListener(
+            "overallProgressUpdate",
+            (e: CustomEventInit) => App.refreshOverallProgress(e.detail)
+        );
+        this.tabsManager.addEventListener(
             "widgetFocusRequest",
             (e: CustomEventInit) => {
                 const { tabId, widgetId } = e.detail;
@@ -79,9 +83,9 @@ export default class App {
             this.shortcutsManager.onKeyPress(e, target)
         );
 
-        popupManager.addEventListener("popupClosed", () => {
-            this.focusedView!.focus();
-        });
+        popupManager.addEventListener("popupClosed", () =>
+            this.focusedView!.focus()
+        );
 
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         webviewWindow.listen("js_window_request_closing", () =>
@@ -100,8 +104,7 @@ export default class App {
             if (settings.appBehavior.focusMode === "requestAttention") {
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 invoke("window_request_attention");
-            }
-            if (settings.appBehavior.focusMode === "focus") {
+            } else if (settings.appBehavior.focusMode === "focus") {
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 invoke("window_focus");
             }
@@ -448,6 +451,15 @@ export default class App {
         if (settings.desktopIntegration.dynamicTitle) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             invoke("window_set_title", { title });
+        }
+    }
+
+    private static refreshOverallProgress(progress: number) {
+        if (settings.desktopIntegration.taskbarProgress) {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            invoke("window_set_overall_progress", {
+                progress: Math.floor(progress),
+            });
         }
     }
 }

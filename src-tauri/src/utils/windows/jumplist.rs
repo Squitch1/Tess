@@ -62,7 +62,7 @@ fn new_shell_link(
 }
 
 fn new_encoded_indirect_string(path: impl Display, resource_index: u16) -> Vec<u16> {
-    format!("@{},-{}", path, resource_index)
+    format!("@{path},-{resource_index}")
         .encode_utf16()
         .chain(std::iter::once(0))
         .collect::<Vec<u16>>()
@@ -94,7 +94,7 @@ fn jumplist_tasks() -> Result<IObjectCollection, windows::core::Error> {
 pub fn update() -> Result<(), windows::core::Error> {
     unsafe {
         CoInitialize(None).and_then(|| {
-            CoCreateInstance(&DestinationList, None, CLSCTX_INPROC_SERVER)
+            let res = CoCreateInstance(&DestinationList, None, CLSCTX_INPROC_SERVER)
                 .and_then(|jumplist: ICustomDestinationList| {
                     jumplist.BeginList::<IObjectArray>(&mut 0).and(Ok(jumplist))
                 })
@@ -102,8 +102,9 @@ pub fn update() -> Result<(), windows::core::Error> {
                     jumplist_tasks()
                         .and_then(|tasks| jumplist.AddUserTasks(&tasks).and(Ok(jumplist)))
                 })
-                .and_then(|jumplist| jumplist.CommitList())
-                .and(Ok(CoUninitialize()))
+                .and_then(|jumplist| jumplist.CommitList());
+            CoUninitialize();
+            res
         })
     }
 }

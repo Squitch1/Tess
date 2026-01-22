@@ -16,8 +16,6 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[cfg(target_os = "windows")]
-use std::ffi::c_void;
-#[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStringExt;
 #[cfg(target_os = "windows")]
 use windows::core::PCWSTR;
@@ -43,7 +41,11 @@ unsafe impl Send for Pty {}
 unsafe impl Sync for Pty {}
 
 impl Pty {
-    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    #[allow(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        clippy::similar_names
+    )]
     pub fn build_and_run(
         command: &str,
         workdir: Option<impl AsRef<OsStr>>,
@@ -91,16 +93,13 @@ impl Pty {
             }
 
             let built_command = CommandBuilder::from_argv(
+                #[allow(clippy::cast_sign_loss)]
                 unsafe { core::slice::from_raw_parts(argv, argc as usize) }
                     .iter()
                     .map(|s| OsString::from_wide(unsafe { s.as_wide() }))
                     .collect(),
             );
-            unsafe {
-                LocalFree(Some(windows::Win32::Foundation::HLOCAL(
-                    argv as *mut c_void,
-                )))
-            };
+            unsafe { LocalFree(Some(windows::Win32::Foundation::HLOCAL(argv.cast()))) };
 
             built_command
         };

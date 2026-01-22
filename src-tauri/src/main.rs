@@ -228,6 +228,7 @@ async fn main() {
             commands::window_close,
             commands::window_focus,
             commands::window_set_title,
+            commands::window_set_overall_progress,
             commands::window_request_attention
         ])
         .build(tauri::generate_context!())

@@ -118,6 +118,7 @@ export type CloseConfirmation = {
 
 export type DesktopIntegration = {
     dynamicTitle: boolean;
+    taskbarProgress: boolean;
 };
 
 export type AppBehavior = {

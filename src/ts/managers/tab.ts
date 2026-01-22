@@ -23,6 +23,8 @@ export default class TabManager extends EventTarget {
     private detailsCard: DetailsCard;
     private showDetailsCardTimeout?: ReturnType<typeof setTimeout>;
 
+    private overallProgress: number = 100;
+
     constructor(target: HTMLElement) {
         super();
 
@@ -118,6 +120,9 @@ export default class TabManager extends EventTarget {
                 );
             }
         });
+        tab.addEventListener("progressUpdate", () =>
+            this.computeOverallProgress()
+        );
 
         tab.element.addEventListener("mousedown", (e) => {
             clearTimeout(this.showDetailsCardTimeout);
@@ -143,11 +148,6 @@ export default class TabManager extends EventTarget {
         tab.element.style.order = `${this.tabs.length + 1}`;
         this.tabs.push(tab);
         this.target.appendChild(tab.element);
-
-        if (this.tabs.length === 0) {
-            tab.element.classList.add("selected");
-            this.select(tab.id);
-        }
 
         return tab.id;
     }
@@ -229,6 +229,7 @@ export default class TabManager extends EventTarget {
                     clamp(0, this.selectedTab!.index, this.tabs.length)
                 );
             }
+            this.computeOverallProgress();
         }
     }
 
@@ -424,5 +425,26 @@ export default class TabManager extends EventTarget {
     private hideDetailsCard() {
         clearTimeout(this.showDetailsCardTimeout);
         this.detailsCard.hide();
+    }
+
+    private computeOverallProgress() {
+        let progress = 100;
+
+        this.tabs.forEach((tab) => {
+            if (tab.progress > 0 && tab.progress < progress) {
+                progress = tab.progress;
+            }
+        });
+
+        if (this.overallProgress === progress) {
+            return;
+        }
+
+        this.overallProgress = progress;
+        this.dispatchEvent(
+            new CustomEvent("overallProgressUpdate", {
+                detail: this.overallProgress,
+            })
+        );
     }
 }

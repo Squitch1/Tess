@@ -12,6 +12,7 @@ use windows::Win32::System::Threading::{
 };
 use windows_native::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 
+#[must_use]
 pub fn get_leader_pid(shell_pid: u32) -> u32 {
     let mut leader_pid = shell_pid;
 
@@ -64,6 +65,7 @@ pub async fn get_title(pid: u32, fetched_title: &mut Option<String>) {
     .unwrap_or(None);
 }
 
+#[allow(clippy::unused_async)]
 pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
     if let Ok(handle) = unsafe {
         windows::Win32::System::Threading::OpenProcess(
@@ -75,10 +77,11 @@ pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
         let pbi = PROCESS_BASIC_INFORMATION::default();
 
         *fetched_pwd = unsafe {
+            #[allow(clippy::cast_possible_truncation)]
             NtQueryInformationProcess(
                 handle,
                 ProcessBasicInformation,
-                &pbi as *const _ as *mut c_void,
+                &raw const pbi as *mut c_void,
                 size_of::<PROCESS_BASIC_INFORMATION>() as u32,
                 ptr::null_mut(),
             )
@@ -92,7 +95,7 @@ pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
                 ReadProcessMemory(
                     handle,
                     pbi.PebBaseAddress as *const c_void,
-                    &peb as *const _ as *mut c_void,
+                    &raw const peb as *mut c_void,
                     size_of::<PEB>(),
                     None,
                 )
@@ -106,7 +109,7 @@ pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
                 ReadProcessMemory(
                     handle,
                     peb.ProcessParameters as *const c_void,
-                    &upp as *const _ as *mut c_void,
+                    &raw const upp as *mut c_void,
                     size_of::<RTL_USER_PROCESS_PARAMETERS>(),
                     None,
                 )
@@ -119,8 +122,8 @@ pub async fn get_working_dir(pid: u32, fetched_pwd: &mut Option<String>) {
             unsafe {
                 ReadProcessMemory(
                     handle,
-                    upp.CurrentDirectory.DosPath.Buffer.as_ptr() as *mut c_void,
-                    path.as_mut_ptr() as *mut c_void,
+                    upp.CurrentDirectory.DosPath.Buffer.as_ptr().cast(),
+                    path.as_mut_ptr().cast(),
                     upp.CurrentDirectory.DosPath.Length as usize,
                     None,
                 )
