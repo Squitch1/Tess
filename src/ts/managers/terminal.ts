@@ -188,22 +188,6 @@ export default class TerminalManager {
                 }
             },
         });
-        try {
-            this.terminals.push(terminal);
-            this.flows.set(terminal.id, [0, false]);
-            await invoke("pty_open", {
-                ptyId: terminal.id,
-                profileId,
-                command,
-                workdir,
-                title,
-            });
-        } catch (e) {
-            this.terminals.pop();
-            this.flows.delete(terminal.id);
-            throw new PtyCreateError(e as string, "Unable to create terminal");
-        }
-
         terminal.addEventListener(
             "resize",
             (e: CustomEventInit<{ cols: number; rows: number }>) => {
@@ -235,6 +219,21 @@ export default class TerminalManager {
             )
         );
 
+        try {
+            this.terminals.push(terminal);
+            this.flows.set(terminal.id, [0, false]);
+            await invoke("pty_open", {
+                ptyId: terminal.id,
+                profileId,
+                command,
+                workdir,
+                title,
+            });
+        } catch (e) {
+            this.terminals.pop();
+            this.flows.delete(terminal.id);
+            throw new PtyCreateError(e as string, "Unable to create terminal");
+        }
         return terminal;
     }
 
