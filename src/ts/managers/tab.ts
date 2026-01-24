@@ -268,7 +268,7 @@ export default class TabManager extends EventTarget {
 
             this.dispatchEvent(new CustomEvent("tabFocus", { detail: tab.id }));
             this.dispatchEvent(
-                new CustomEvent("tabTitle", { detail: tab.title })
+                new CustomEvent("tabTitleChange", { detail: tab.title })
             );
         }
     }

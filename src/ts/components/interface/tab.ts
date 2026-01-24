@@ -148,7 +148,9 @@ export class Tab extends EventTarget {
             this.dispatchEvent(
                 new CustomEvent("widgetRemoved", { detail: widgetId })
             );
-            this.refresh();
+            if (this.#widgets.size > 0) {
+                this.refresh();
+            }
         }
     }
 

@@ -12,7 +12,7 @@ export default defineConfig({
         MAX_SPLITS_PER_PANE: 36,
         TAB_DRAG_THRESHOLD: 12,
         PTY_BUFFERED_MIN: 65536,
-        PTY_BUFFERED_MAX: 262144,
+        PTY_BUFFERED_MAX: 131072,
         SVG_NAMESPACE: JSON.stringify("http://www.w3.org/2000/svg"),
     },
     build: {
