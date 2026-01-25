@@ -70,6 +70,7 @@ export default class TabManager extends EventTarget {
             if (!animationLocked) {
                 animationLocked = true;
                 draggingAnimationFrame = requestAnimationFrame(() => {
+                    this.hideDetailsCard();
                     this.inDragging(this.movingTab!, deltaX);
                     animationLocked = false;
                 });

@@ -8,7 +8,7 @@ erase_line="\r\033[2K"
 IFS=""
 commands=(
     "cargo fmt --check --manifest-path src-tauri/Cargo.toml"
-    "cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml"
+    "cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml -- -Dwarnings"
     "npx eslint . --color"
 )
 steps=(
