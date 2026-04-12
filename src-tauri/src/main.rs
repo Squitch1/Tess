@@ -9,6 +9,7 @@ use tess::common::Logger;
 use tess::ipc;
 use tess::schemas;
 use tess::states::Ptys;
+use tess::utils::settings::settings_path;
 use tess::{commands, utils};
 
 use clap::Parser;
@@ -47,6 +48,10 @@ async fn main() {
                 .map(|commit_info| format!(" ({commit_info})"))
                 .unwrap_or_default()
         );
+        return;
+    }
+    if cli.print_config_path {
+        println!("{}", settings_path().display());
         return;
     }
 

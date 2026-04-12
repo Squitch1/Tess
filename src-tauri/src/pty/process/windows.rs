@@ -12,7 +12,6 @@ use windows::Win32::System::Threading::{
 };
 use windows_native::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 
-#[must_use]
 pub fn get_leader_pid(shell_pid: u32) -> u32 {
     let mut leader_pid = shell_pid;
 

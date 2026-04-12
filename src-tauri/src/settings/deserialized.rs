@@ -664,7 +664,7 @@ pub struct DesktopIntegration {
 impl Default for DesktopIntegration {
     fn default() -> Self {
         Self {
-            custom_titlebar: default_custom_title(),
+            custom_titlebar: default_custom_titlebar(),
             dynamic_title: true,
             taskbar_progress: true,
             #[cfg(target_family = "unix")]
@@ -705,7 +705,7 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
             Wrapper::Complex(partial_desktop_integration) => Self {
                 custom_titlebar: partial_desktop_integration
                     .custom_titlebar
-                    .unwrap_or(default_custom_title()),
+                    .unwrap_or(default_custom_titlebar()),
                 dynamic_title: partial_desktop_integration.dynamic_title.unwrap_or(true),
                 taskbar_progress: partial_desktop_integration.taskbar_progress.unwrap_or(true),
                 #[cfg(target_family = "unix")]
@@ -749,7 +749,7 @@ const fn default_to_true() -> bool {
 }
 
 #[inline]
-const fn default_custom_title() -> bool {
+const fn default_custom_titlebar() -> bool {
     cfg!(target_os = "windows")
 }
 

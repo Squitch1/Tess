@@ -19,4 +19,7 @@ pub struct Cli {
     /// Print build information
     #[arg(short, long, exclusive = true)]
     pub version: bool,
+    /// Print settings file location
+    #[arg(long, exclusive = true)]
+    pub print_config_path: bool,
 }

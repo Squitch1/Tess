@@ -28,7 +28,6 @@ pub struct TitleFormatter {
 }
 
 impl TitleFormatter {
-    #[must_use]
     pub fn new(title: &str, profile_name: &str) -> Self {
         let mut parts = Vec::new();
         let mut current_static_part = String::new();
@@ -132,7 +131,6 @@ impl TitleFormatter {
         }
     }
 
-    #[must_use]
     pub fn format(&self, params: &Params) -> String {
         self.parts
             .iter()
