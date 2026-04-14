@@ -22,13 +22,13 @@ pub fn get_leader_pid(shell_pid: u32) -> u32 {
     };
 
     let mut next_entry_result: windows::core::Result<()> =
-        unsafe { Process32FirstW(handle, &mut process_entry) };
+        unsafe { Process32FirstW(handle, &raw mut process_entry) };
     while next_entry_result.is_ok() {
         if process_entry.th32ParentProcessID == leader_pid {
             leader_pid = process_entry.th32ProcessID;
         }
 
-        next_entry_result = unsafe { Process32NextW(handle, &mut process_entry) };
+        next_entry_result = unsafe { Process32NextW(handle, &raw mut process_entry) };
     }
 
     leader_pid

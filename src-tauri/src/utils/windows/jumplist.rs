@@ -46,7 +46,7 @@ fn new_shell_link(
 
         let mut property_store_ptr = std::ptr::null_mut();
         shell_link
-            .query(&IPropertyStore::IID, &mut property_store_ptr)
+            .query(&IPropertyStore::IID, &raw mut property_store_ptr)
             .ok()?;
         let property_store = IPropertyStore::from_raw(property_store_ptr);
 

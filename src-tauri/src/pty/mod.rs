@@ -86,7 +86,7 @@ impl Pty {
 
             let mut argc = 0;
             let argv = unsafe {
-                CommandLineToArgvW(PCWSTR::from_raw(command_expanded.as_ptr()), &mut argc)
+                CommandLineToArgvW(PCWSTR::from_raw(command_expanded.as_ptr()), &raw mut argc)
             };
             if argv.is_null() {
                 return Err(PtyError::Creation("Cannot parse command".to_owned()));

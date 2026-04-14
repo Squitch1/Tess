@@ -3,6 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+#[cfg(target_family = "unix")]
+use tauri::window::{ProgressBarState, ProgressBarStatus};
 use tess::cli;
 use tess::common::consts::{IPC_SOCKET_ADDR, TESS_VERSION};
 use tess::common::Logger;
@@ -23,6 +25,9 @@ use futures::stream::StreamExt;
 use signal_hook::consts::signal::*;
 #[cfg(target_family = "unix")]
 use std::io::ErrorKind;
+
+#[cfg(target_family = "unix")]
+use tess::states::Progress;
 
 #[cfg(all(target_os = "windows", not(debug_assertions)))]
 use windows::Win32::System::Console::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
@@ -117,7 +122,8 @@ async fn main() {
     let settings = Arc::new(RwLock::new(settings));
     let cloned_settings = settings.clone();
     tauri::async_runtime::set(tokio::runtime::Handle::current());
-    let app = tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut app_builder = tauri::Builder::default()
         .setup(move |app| {
             #[cfg(target_os = "windows")]
             if let Err(e) = utils::jumplist::update() {
@@ -196,6 +202,15 @@ async fn main() {
                     .await
                 })
             })?;
+
+            #[cfg(target_family = "unix")]
+            window
+                .set_progress_bar(ProgressBarState {
+                    status: Some(ProgressBarStatus::None),
+                    progress: None,
+                })
+                .ok();
+
             window.clone().once("loaded", move |_| {
                 if settings_error.is_some() {
                     window
@@ -213,6 +228,7 @@ async fn main() {
 
                 logger.info(&format!("Launched in {}ms.", start.elapsed().as_millis()));
             });
+
             Ok(())
         })
         .manage(settings.clone())
@@ -235,9 +251,12 @@ async fn main() {
             commands::window_set_title,
             commands::window_set_overall_progress,
             commands::window_request_attention
-        ])
-        .build(tauri::generate_context!())
-        .unwrap();
+        ]);
+    #[cfg(target_family = "unix")]
+    {
+        app_builder = app_builder.manage(Progress::default());
+    }
+    let app = app_builder.build(tauri::generate_context!()).unwrap();
     app.run_return(move |app, event| match event {
         tauri::RunEvent::Ready => {
             #[cfg(target_family = "unix")]
