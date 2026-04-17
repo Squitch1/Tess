@@ -17,6 +17,7 @@ pub struct Client {
 }
 
 impl Client {
+    #[allow(clippy::unused_async)]
     pub async fn new(addr: impl AsRef<OsStr>) -> Result<Self, Error> {
         Ok(Self {
             sender: ClientOptions::new().open(addr)?,
@@ -58,14 +59,14 @@ impl Server {
                 buf.clear();
                 match self.listener.connect().await {
                     Err(e) => callback(Err(Box::from(e))),
-                    Ok(_) => callback(
+                    Ok(()) => callback(
                         self.listener
                             .read_to_end(&mut buf)
                             .await
                             .map_err(Box::from)
                             .and_then(|_| bitcode::decode(&buf).map_err(Box::from)),
                     ),
-                };
+                }
                 drop(self.listener);
                 self.listener = match ServerOptions::new()
                     .first_pipe_instance(true)

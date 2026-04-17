@@ -16,8 +16,6 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 #[cfg(target_os = "windows")]
-use std::ffi::c_void;
-#[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStringExt;
 #[cfg(target_os = "windows")]
 use windows::core::PCWSTR;
@@ -43,7 +41,11 @@ unsafe impl Send for Pty {}
 unsafe impl Sync for Pty {}
 
 impl Pty {
-    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    #[allow(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        clippy::similar_names
+    )]
     pub fn build_and_run(
         command: &str,
         workdir: Option<impl AsRef<OsStr>>,
@@ -84,23 +86,20 @@ impl Pty {
 
             let mut argc = 0;
             let argv = unsafe {
-                CommandLineToArgvW(PCWSTR::from_raw(command_expanded.as_ptr()), &mut argc)
+                CommandLineToArgvW(PCWSTR::from_raw(command_expanded.as_ptr()), &raw mut argc)
             };
             if argv.is_null() {
                 return Err(PtyError::Creation("Cannot parse command".to_owned()));
             }
 
             let built_command = CommandBuilder::from_argv(
+                #[allow(clippy::cast_sign_loss)]
                 unsafe { core::slice::from_raw_parts(argv, argc as usize) }
                     .iter()
                     .map(|s| OsString::from_wide(unsafe { s.as_wide() }))
                     .collect(),
             );
-            unsafe {
-                LocalFree(Some(windows::Win32::Foundation::HLOCAL(
-                    argv as *mut c_void,
-                )))
-            };
+            unsafe { LocalFree(Some(windows::Win32::Foundation::HLOCAL(argv.cast()))) };
 
             built_command
         };
@@ -189,32 +188,35 @@ impl Pty {
                         continue;
                     }
 
-                    buf[remaining..].fill(0);
                     let read = match reader.read(&mut buf[remaining..]) {
                         Ok(0) => break,
                         Ok(n) => n,
                         Err(_) => continue,
                     };
-                    let mut pre_parser = pre_parser.lock().unwrap();
-                    let previous_cached_content = pre_parser.screen().contents();
                     let mut consummed = 0;
                     let mut processed_buf = std::io::Cursor::new([0; PTY_BUFFER_SIZE]);
-                    let chunks = buf[..remaining + read].utf8_chunks();
-                    for chunk in chunks {
-                        pre_parser.process(chunk.valid().as_bytes());
+                    let filled = read + remaining;
+                    for chunk in buf[..filled].utf8_chunks() {
                         processed_buf.write_all(chunk.valid().as_bytes()).ok();
                         consummed += chunk.valid().len();
 
-                        if !chunk.invalid().is_empty() && (read + remaining) - consummed >= 4 {
+                        if !chunk.invalid().is_empty() && filled - consummed >= 4 {
                             consummed += chunk.invalid().len();
                             processed_buf.write_all("\u{FFFD}".as_bytes()).ok();
                         }
                     }
+
+                    #[allow(clippy::cast_possible_truncation)]
+                    let processed = &processed_buf.get_ref()[..processed_buf.position() as usize];
                     unsafe {
-                        on_read(std::str::from_utf8_unchecked(processed_buf.get_ref()));
+                        on_read(std::str::from_utf8_unchecked(processed));
                     }
-                    remaining = (remaining + read) - consummed;
+                    remaining = filled - consummed;
                     buf.rotate_left(consummed);
+
+                    let mut pre_parser = pre_parser.lock().unwrap();
+                    let previous_cached_content = pre_parser.screen().contents();
+                    pre_parser.process(processed);
 
                     let cached_content = pre_parser.screen().contents();
                     if cached_content != previous_cached_content {

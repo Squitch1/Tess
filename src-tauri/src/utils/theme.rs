@@ -1,6 +1,5 @@
 use crate::settings::deserialized::TerminalTheme;
 
-#[must_use]
 pub fn parse(location: &str) -> (Option<String>, Option<TerminalTheme>) {
     dirs::config_dir()
         .unwrap_or_default()

@@ -100,7 +100,6 @@ where
     )
 }
 
-#[must_use]
 pub fn default_title_format() -> String {
     String::from(consts::DEFAULT_PROFILE_TITLE)
 }

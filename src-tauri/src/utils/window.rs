@@ -10,16 +10,10 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewWindow};
 use tokio::sync::RwLock;
 
-#[cfg(target_family = "unix")]
-use gtk::glib::gobject_ffi::g_signal_handlers_destroy;
-#[cfg(target_family = "unix")]
-use webkit2gtk::glib::ObjectExt;
-
 #[cfg(target_os = "windows")]
 use tauri::window::{self, EffectsBuilder};
 
 #[inline]
-#[must_use]
 pub fn get_focused_or_random(app: &AppHandle) -> WebviewWindow {
     app.webview_windows()
         .values()
@@ -51,9 +45,13 @@ pub async fn create(
     #[cfg(target_family = "unix")]
     webview
         .with_webview(|gtk_webview| unsafe {
+            use gtk::glib::gobject_ffi::g_signal_handlers_destroy;
+            use gtk::glib::ObjectExt;
+            use gtk::GestureZoom;
+
             if let Some(handler) = gtk_webview
                 .inner()
-                .data::<gtk::GestureZoom>("wk-view-zoom-gesture")
+                .data::<GestureZoom>("wk-view-zoom-gesture")
             {
                 g_signal_handlers_destroy(handler.as_ptr().cast());
             }

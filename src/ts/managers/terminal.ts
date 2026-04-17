@@ -19,9 +19,14 @@ import {
     PtyTitleChangedPayload,
 } from "@/schemas/term";
 
+type FlowState = {
+    buffered: number;
+    paused: boolean;
+};
+
 export default class TerminalManager {
     private terminals: Terminal[] = [];
-    private flows: Map<string, [number, boolean]> = new Map();
+    private flows: Map<string, FlowState> = new Map();
 
     private keyPressCallback: (e: KeyboardEvent, term: Terminal) => boolean;
 
@@ -98,9 +103,9 @@ export default class TerminalManager {
             (terminal) => terminal.id === e.payload.ptyId
         );
         if (terminal) {
-            let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
+            const flowState = this.flows.get(e.payload.ptyId)!;
 
-            if (buffered > PTY_BUFFERED_MAX && !paused) {
+            if (flowState.buffered > PTY_BUFFERED_MAX && !flowState.paused) {
                 invoke("pty_pause", { ptyId: e.payload.ptyId }).catch((e) =>
                     toaster.toast(
                         new PtyPropertyError(
@@ -109,16 +114,14 @@ export default class TerminalManager {
                         )
                     )
                 );
-                paused = true;
+                flowState.paused = true;
             }
-            buffered += e.payload.data.length;
-            this.flows.set(e.payload.ptyId, [buffered, paused]);
+            flowState.buffered += e.payload.data.length;
 
             terminal.xterm.write(e.payload.data, () => {
-                let [buffered, paused] = this.flows.get(e.payload.ptyId)!;
-                buffered = Math.max(buffered - e.payload.data.length, 0);
+                flowState.buffered -= e.payload.data.length;
 
-                if (buffered < PTY_BUFFERED_MIN && paused) {
+                if (flowState.buffered < PTY_BUFFERED_MIN && flowState.paused) {
                     invoke("pty_resume", { ptyId: e.payload.ptyId }).catch(
                         (e) =>
                             toaster.toast(
@@ -128,10 +131,8 @@ export default class TerminalManager {
                                 )
                             )
                     );
-                    paused = false;
+                    flowState.paused = false;
                 }
-
-                this.flows.set(e.payload.ptyId, [buffered, paused]);
             });
         }
     }
@@ -188,22 +189,6 @@ export default class TerminalManager {
                 }
             },
         });
-        try {
-            this.terminals.push(terminal);
-            this.flows.set(terminal.id, [0, false]);
-            await invoke("pty_open", {
-                ptyId: terminal.id,
-                profileId,
-                command,
-                workdir,
-                title,
-            });
-        } catch (e) {
-            this.terminals.pop();
-            this.flows.delete(terminal.id);
-            throw new PtyCreateError(e as string, "Unable to create terminal");
-        }
-
         terminal.addEventListener(
             "resize",
             (e: CustomEventInit<{ cols: number; rows: number }>) => {
@@ -235,6 +220,21 @@ export default class TerminalManager {
             )
         );
 
+        try {
+            this.terminals.push(terminal);
+            this.flows.set(terminal.id, { buffered: 0, paused: false });
+            await invoke("pty_open", {
+                ptyId: terminal.id,
+                profileId,
+                command,
+                workdir,
+                title,
+            });
+        } catch (e) {
+            this.terminals.pop();
+            this.flows.delete(terminal.id);
+            throw new PtyCreateError(e as string, "Unable to create terminal");
+        }
         return terminal;
     }
 

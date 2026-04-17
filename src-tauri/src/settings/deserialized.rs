@@ -656,6 +656,7 @@ impl Default for CloseConfirmation {
 pub struct DesktopIntegration {
     pub custom_titlebar: bool,
     pub dynamic_title: bool,
+    pub taskbar_progress: bool,
     #[cfg(target_family = "unix")]
     pub intercept_signals: bool,
 }
@@ -663,11 +664,9 @@ pub struct DesktopIntegration {
 impl Default for DesktopIntegration {
     fn default() -> Self {
         Self {
-            #[cfg(target_family = "unix")]
-            custom_titlebar: false,
-            #[cfg(target_os = "windows")]
-            custom_titlebar: true,
+            custom_titlebar: default_custom_titlebar(),
             dynamic_title: true,
+            taskbar_progress: true,
             #[cfg(target_family = "unix")]
             intercept_signals: true,
         }
@@ -683,6 +682,7 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
         struct PartialDesktopIntegration {
             custom_titlebar: Option<bool>,
             dynamic_title: Option<bool>,
+            taskbar_progress: Option<bool>,
             #[cfg(target_family = "unix")]
             intercept_signals: Option<bool>,
         }
@@ -698,15 +698,16 @@ impl<'de> Deserialize<'de> for DesktopIntegration {
             Wrapper::Simple(enable) => Self {
                 custom_titlebar: enable,
                 dynamic_title: enable,
+                taskbar_progress: enable,
                 #[cfg(target_family = "unix")]
                 intercept_signals: enable,
             },
             Wrapper::Complex(partial_desktop_integration) => Self {
+                custom_titlebar: partial_desktop_integration
+                    .custom_titlebar
+                    .unwrap_or(default_custom_titlebar()),
                 dynamic_title: partial_desktop_integration.dynamic_title.unwrap_or(true),
-                #[cfg(target_family = "unix")]
-                custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(false),
-                #[cfg(target_os = "windows")]
-                custom_titlebar: partial_desktop_integration.custom_titlebar.unwrap_or(true),
+                taskbar_progress: partial_desktop_integration.taskbar_progress.unwrap_or(true),
                 #[cfg(target_family = "unix")]
                 intercept_signals: partial_desktop_integration
                     .intercept_signals
@@ -745,6 +746,11 @@ const fn default_details_card_delay() -> u32 {
 #[inline]
 const fn default_to_true() -> bool {
     true
+}
+
+#[inline]
+const fn default_custom_titlebar() -> bool {
+    cfg!(target_os = "windows")
 }
 
 #[inline]

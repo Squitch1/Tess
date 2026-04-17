@@ -31,6 +31,7 @@ export class Tab extends EventTarget {
     private activeWidget?: UUID;
 
     #title: string = "";
+    #progress: number = 0;
 
     private titleElement: HTMLSpanElement;
     private icon: TabIcon;
@@ -70,6 +71,10 @@ export class Tab extends EventTarget {
         return this.#title;
     }
 
+    get progress() {
+        return this.#progress;
+    }
+
     get widgets() {
         return new Map(this.#widgets);
     }
@@ -96,6 +101,7 @@ export class Tab extends EventTarget {
         widget.progress = state.progress;
         this.#widgets.set(widgetId, widget);
         this.dispatchEvent(new CustomEvent("widgetAdded", { detail: widget }));
+        this.refresh();
     }
 
     clearWidgetsAttention() {
@@ -142,7 +148,16 @@ export class Tab extends EventTarget {
             this.dispatchEvent(
                 new CustomEvent("widgetRemoved", { detail: widgetId })
             );
+            if (this.#widgets.size > 0) {
+                this.refresh();
+            }
         }
+    }
+
+    private refresh() {
+        this.refreshAttentionStatus();
+        this.refreshProgress();
+        this.refreshTitle();
     }
 
     private refreshTitle() {
@@ -173,7 +188,15 @@ export class Tab extends EventTarget {
             }
         });
 
-        this.icon.setProgress(count > 0 ? sum / count : 0);
+        const progress = count > 0 ? sum / count : 0;
+
+        if (this.#progress === progress) {
+            return;
+        }
+
+        this.#progress = progress;
+        this.icon.setProgress(this.#progress);
+        this.dispatchEvent(new Event("progressUpdate"));
     }
 
     private refreshAttentionStatus() {

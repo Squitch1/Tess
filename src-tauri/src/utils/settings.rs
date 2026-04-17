@@ -1,17 +1,12 @@
-use crate::{common::Logger, settings::deserialized::Settings};
-
 use std::io::ErrorKind;
+use std::path::PathBuf;
+
+use crate::common::Logger;
+use crate::settings::deserialized::Settings;
 
 pub async fn read() -> (Settings, Option<String>) {
     let logger = Logger {};
-    #[cfg(target_family = "unix")]
-    let settings_path = dirs::config_dir()
-        .map(|path| path.join("tess/settings.json"))
-        .unwrap_or_default();
-    #[cfg(target_os = "windows")]
-    let settings_path = dirs::config_dir()
-        .map(|path| path.join("Tess/settings.json"))
-        .unwrap_or_default();
+    let settings_path = settings_path();
 
     let mut settings_error = None;
     let settings = match tokio::fs::metadata(&settings_path)
@@ -39,4 +34,17 @@ pub async fn read() -> (Settings, Option<String>) {
     };
 
     (settings, settings_error)
+}
+
+#[cfg(target_family = "unix")]
+pub fn settings_path() -> PathBuf {
+    dirs::config_dir()
+        .map(|path| path.join("tess/settings.json"))
+        .unwrap_or_default()
+}
+#[cfg(target_os = "windows")]
+pub fn settings_path() -> PathBuf {
+    dirs::config_dir()
+        .map(|path| path.join("Tess/settings.json"))
+        .unwrap_or_default()
 }

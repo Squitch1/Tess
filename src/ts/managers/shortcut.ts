@@ -21,7 +21,7 @@ export default class ShortcutManager extends EventTarget {
             return true;
         }
 
-        const key = e.key.toLowerCase() === "unidentified" ? e.code : e.key;
+        const key = e.key === "Unidentified" ? e.code : e.key;
         const pressedShortcut: string[] = [];
         if (!e.getModifierState(e.key)) {
             pressedShortcut.push(key.toLowerCase());
@@ -37,6 +37,14 @@ export default class ShortcutManager extends EventTarget {
                 shortcut[0].length === pressedShortcut.length &&
                 pressedShortcut.every((m) => shortcut[0].includes(m))
         );
+
+        if (PLATFORM === "linux") {
+            if (!shortcut && e.ctrlKey && e.code === "Comma") {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        }
 
         if (
             !shortcut ||
