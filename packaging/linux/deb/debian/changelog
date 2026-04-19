@@ -1,3 +1,15 @@
+tess (0.7.0~alpha.16-1) unstable; urgency=medium
+
+  * Add taskbar progress tracking.
+  * Add ability to print the settings location.
+  * Improve PTY read loop and performance by reducing flow-control overhead.
+  * Prevent a race condition when launching a new PTY.
+  * Fix incorrect title after closing the active tab.
+  * Hide details card while dragging tabs.
+  * Prevent opening the GTK emoji chooser.
+
+ -- Clément FOURÉ <clement.foure@proton.me>  Fri, 17 Apr 2026 20:05:33 +0000
+
 tess (0.7.0~alpha.15-1) unstable; urgency=medium
 
   * Add details card on tab hover.

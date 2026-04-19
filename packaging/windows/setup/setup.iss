@@ -1,4 +1,4 @@
-#define APP_VERSION "0.7.0-alpha.15"
+#define APP_VERSION "0.7.0-alpha.16"
 
 #if ARCH == "x64"
     #define ALLOWED_ARCH "x64compatible"
