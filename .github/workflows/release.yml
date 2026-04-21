@@ -209,6 +209,7 @@ jobs:
             - name: Install Rustup
               run: |
                   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
+                  rustup set default-host x86_64-pc-windows-msvc
 
             - name: Build Frontend
               run: |
@@ -217,7 +218,7 @@ jobs:
 
             - name: Check Build
               run: |
-                  cargo +nightly check --manifest-path=src-tauri/Cargo.toml
+                  cargo +nightly check --manifest-path=src-tauri/Cargo.toml --target=x86_64-pc-windows-msvc
               env:
                   GEN_RESOURCES: true
                   SKIP_FRONTEND: true
@@ -242,7 +243,8 @@ jobs:
             - name: Install Rustup
               run: |
                   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly
-                  rustup component add rust-src
+                  rustup set default-host x86_64-pc-windows-msvc 
+                  rustup component add rust-src --toolchain nightly-${{ matrix.target }}
 
             - name: Build Frontend
               run: |
@@ -261,7 +263,7 @@ jobs:
                   REMOVE_UNUSED_COMMANDS: ${{ github.workspace }}/src-tauri
                   SKIP_FRONTEND: true
                   RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none -Clto -Zunstable-options -Cpanic=immediate-abort
-            
+
             - name: Upload Binary Artifact
               uses: actions/upload-artifact@v4
               with:
